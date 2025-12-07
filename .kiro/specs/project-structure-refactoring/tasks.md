@@ -1,42 +1,39 @@
 # Implementation Plan
 
-- [-] 1. Подготовка к миграции
-
-
-
+- [x] 1. Подготовка к миграции
   - Создать резервную копию проекта
   - Зафиксировать текущее состояние в локальном Git
   - _Requirements: 4.1_
 
-- [ ] 2. Создание новой структуры директорий
+- [x] 2. Создание новой структуры директорий
   - Создать src/finance_tracker/ с __init__.py
   - Создать все поддиректории (components/, models/, services/, utils/, views/, mobile/)
   - Создать __init__.py во всех пакетах
   - _Requirements: 1.2, 2.1_
 
-- [ ] 3. Перемещение основных модулей
+- [x] 3. Перемещение основных модулей
   - Переместить app.py, config.py, database.py в src/finance_tracker/
   - Переместить директории components/, models/, services/, utils/, views/ в src/finance_tracker/
   - _Requirements: 1.2, 4.1_
 
-- [ ] 4. Обновление config.py для пользовательской директории данных
+- [x] 4. Обновление config.py для пользовательской директории данных
   - Реализовать метод get_user_data_dir() для создания ~/.finance_tracker_data/
   - Обновить пути к БД, логам и конфигурации
   - Добавить создание поддиректорий (logs/, exports/)
   - _Requirements: 6.4, 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 5. Обновление database.py для новых путей
+- [x] 5. Обновление database.py для новых путей
   - Обновить get_database_path() для использования settings.db_path
   - Убрать логику определения пути из database.py (теперь в config.py)
   - _Requirements: 6.2, 7.2, 7.5_
 
-- [ ] 6. Обновление импортов в основных модулях
+- [x] 6. Обновление импортов в основных модулях
   - Обновить импорты в src/finance_tracker/app.py
   - Обновить импорты в src/finance_tracker/config.py
   - Обновить импорты в src/finance_tracker/database.py
   - _Requirements: 2.2, 4.2_
 
-- [ ] 7. Обновление импортов в components/
+- [x] 7. Обновление импортов в components/
   - Обновить импорты во всех файлах components/ на абсолютные от finance_tracker
   - _Requirements: 2.2, 4.2_
 
