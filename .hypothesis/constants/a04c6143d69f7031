@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\services\pending_payment_service.py
+# hypothesis_version: 6.148.2
+
+[999, 'by_priority', 'count', 'description', 'total_active', 'total_amount', 'with_planned_date', 'without_planned_date']

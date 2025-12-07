@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\services\plan_fact_service.py
+# hypothesis_version: 6.148.2
+
+[0.0, 100, '0', '0.0', 'actual_amount', 'amount_deviation', 'avg_amount_deviation', 'category_id', 'category_name', 'date_deviation', 'description', 'executed_count', 'executed_date', 'occurrence_id', 'occurrences', 'on_time_percentage', 'pending_count', 'planned_amount', 'scheduled_date', 'skip_reason', 'skipped_count', 'skipped_percentage', 'status', 'total_occurrences', 'transaction_type', 'Без категории']

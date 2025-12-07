@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\components\transaction_modal.py
+# hypothesis_version: 6.148.2
+
+[400, 2020, 2030, '%d.%m.%Y', '0', '^\\d*\\.?\\d{0,2}$', 'Выберите категорию', 'Доход', 'Категория', 'Новая транзакция', 'Отмена', 'Расход', 'Сохранить', 'Сумма', '₽']

@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\views\plan_fact_view.py
+# hypothesis_version: 6.148.2
+
+[0.1, 200, 220, '-', '0', '0.00 ₽', 'actual_amount', 'all', 'amount_deviation', 'avg_amount_deviation', 'category_name', 'description', 'executed', 'occurrences', 'outline', 'outlineVariant', 'pending', 'planned_amount', 'scheduled_date', 'skipped', 'status', 'surfaceVariant', 'total_occurrences', 'Все категории', 'Всего вхождений', 'Дата плана', 'Исполнено', 'Категория', 'Обновить', 'Описание', 'Отклонение', 'План', 'План-факт анализ', 'Пропущено', 'Среднее отклонение', 'Статус', 'Факт']

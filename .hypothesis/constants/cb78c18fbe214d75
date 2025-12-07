@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\models\enums.py
+# hypothesis_version: 6.148.2
+
+['active', 'after_count', 'bank', 'cancelled', 'consumer', 'critical', 'custom', 'daily', 'days', 'executed', 'executed_late', 'expense', 'high', 'income', 'individual', 'low', 'medium', 'mfo', 'microloan', 'monthly', 'months', 'mortgage', 'never', 'none', 'other', 'overdue', 'paid_off', 'pending', 'personal', 'skipped', 'until_date', 'weekly', 'weeks', 'yearly', 'years']

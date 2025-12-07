@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\utils\logger.py
+# hypothesis_version: 6.148.2
+
+[1024, '%H:%M:%S', '%Y-%m-%d %H:%M:%S', 'args', 'asctime', 'created', 'exc_info', 'exc_text', 'exception', 'filename', 'funcName', 'function', 'level', 'levelname', 'levelno', 'line', 'lineno', 'message', 'module', 'msecs', 'msg', 'name', 'pathname', 'process', 'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName', 'timestamp', 'utf-8']

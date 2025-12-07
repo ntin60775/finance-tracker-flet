@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\components\pending_payments_widget.py
+# hypothesis_version: 6.148.2
+
+['%d.%m.%Y', 'all', 'outlineVariant', 'surface', 'total_active', 'total_amount', 'with_date', 'without_date', 'Без даты', 'Все', 'Высокий', 'Исполнить', 'Критический', 'Низкий', 'Отложенные платежи', 'Отменить', 'Показать все', 'С датой', 'Средний', 'Удалить']

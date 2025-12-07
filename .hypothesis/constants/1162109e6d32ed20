@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\services\__init__.py
+# hypothesis_version: 6.148.2
+
+['add_transaction', 'create_category', 'create_lender', 'create_loan', 'create_payment', 'delete_category', 'delete_lender', 'delete_loan', 'delete_payment', 'delete_transaction', 'early_repayment_full', 'execute_payment', 'get_all_categories', 'get_all_lenders', 'get_all_loans', 'get_by_date_range', 'get_month_stats', 'get_payments_by_loan', 'init_loan_categories', 'update_lender', 'update_loan', 'update_loan_status', 'update_payment', 'update_transaction']

@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\views\home_view.py
+# hypothesis_version: 6.148.2
+
+[400, '%Y-%m-%d', 'YYYY-MM-DD', 'open', 'Дата исполнения', 'Исполнить', 'Неизвестный кредит', 'Отмена', 'Отменить платёж', 'Отменить платёж?', 'Платёж исполнен', 'Платёж отменён', 'Платёж удалён', 'Сумма платежа', 'Удалить', 'Удалить платёж?', '₽']

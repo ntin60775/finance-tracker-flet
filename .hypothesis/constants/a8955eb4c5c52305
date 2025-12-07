@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\services\loan_payment_service.py
+# hypothesis_version: 6.148.2
+
+[0.0, 0.01, '%Y-%m-%d', '%Выплата кредита%', 'count', 'error_count', 'errors', 'expense', 'interest_amount', 'loan_id', 'loan_name', 'new_balance', 'overdue_by_loan', 'payment_ids', 'principal_amount', 'repayment_amount', 'scheduled_date', 'success_count', 'total_amount', 'total_overdue', 'total_overdue_amount', 'transaction_id', 'warning', 'warnings', 'Пустая дата платежа']

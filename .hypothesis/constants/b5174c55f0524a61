@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\transactions_panel.py
+# hypothesis_version: 6.148.2
+
+[100, '%d.%m.%Y', '+', '-', 'Unknown', 'outline', 'outlineVariant', 'pending_title', 'planned_title', 'surface', 'surfaceVariant', 'Баланс', 'Без категории', 'Добавить транзакцию', 'Доход', 'Исполнено', 'Исполнить', 'Исполнить платёж', 'Нет транзакций', 'Отложенные платежи', 'Плановые операции', 'Прогноз баланса:', 'Пропустить', 'Пропущено', 'Расход', 'Транзакции']

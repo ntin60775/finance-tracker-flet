@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\early_repayment_modal.py
+# hypothesis_version: 6.148.2
+
+[365, 450, 500, 2000, '0', '^\\d*\\.?\\d{0,2}$', 'full', 'partial', 'Отмена', 'Погасить', 'Сумма погашения *', 'Тип погашения:', '₽']

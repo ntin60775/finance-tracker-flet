@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\views\pending_payments_view.py
+# hypothesis_version: 6.148.2
+
+[200, 300, '%d.%m.%Y', 'all', 'open', 'total_active', 'total_amount', 'with_planned_date', 'without_planned_date', 'Без даты', 'Все', 'Высокий', 'Исполнить', 'Критический', 'Неизвестно', 'Низкий', 'Отложенные платежи', 'Отмена', 'Отменить', 'Отменить платёж', 'Отменить платёж?', 'Приоритет', 'Редактировать', 'С датой', 'Средний', 'Удалить', 'Удалить платёж?']

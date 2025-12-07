@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\views\settings_view.py
+# hypothesis_version: 6.148.2
+
+[300, 500, '%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', 'dark', 'light', 'База данных', 'Внешний вид', 'Настройки', 'Путь к базе данных', 'Светлая', 'Сохранить настройки', 'Тема оформления', 'Тёмная', 'Формат даты', 'Форматы']

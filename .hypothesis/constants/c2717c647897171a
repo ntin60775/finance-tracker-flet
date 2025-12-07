@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\occurrence_details_modal.py
+# hypothesis_version: 6.148.2
+
+[120, 400, '-', 'actual_amount', 'amount_deviation', 'category_name', 'date_deviation', 'description', 'executed_date', 'outline', 'planned_amount', 'scheduled_date', 'skip_reason', 'status', 'unknown', 'Без категории', 'Дата исполнения:', 'Дата:', 'Детали операции', 'Закрыть', 'Исполнено', 'Категория:', 'Не указана', 'Ожидает', 'Описание:', 'Отклонения', 'Плановые данные', 'По дате:', 'По сумме:', 'Причина:', 'Пропущено', 'Сумма:', 'Фактическая сумма:', 'Фактические данные']

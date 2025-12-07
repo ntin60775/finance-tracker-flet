@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\planned_transactions_widget.py
+# hypothesis_version: 6.148.2
+
+[' (просрочено)', '%d.%m.%Y', 'outlineVariant', 'surface', 'Завтра', 'Исполнено', 'Исполнить', 'Неизвестно', 'Ожидается', 'Плановые транзакции', 'Показать все', 'Пропустить', 'Пропущено', 'Сегодня']

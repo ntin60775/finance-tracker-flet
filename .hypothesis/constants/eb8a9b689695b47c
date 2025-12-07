@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\components\execute_pending_payment_modal.py
+# hypothesis_version: 6.148.2
+
+[400, 2020, 2030, '%d.%m.%Y', '0', '^\\d*\\.?\\d{0,2}$', 'critical', 'high', 'low', 'medium', 'Высокий', 'Исполнить', 'Критический', 'Некорректная сумма', 'Низкий', 'Отмена', 'Средний', 'Сумма исполнения', '₽']

@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\services\loan_statistics_service.py
+# hypothesis_version: 6.148.2
+
+[0.0, 100.0, 100, 180, 'average_payment', 'burden_percent', 'by_loan', 'count', 'interest_paid', 'is_healthy', 'loan_id', 'loan_name', 'loan_type', 'monthly_income', 'monthly_payments', 'monthly_payments_sum', 'most_overdue_loan', 'oldest_payment_date', 'overdue_by_loan', 'overdue_days', 'period_end', 'period_start', 'principal_paid', 'total_active_amount', 'total_active_loans', 'total_amount', 'total_closed_loans', 'total_interest_paid', 'total_overdue_amount', 'total_overpayment', 'total_paid', 'total_payments_count', 'total_principal_paid']

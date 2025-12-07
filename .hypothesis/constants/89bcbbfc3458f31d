@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\config.py
+# hypothesis_version: 6.148.2
+
+[800, 1200, '%d.%m.%Y', '2.0.0', 'Finance Tracker', 'INFO', 'config.json', 'date_format', 'db_path', 'finance_tracker.log', 'last_selected_index', 'light', 'log_level', 'r', 'theme_mode', 'utf-8', 'w', 'window_height', 'window_left', 'window_top', 'window_width', '₽']

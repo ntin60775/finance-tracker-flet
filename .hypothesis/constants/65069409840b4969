@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\execute_occurrence_modal.py
+# hypothesis_version: 6.148.2
+
+[400, 2020, 2030, '%d.%m.%Y', '^\\d*\\.?\\d{0,2}$', 'Закрыть', 'Исполнить', 'Отмена', 'Подтвердить пропуск', 'Причина пропуска', 'Пропустить', 'Сумма исполнения', 'Фактические данные:', '₽']

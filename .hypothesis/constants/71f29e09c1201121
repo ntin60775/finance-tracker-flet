@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\planned_transaction_modal.py
+# hypothesis_version: 6.148.2
+
+[100, 150, 200, 500, 2020, 2030, '%d.%m.%Y', '^\\d*\\.?\\d{0,2}$', 'days', 'end_condition_type', 'end_date', 'interval', 'interval_unit', 'months', 'occurrences_count', 'recurrence_type', 'weeks', 'years', 'Бессрочно', 'Выберите категорию', 'Выбрать дату', 'Годы', 'Дни', 'До даты', 'Доход', 'Единица', 'Ежегодная', 'Ежедневная', 'Ежемесячная', 'Еженедельная', 'Интервал', 'Кастомная', 'Категория', 'Месяцы', 'Недели', 'Однократная', 'Отмена', 'После N повторений', 'Правило повторения', 'Расход', 'Сохранить', 'Сумма', 'Тип повторения', 'Условие окончания', '₽']

@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\pending_payment_modal.py
+# hypothesis_version: 6.148.2
+
+[400, 2030, '%d.%m.%Y', '0', '^\\d*\\.?\\d{0,2}$', 'Введите описание', 'Выберите категорию', 'Выбрать дату', 'Высокий', 'Категория (расход)', 'Критический', 'Некорректная сумма', 'Низкий', 'Описание', 'Отмена', 'Приоритет', 'Сохранить', 'Средний', 'Сумма', '₽']

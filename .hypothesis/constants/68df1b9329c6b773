@@ -1,0 +1,4 @@
+# file: C:\User_D\Sothale_Work\PersonalProjects\finance_tracker\finance_tracker_flet\components\loan_modal.py
+# hypothesis_version: 6.148.2
+
+[500, 2000, 2050, '%', '0', '^\\d*\\.?\\d{0,2}$', 'amount', 'contract_number', 'description', 'end_date', 'interest_rate', 'issue_date', 'lender_id', 'loan_type', 'name', 'Выберите займодателя', 'Другое', 'Займодатель *', 'Ипотека', 'Личный займ', 'Микрокредит', 'Название кредита *', 'Например: 12.5', 'Нет займодателей', 'Новый кредит', 'Номер договора', 'Описание', 'Опционально', 'Отмена', 'Потребительский', 'Процентная ставка', 'Сохранить', 'Сумма кредита *', 'Тип кредита *', '₽']
