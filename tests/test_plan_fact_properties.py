@@ -6,6 +6,7 @@ Property-based тесты для план-факт анализа.
 - Property 26: Фильтрация по категории
 - Property 27: Расчёт отклонений
 - Property 28: Расчёт статистики исполнения
+- Property: Отклонения должны корректно рассчитываться для любых план-факт данных
 """
 
 from datetime import date, timedelta
@@ -102,7 +103,7 @@ class TestPlanFactProperties:
                 session.add(PlannedOccurrenceDB(
                     planned_transaction_id=planned_tx.id,
                     occurrence_date=occ_date,
-                    amount=Decimal('100.00'), # Fixed: required field
+                    amount=Decimal('100.00'),
                     status=OccurrenceStatus.PENDING
                 ))
             session.commit()
@@ -191,12 +192,10 @@ class TestPlanFactProperties:
             occ = PlannedOccurrenceDB(
                 planned_transaction_id=pt.id,
                 occurrence_date=today,
-                amount=plan, # Fixed: required field
+                amount=plan,
                 status=OccurrenceStatus.EXECUTED,
                 executed_amount=fact,
-                # amount_deviation - computed property, cannot set
                 executed_date=today,
-                # date_deviation - computed property, cannot set
             )
             session.add(occ)
             session.commit()
@@ -258,3 +257,113 @@ class TestPlanFactProperties:
             assert analysis['executed_count'] == executed
             assert analysis['skipped_count'] == skipped
             assert analysis['pending_count'] == pending
+
+    @given(
+        occurrences_data=st.lists(
+            st.tuples(
+                st.decimals(min_value=Decimal('100.00'), max_value=Decimal('10000.00'), places=2),  # planned_amount (для вхождения)
+                st.decimals(min_value=Decimal('50.00'), max_value=Decimal('15000.00'), places=2),   # executed_amount
+                st.integers(min_value=-10, max_value=10)  # date_offset
+            ),
+            min_size=1,
+            max_size=20
+        )
+    )
+    @settings(max_examples=100, deadline=None)
+    def test_property_deviation_calculation_for_any_plan_fact_data(self, occurrences_data):
+        """
+        Property: Отклонения должны корректно рассчитываться для любых план-факт данных.
+        
+        Feature: ui-testing, Property: Отклонения должны корректно рассчитываться для любых план-факт данных
+        Validates: Requirements 12.5
+        
+        Проверяет, что для любого набора плановых и фактических данных:
+        1. Отклонение по сумме = Факт - План (где План = occurrence.amount)
+        2. Среднее отклонение рассчитывается корректно
+        3. Отклонение по дате рассчитывается корректно (в днях)
+        4. Статистика отклонений корректна для всех исполненных вхождений
+        """
+        with get_test_session() as session:
+            # Arrange
+            today = date.today()
+            cat = CategoryDB(name="Test", type=TransactionType.EXPENSE, is_system=True)
+            session.add(cat)
+            session.flush()
+            
+            # Плановая сумма в шаблоне транзакции (используется для отображения в UI)
+            template_amount = Decimal('1000.00')
+            pt = PlannedTransactionDB(
+                amount=template_amount,
+                category_id=cat.id,
+                type=TransactionType.EXPENSE,
+                start_date=today,
+                is_active=True,
+                description="Test"
+            )
+            session.add(pt)
+            session.flush()
+            
+            # Создаём вхождения с разными отклонениями
+            expected_deviations = []
+            expected_date_deviations = []
+            
+            for planned_amount, executed_amount, date_offset in occurrences_data:
+                occurrence_date = today + timedelta(days=date_offset)
+                executed_date = today  # Исполняем сегодня
+                
+                # Рассчитываем ожидаемые отклонения
+                # amount_deviation = executed_amount - occurrence.amount (не PlannedTransaction.amount!)
+                amount_deviation = executed_amount - planned_amount
+                date_deviation = (executed_date - occurrence_date).days
+                
+                expected_deviations.append(amount_deviation)
+                expected_date_deviations.append(date_deviation)
+                
+                occ = PlannedOccurrenceDB(
+                    planned_transaction_id=pt.id,
+                    occurrence_date=occurrence_date,
+                    amount=planned_amount,  # Индивидуальная плановая сумма вхождения
+                    status=OccurrenceStatus.EXECUTED,
+                    executed_amount=executed_amount,
+                    executed_date=executed_date
+                )
+                session.add(occ)
+            
+            session.commit()
+            
+            # Act
+            analysis = get_plan_fact_analysis(session, today - timedelta(days=15), today + timedelta(days=15))
+            
+            # Assert
+            # 1. Проверяем количество исполненных вхождений
+            assert analysis['executed_count'] == len(occurrences_data)
+            
+            # 2. Проверяем среднее отклонение по сумме
+            expected_avg_amount_deviation = sum(expected_deviations) / len(expected_deviations)
+            assert abs(analysis['avg_amount_deviation'] - expected_avg_amount_deviation) < Decimal('0.01')
+            
+            # 3. Проверяем среднее отклонение по дате
+            expected_avg_date_deviation = sum(expected_date_deviations) / len(expected_date_deviations)
+            assert abs(analysis['avg_date_deviation_days'] - expected_avg_date_deviation) < 0.01
+            
+            # 4. Проверяем, что каждое вхождение имеет правильное отклонение
+            # Проверяем инвариант: amount_deviation = actual_amount - planned_amount (из occurrence)
+            # Это проверяет корректность формулы расчета отклонения
+            for occ_data in analysis['occurrences']:
+                if occ_data['status'] == 'executed':
+                    # Получаем фактические значения из БД
+                    actual_amount = occ_data['actual_amount']
+                    amount_deviation = occ_data['amount_deviation']
+                    
+                    # Проверяем инвариант: отклонение должно быть равно разнице факта и плана
+                    # Используем данные из БД для проверки консистентности
+                    # Находим соответствующее вхождение в БД для получения его плановой суммы
+                    occ_id = occ_data['occurrence_id']
+                    occ_from_db = session.query(PlannedOccurrenceDB).filter_by(id=occ_id).first()
+                    
+                    # Проверяем, что отклонение рассчитано правильно по формуле
+                    expected_deviation_from_db = actual_amount - occ_from_db.amount
+                    assert abs(amount_deviation - expected_deviation_from_db) <= Decimal('0.01')
+                    
+                    # planned_amount в анализе берется из PlannedTransactionDB.amount (шаблон), а не из occurrence.amount
+                    assert occ_data['planned_amount'] == template_amount

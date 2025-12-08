@@ -292,9 +292,8 @@ class LoansView(ft.Column):
         type_icon_map = {
             LoanType.CONSUMER: ft.Icons.SHOPPING_CART,
             LoanType.MORTGAGE: ft.Icons.HOME,
-            LoanType.AUTO: ft.Icons.DIRECTIONS_CAR,
-            LoanType.BUSINESS: ft.Icons.BUSINESS_CENTER,
-            LoanType.EDUCATION: ft.Icons.SCHOOL,
+            LoanType.MICROLOAN: ft.Icons.MONEY,
+            LoanType.PERSONAL: ft.Icons.PERSON,
             LoanType.OTHER: ft.Icons.HELP_OUTLINE,
         }
 
@@ -302,9 +301,8 @@ class LoansView(ft.Column):
         type_name_map = {
             LoanType.CONSUMER: "Потребительский",
             LoanType.MORTGAGE: "Ипотека",
-            LoanType.AUTO: "Автокредит",
-            LoanType.BUSINESS: "Бизнес-кредит",
-            LoanType.EDUCATION: "Образовательный",
+            LoanType.MICROLOAN: "Микрокредит",
+            LoanType.PERSONAL: "Личный займ",
             LoanType.OTHER: "Другое",
         }
 

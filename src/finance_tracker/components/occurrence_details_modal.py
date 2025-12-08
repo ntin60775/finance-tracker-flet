@@ -140,7 +140,7 @@ class OccurrenceDetailsModal(ft.AlertDialog):
         """Строит секцию с данными."""
         controls = [
             ft.Text(title, weight=ft.FontWeight.BOLD, size=16),
-            ft.SizedBox(height=5)
+            ft.Container(height=5)
         ]
         
         for label, value in rows:

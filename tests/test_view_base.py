@@ -58,6 +58,7 @@ class ViewTestBase(unittest.TestCase):
                 - update(): метод для обновления UI
                 - open(): метод для открытия диалогов
                 - close(): метод для закрытия диалогов
+                - show_snack_bar(): метод для показа SnackBar
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
@@ -65,6 +66,7 @@ class ViewTestBase(unittest.TestCase):
         page.update = MagicMock()
         page.open = MagicMock()
         page.close = MagicMock()
+        page.show_snack_bar = MagicMock()
         return page
     
     def create_mock_session(self) -> Mock:

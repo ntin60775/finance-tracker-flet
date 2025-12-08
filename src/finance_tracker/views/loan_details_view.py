@@ -403,10 +403,10 @@ class LoanDetailsView(ft.Column):
                     color=ft.Colors.GREY_600
                 )
             )
-            if payment.days_overdue and payment.days_overdue > 0:
+            if payment.overdue_days and payment.overdue_days > 0:
                 controls.append(
                     ft.Text(
-                        f"Просрочка: {payment.days_overdue} дн.",
+                        f"Просрочка: {payment.overdue_days} дн.",
                         size=12,
                         color=ft.Colors.RED
                     )
