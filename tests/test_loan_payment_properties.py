@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from decimal import Decimal
 import uuid
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     LenderDB,
     LoanDB,
@@ -23,15 +23,15 @@ from models.models import (
     TransactionDB,
     CategoryDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     LenderType,
     LoanType,
     PaymentStatus,
     TransactionType,
 )
-from services.lender_service import create_lender
-from services.loan_service import create_loan
-from services.loan_payment_service import (
+from finance_tracker.services.lender_service import create_lender
+from finance_tracker.services.loan_service import create_loan
+from finance_tracker.services.loan_payment_service import (
     create_payment,
     execute_payment,
     update_overdue_payments,

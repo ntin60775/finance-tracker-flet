@@ -6,8 +6,8 @@ from unittest.mock import Mock, MagicMock, patch
 import flet as ft
 import datetime
 
-from components.planned_transaction_modal import PlannedTransactionModal
-from models import (
+from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
+from finance_tracker.models import (
     TransactionType,
     CategoryDB,
     PlannedTransactionCreate,
@@ -21,7 +21,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.patcher = patch('finance_tracker_flet.components.planned_transaction_modal.get_all_categories')
+        self.patcher = patch('finance_tracker.components.planned_transaction_modal.get_all_categories')
         self.mock_get_all_categories = self.patcher.start()
 
         self.session = Mock()

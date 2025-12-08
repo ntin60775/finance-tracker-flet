@@ -16,19 +16,19 @@ from sqlalchemy.orm import sessionmaker
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     LenderDB,
     LoanDB,
     LoanPaymentDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     LenderType,
     LoanType
 )
-from services.lender_service import create_lender
-from services.loan_service import create_loan
-from services.loan_payment_service import get_payments_by_loan
+from finance_tracker.services.lender_service import create_lender
+from finance_tracker.services.loan_service import create_loan
+from finance_tracker.services.loan_payment_service import get_payments_by_loan
 
 # Создаём тестовый движок БД в памяти
 test_engine = create_engine(

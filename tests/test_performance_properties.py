@@ -6,8 +6,8 @@ Property-based тесты для проверки производительно
 from datetime import date
 import time
 import pytest
-from services.transaction_service import get_total_balance, get_month_stats
-from models import TransactionDB, TransactionType
+from finance_tracker.services.transaction_service import get_total_balance, get_month_stats
+from finance_tracker.models import TransactionDB, TransactionType
 
 def test_initialization_performance():
     """
@@ -17,12 +17,12 @@ def test_initialization_performance():
     start_time = time.time()
     
     # Импортируем основные модули (имитация запуска)
-    import config
-    import database
-    import models
+    from finance_tracker import config
+    from finance_tracker import database
+    from finance_tracker import models
     
     # Создаем конфигурацию
-    finance_tracker_flet.config.Config()
+    config.Config()
     
     end_time = time.time()
     duration = end_time - start_time

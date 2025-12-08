@@ -7,8 +7,8 @@ import flet as ft
 import datetime
 from decimal import Decimal
 
-from components.transaction_modal import TransactionModal
-from models import TransactionType, CategoryDB, TransactionCreate
+from finance_tracker.components.transaction_modal import TransactionModal
+from finance_tracker.models import TransactionType, CategoryDB, TransactionCreate
 
 
 class TestTransactionModal(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestTransactionModal(unittest.TestCase):
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.patcher = patch('finance_tracker_flet.components.transaction_modal.get_all_categories')
+        self.patcher = patch('finance_tracker.components.transaction_modal.get_all_categories')
         self.mock_get_all_categories = self.patcher.start()
 
         self.session = Mock()

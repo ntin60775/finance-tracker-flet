@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 from decimal import Decimal
 import uuid
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     LenderDB,
     LoanDB,
@@ -26,19 +26,19 @@ from models.models import (
     TransactionDB,
     CategoryDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     LenderType,
     LoanType,
     LoanStatus,
     PaymentStatus,
     TransactionType,
 )
-from services.lender_service import create_lender
-from services.loan_service import create_loan
-from services.loan_payment_service import create_payment
-from services.category_service import create_category
-from services.transaction_service import create_transaction
-from services.loan_statistics_service import (
+from finance_tracker.services.lender_service import create_lender
+from finance_tracker.services.loan_service import create_loan
+from finance_tracker.services.loan_payment_service import create_payment
+from finance_tracker.services.category_service import create_category
+from finance_tracker.services.transaction_service import create_transaction
+from finance_tracker.services.loan_statistics_service import (
     get_summary_statistics,
     get_monthly_burden_statistics,
     get_overdue_statistics,
@@ -325,7 +325,7 @@ class TestLoanStatisticsProperties:
             income_category_id = _system_categories["income"]
 
             # Создаём доходные транзакции за последние 6 месяцев
-            from models.models import TransactionCreate
+            from finance_tracker.models.models import TransactionCreate
             for month_offset in range(6):
                 transaction_date = today - timedelta(days=30*month_offset)
                 transaction_data = TransactionCreate(
@@ -498,7 +498,7 @@ class TestLoanStatisticsProperties:
             total_payment = principal + interest
 
             # Сначала создаём фиктивную транзакцию для foreign key
-            from models.models import TransactionCreate
+            from finance_tracker.models.models import TransactionCreate
             expense_category_id = _system_categories["expense"]
             transaction_data = TransactionCreate(
                 amount=total_payment,

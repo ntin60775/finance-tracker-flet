@@ -15,17 +15,17 @@ from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     CategoryDB,
     PlannedTransactionDB,
     PlannedOccurrenceDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     TransactionType,
     OccurrenceStatus,
 )
-from services.plan_fact_service import get_plan_fact_analysis
+from finance_tracker.services.plan_fact_service import get_plan_fact_analysis
 
 # Создаём тестовый движок БД в памяти
 test_engine = create_engine(

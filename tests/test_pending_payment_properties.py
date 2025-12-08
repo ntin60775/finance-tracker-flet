@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models import (
+from finance_tracker.models import (
     Base,
     PendingPaymentDB,
     PendingPaymentCreate,
@@ -22,8 +22,8 @@ from models import (
     CategoryDB,
     TransactionDB
 )
-from models.enums import PendingPaymentPriority, PendingPaymentStatus
-from services.pending_payment_service import (
+from finance_tracker.models.enums import PendingPaymentPriority, PendingPaymentStatus
+from finance_tracker.services.pending_payment_service import (
     create_pending_payment,
     get_all_pending_payments,
     execute_pending_payment,

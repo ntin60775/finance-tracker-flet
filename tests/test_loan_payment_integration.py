@@ -8,13 +8,13 @@ from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     LenderDB, LoanDB, LoanPaymentDB, CategoryDB, Base
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     LenderType, LoanType, LoanStatus, PaymentStatus, TransactionType
 )
-from services.loan_payment_service import get_payments_by_date
+from finance_tracker.services.loan_payment_service import get_payments_by_date
 
 
 class TestLoanPaymentIntegration:

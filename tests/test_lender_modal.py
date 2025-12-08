@@ -5,9 +5,9 @@
 import unittest
 from unittest.mock import Mock, MagicMock
 import flet as ft
-from components.lender_modal import LenderModal
-from models.models import LenderDB
-from models.enums import LenderType
+from finance_tracker.components.lender_modal import LenderModal
+from finance_tracker.models.models import LenderDB
+from finance_tracker.models.enums import LenderType
 
 
 class TestLenderModal(unittest.TestCase):

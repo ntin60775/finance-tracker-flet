@@ -6,7 +6,7 @@ Property-based тесты для системы логирования.
 import json
 import logging
 from hypothesis import given, strategies as st
-from utils.logger import JsonFormatter
+from finance_tracker.utils.logger import JsonFormatter
 
 @given(
     message=st.text(),

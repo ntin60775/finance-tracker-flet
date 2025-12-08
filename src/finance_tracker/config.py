@@ -11,6 +11,7 @@
 """
 
 import os
+import sys
 import json
 import logging
 from pathlib import Path
@@ -24,7 +25,8 @@ class Config:
     Реализует паттерн Singleton для доступа к настройкам из любой части приложения.
     
     Все пользовательские данные (БД, логи, настройки, экспорты) хранятся в
-    директории ~/.finance_tracker_data/ независимо от режима запуска (разработка/.exe).
+    директории .finance_tracker_data/ в корне проекта (режим разработки) или
+    рядом с .exe файлом (после компиляции). Это обеспечивает портативность приложения.
     """
     
     _instance = None
@@ -38,16 +40,28 @@ class Config:
         """
         Возвращает путь к директории пользовательских данных.
         
-        Создаёт директорию ~/.finance_tracker_data/ и необходимые поддиректории:
+        Создаёт директорию .finance_tracker_data/ в корне проекта/программы:
+        - В режиме разработки: рядом с корнем проекта
+        - В режиме .exe: рядом с исполняемым файлом
+        
+        Поддиректории:
         - logs/ - для файлов логов
         - exports/ - для экспортированных данных
         
         Returns:
-            Path: Путь к ~/.finance_tracker_data/
+            Path: Путь к .finance_tracker_data/ относительно приложения
         """
-        # Получаем домашнюю директорию пользователя
-        home = Path.home()
-        data_dir = home / ".finance_tracker_data"
+        # Определяем корневую директорию приложения
+        if getattr(os.sys, 'frozen', False):
+            # Режим .exe - используем директорию исполняемого файла
+            app_root = Path(os.sys.executable).parent
+        else:
+            # Режим разработки - используем корень проекта (на 3 уровня выше от config.py)
+            # src/finance_tracker/config.py -> src/finance_tracker -> src -> корень
+            app_root = Path(__file__).parent.parent.parent
+        
+        # Создаём директорию данных в корне приложения
+        data_dir = app_root / ".finance_tracker_data"
         
         # Создаём основную директорию, если не существует
         data_dir.mkdir(exist_ok=True)
@@ -111,7 +125,7 @@ class Config:
         
         Если файл не существует, используются значения по умолчанию.
         Путь к БД не загружается из конфигурации - всегда используется
-        ~/.finance_tracker_data/finance.db
+        .finance_tracker_data/finance.db относительно приложения.
         """
         if not os.path.exists(self.config_file):
             logger.info(f"Файл конфигурации не найден, используются значения по умолчанию: {self.config_file}")
@@ -147,7 +161,7 @@ class Config:
         Сохраняет текущие настройки в файл конфигурации.
         
         Путь к БД не сохраняется - он всегда фиксирован как
-        ~/.finance_tracker_data/finance.db
+        .finance_tracker_data/finance.db относительно приложения.
         """
         data = {
             "theme_mode": self.theme_mode,

@@ -13,7 +13,7 @@ from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     CategoryDB,
     TransactionDB,
@@ -24,7 +24,7 @@ from models.models import (
     LoanDB,
     LenderDB
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     TransactionType,
     RecurrenceType,
     EndConditionType,
@@ -32,7 +32,7 @@ from models.enums import (
     PendingPaymentStatus,
     PendingPaymentPriority
 )
-from services.balance_forecast_service import (
+from finance_tracker.services.balance_forecast_service import (
     calculate_forecast_balance
 )
 
@@ -240,8 +240,8 @@ class TestBalanceForecastProperties:
             # Need Lender first?
             # Let's simplify: Assume we can insert LoanPaymentDB if we create minimal requirements.
             # Lender -> Loan -> LoanPayment.
-            from models.models import LenderDB, LoanDB
-            from models.enums import LenderType, LoanType, LoanStatus
+            from finance_tracker.models.models import LenderDB, LoanDB
+            from finance_tracker.models.enums import LenderType, LoanType, LoanStatus
 
             lender = LenderDB(name="Bank", lender_type=LenderType.BANK)
             session.add(lender)

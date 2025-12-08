@@ -8,9 +8,9 @@ import flet as ft
 import datetime
 from decimal import Decimal
 
-from components.loan_modal import LoanModal
-from models.models import LenderDB
-from models.enums import LoanType, LenderType
+from finance_tracker.components.loan_modal import LoanModal
+from finance_tracker.models.models import LenderDB
+from finance_tracker.models.enums import LoanType, LenderType
 
 
 class TestLoanModal(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestLoanModal(unittest.TestCase):
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.patcher = patch('finance_tracker_flet.components.loan_modal.get_all_lenders')
+        self.patcher = patch('finance_tracker.components.loan_modal.get_all_lenders')
         self.mock_get_all_lenders = self.patcher.start()
 
         self.session = Mock()

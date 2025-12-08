@@ -16,7 +16,7 @@ from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models import (
+from finance_tracker.models import (
     Base,
     TransactionDB,
     CategoryDB,
@@ -30,7 +30,7 @@ from models import (
     PlannedTransactionCreate,
     RecurrenceRuleCreate,
 )
-from services.planned_transaction_service import (
+from finance_tracker.services.planned_transaction_service import (
     create_planned_transaction,
 )
 

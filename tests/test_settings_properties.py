@@ -7,7 +7,7 @@ import os
 import tempfile
 import json
 from hypothesis import given, strategies as st
-from config import Config
+from finance_tracker.config import Config
 
 # Получаем экземпляр конфигурации (Singleton)
 config = Config()
@@ -19,15 +19,17 @@ def test_config_singleton():
     assert c1 is c2
 
 @given(
-    db_path=st.text(min_size=1, max_size=100).filter(lambda x: all(c.isprintable() for c in x)),
     theme=st.sampled_from(["light", "dark"]),
     date_fmt=st.sampled_from(["%d.%m.%Y", "%Y-%m-%d", "%m/%d/%Y"]),
     log_level=st.sampled_from(["DEBUG", "INFO", "WARNING", "ERROR"])
 )
-def test_settings_persistence_general(db_path, theme, date_fmt, log_level):
+def test_settings_persistence_general(theme, date_fmt, log_level):
     """
-    Property 52: Персистентность основных настроек (путь к БД, тема, форматы).
+    Property 52: Персистентность основных настроек (тема, форматы).
     Feature: Settings
+    
+    Примечание: db_path теперь фиксирован в ~/.finance_tracker_data/finance.db
+    и не сохраняется в конфигурации.
     """
     # Создаем временный файл для конфига
     with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tmp:
@@ -38,7 +40,6 @@ def test_settings_persistence_general(db_path, theme, date_fmt, log_level):
     
     try:
         # 1. Устанавливаем значения
-        config.db_path = db_path
         config.theme_mode = theme
         config.date_format = date_fmt
         config.log_level = log_level
@@ -47,15 +48,14 @@ def test_settings_persistence_general(db_path, theme, date_fmt, log_level):
         config.save()
         
         # 3. Сбрасываем значения в памяти (имитация "забывания")
-        config.db_path = "default_path"
         config.theme_mode = "system"
         config.date_format = "default_fmt"
+        config.log_level = "INFO"
         
         # 4. Загружаем обратно
         config.load()
         
         # 5. Проверяем
-        assert config.db_path == db_path
         assert config.theme_mode == theme
         assert config.date_format == date_fmt
         assert config.log_level == log_level
@@ -63,8 +63,9 @@ def test_settings_persistence_general(db_path, theme, date_fmt, log_level):
         # 6. Проверяем физическое наличие файла и JSON валидность
         with open(tmp_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            assert data['db_path'] == db_path
             assert data['theme_mode'] == theme
+            # db_path не должен быть в конфигурации
+            assert 'db_path' not in data
             
     finally:
         # Восстанавливаем путь и удаляем временный файл

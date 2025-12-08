@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 from datetime import date
 from decimal import Decimal
 
-from views.home_view import HomeView
-from models import TransactionType, TransactionCreate, Base
-from services.transaction_service import create_transaction, get_transactions_by_date
+from finance_tracker.views.home_view import HomeView
+from finance_tracker.models import TransactionType, TransactionCreate, Base
+from finance_tracker.services.transaction_service import create_transaction, get_transactions_by_date
 @pytest.fixture
 def mock_page():
     page = MagicMock()
@@ -23,7 +23,7 @@ def test_create_transaction_flow(db_session, mock_page):
     """
     # 1. Инициализация View
     # Патчим get_db_session, чтобы HomeView использовал нашу тестовую сессию
-    with patch('finance_tracker_flet.views.home_view.get_db_session') as mock_get_session:
+    with patch('finance_tracker.views.home_view.get_db_session') as mock_get_session:
         mock_get_session.return_value.__enter__.return_value = db_session
         
         view = HomeView(mock_page)
@@ -42,7 +42,7 @@ def test_create_transaction_flow(db_session, mock_page):
         )
         
         # Создаем категорию для теста
-        from models import CategoryDB
+        from finance_tracker.models import CategoryDB
         category = CategoryDB(name="Test Cat", type=TransactionType.EXPENSE)
         db_session.add(category)
         db_session.commit()
@@ -83,17 +83,18 @@ def test_navigation_flow(mock_page, db_session):
     """
     Сценарий: Навигация между разделами приложения.
     """
-    from views.main_window import MainWindow
+    from finance_tracker.views.main_window import MainWindow
     
     # Патчим настройки, чтобы не писать в реальный конфиг
     # Также патчим get_db_session глобально для всех вьюх, которые могут его использовать
-    with patch('finance_tracker_flet.views.main_window.settings') as mock_settings, \
-         patch('finance_tracker_flet.views.home_view.get_db_session') as mock_home_session, \
-         patch('finance_tracker_flet.views.categories_view.get_db_session') as mock_cat_session:
+    with patch('finance_tracker.views.main_window.settings') as mock_settings, \
+         patch('finance_tracker.views.home_view.get_db_session') as mock_home_session, \
+         patch('finance_tracker.views.categories_view.get_db_session') as mock_cat_session, \
+         patch('finance_tracker.views.planned_transactions_view.get_db_session') as mock_planned_session:
         
         mock_settings.last_selected_index = 0
         # Настраиваем моки сессий
-        for mock_session in [mock_home_session, mock_cat_session]:
+        for mock_session in [mock_home_session, mock_cat_session, mock_planned_session]:
             mock_session.return_value.__enter__.return_value = db_session
         
         main_window = MainWindow(mock_page)
@@ -105,16 +106,16 @@ def test_navigation_flow(mock_page, db_session):
         # запатчить content_area.update, так как она вызывается в navigate
         
         with patch.object(main_window.content_area, 'update'):
-            # Переход на вкладку "Планирование" (индекс 1)
-            main_window.navigate(1)
+            # Переход на вкладку "План-Факт" (индекс 4)
+            main_window.navigate(4)
             
-            assert main_window.rail.selected_index == 1
+            assert main_window.rail.selected_index == 4
             # Проверяем, что контент изменился (тип контрола)
-            from views.plan_fact_view import PlanFactView
+            from finance_tracker.views.plan_fact_view import PlanFactView
             assert isinstance(main_window.content_area.content, PlanFactView)
             
-            # Переход на вкладку "Категории" (индекс 5)
-            main_window.navigate(5)
-            assert main_window.rail.selected_index == 5
-            from views.categories_view import CategoriesView
+            # Переход на вкладку "Категории" (индекс 6)
+            main_window.navigate(6)
+            assert main_window.rail.selected_index == 6
+            from finance_tracker.views.categories_view import CategoriesView
             assert isinstance(main_window.content_area.content, CategoriesView)

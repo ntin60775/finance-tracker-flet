@@ -224,7 +224,7 @@ def delete_category(
             raise ValueError(error_msg)
         
         # Проверка на наличие связанных транзакций
-        from models import TransactionDB, PlannedTransactionDB, PendingPaymentDB
+        from finance_tracker.models import TransactionDB, PlannedTransactionDB, PendingPaymentDB
         
         transactions_count = session.query(TransactionDB).filter_by(category_id=category_id).count()
         if transactions_count > 0:

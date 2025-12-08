@@ -15,13 +15,13 @@ from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models import (
+from finance_tracker.models import (
     Base,
     CategoryDB,
     TransactionDB,
     TransactionType,
 )
-from services.category_service import (
+from finance_tracker.services.category_service import (
     get_all_categories,
     create_category,
     delete_category

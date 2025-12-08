@@ -14,11 +14,11 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     Base, LoanDB, LenderDB, LoanPaymentDB,
     LoanStatus, PaymentStatus, LenderType, LoanType
 )
-from components.calendar_widget import CalendarWidget
+from finance_tracker.components.calendar_widget import CalendarWidget
 
 
 # Создаём тестовый движок БД в памяти

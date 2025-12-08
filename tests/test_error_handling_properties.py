@@ -6,12 +6,12 @@ Property-based тесты для системы обработки ошибок.
 from unittest.mock import MagicMock, patch
 from hypothesis import given, strategies as st
 
-from utils.exceptions import (
+from finance_tracker.utils.exceptions import (
     ValidationError,
     BusinessLogicError,
     DatabaseError
 )
-from utils.error_handler import ErrorHandler, safe_handler
+from finance_tracker.utils.error_handler import ErrorHandler, safe_handler
 
 @given(st.text())
 def test_validation_error_handling(message):
@@ -56,7 +56,7 @@ def test_database_error_handling():
     
     exception = DatabaseError("Connection failed")
     
-    with patch('finance_tracker_flet.utils.error_handler.logger') as logger_mock:
+    with patch('finance_tracker.utils.error_handler.logger') as logger_mock:
         handler.handle(exception)
         
         # Проверяем, что ошибка БД залогирована как ERROR

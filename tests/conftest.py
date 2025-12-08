@@ -1,20 +1,11 @@
 """
-Конфигурация pytest для тестов finance_tracker_flet.
-
-Добавляет родительскую директорию в sys.path для корректного импорта модулей.
+Конфигурация pytest для тестов finance_tracker.
 """
-import sys
-from pathlib import Path
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Добавляем корневую директорию проекта в sys.path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-# Импортируем после добавления в sys.path
-from models import Base
+from finance_tracker.models import Base
 
 
 @pytest.fixture

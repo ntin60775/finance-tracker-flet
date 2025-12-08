@@ -14,22 +14,22 @@ from hypothesis import given, strategies as st, settings, assume
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     LenderDB,
     LoanDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     LenderType,
     LoanType,
     LoanStatus
 )
-from services.lender_service import (
+from finance_tracker.services.lender_service import (
     create_lender,
     update_lender,
     delete_lender
 )
-from services.loan_service import (
+from finance_tracker.services.loan_service import (
     create_loan
 )
 
@@ -355,3 +355,84 @@ class TestLenderProperties:
             session.expire_all()
             retrieved_lender1 = session.query(LenderDB).filter_by(id=lender1_id).first()
             assert retrieved_lender1.name == original_name
+
+    @given(
+        lender_name=lender_names,
+        loan_name=lender_names,
+        amount=loan_amounts,
+        interest_rate=interest_rates,
+        num_active_loans=st.integers(min_value=1, max_value=5)
+    )
+    @settings(max_examples=100, deadline=None)
+    def test_property_delete_lender_with_active_loans_returns_error(
+        self,
+        lender_name,
+        loan_name,
+        amount,
+        interest_rate,
+        num_active_loans
+    ):
+        """
+        Property: Удаление займодателя с активными кредитами должно возвращать ошибку.
+
+        Feature: ui-testing, Property: Для любого займодателя с активными кредитами,
+        попытка удаления должна возвращать ValueError с сообщением об активных кредитах
+
+        Validates: Requirements 7.5
+
+        Проверяет, что система всегда запрещает удаление займодателей с активными кредитами,
+        независимо от количества кредитов.
+        """
+        # Убедимся, что имена уникальны
+        assume(lender_name != loan_name)
+
+        with get_test_session() as session:
+            # Arrange: создаём займодателя
+            lender = create_lender(
+                session=session,
+                name=lender_name,
+                lender_type=LenderType.BANK
+            )
+            session.flush()
+            lender_id = lender.id
+
+            # Создаём несколько активных кредитов от этого займодателя
+            created_loans = []
+            for i in range(num_active_loans):
+                issue_date = date.today() - timedelta(days=i * 30)
+                end_date = issue_date + timedelta(days=365)
+                loan = create_loan(
+                    session=session,
+                    name=f"{loan_name}_{i}",
+                    lender_id=lender_id,
+                    loan_type=LoanType.CONSUMER,
+                    amount=amount,
+                    issue_date=issue_date,
+                    interest_rate=interest_rate,
+                    end_date=end_date
+                )
+                assert loan.status == LoanStatus.ACTIVE
+                created_loans.append(loan)
+            
+            session.flush()
+
+            # Act & Assert: попытка удалить займодателя с активными кредитами должна вызвать ValueError
+            with pytest.raises(ValueError) as exc_info:
+                delete_lender(session, lender_id)
+            
+            # Проверяем, что сообщение об ошибке содержит информацию об активных кредитах
+            error_message = str(exc_info.value)
+            assert "активные кредиты" in error_message.lower() or "active" in error_message.lower()
+            assert lender_name in error_message
+
+            # Verify: займодатель и все кредиты по-прежнему существуют в БД
+            retrieved_lender = session.query(LenderDB).filter_by(id=lender_id).first()
+            assert retrieved_lender is not None, "Займодатель не должен быть удалён"
+            assert retrieved_lender.name == lender_name
+
+            # Проверяем, что все кредиты остались в БД и активны
+            for loan in created_loans:
+                retrieved_loan = session.query(LoanDB).filter_by(id=loan.id).first()
+                assert retrieved_loan is not None, f"Кредит {loan.name} не должен быть удалён"
+                assert retrieved_loan.status == LoanStatus.ACTIVE, f"Кредит {loan.name} должен остаться активным"
+                assert retrieved_loan.lender_id == lender_id, f"Связь кредита {loan.name} с займодателем должна сохраниться"

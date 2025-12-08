@@ -5,22 +5,22 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch, ANY
 import datetime
 
-from views.home_view import HomeView
+from finance_tracker.views.home_view import HomeView
 
 class TestHomeView(unittest.TestCase):
     """Тесты для HomeView."""
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.mock_get_db_patcher = patch('finance_tracker_flet.views.home_view.get_db_session')
-        self.mock_get_transactions_by_date_patcher = patch('finance_tracker_flet.views.home_view.get_transactions_by_date')
-        self.mock_get_by_date_range_patcher = patch('finance_tracker_flet.views.home_view.get_by_date_range')
-        self.mock_get_pending_occurrences_patcher = patch('finance_tracker_flet.views.home_view.get_pending_occurrences')
-        self.mock_get_occurrences_by_date_patcher = patch('finance_tracker_flet.views.home_view.get_occurrences_by_date')
-        self.mock_get_occurrences_by_date_range_patcher = patch('finance_tracker_flet.views.home_view.get_occurrences_by_date_range')
-        self.mock_get_all_pending_payments_patcher = patch('finance_tracker_flet.views.home_view.get_all_pending_payments')
-        self.mock_get_pending_payments_statistics_patcher = patch('finance_tracker_flet.views.home_view.get_pending_payments_statistics')
-        self.mock_transactions_panel_patcher = patch('finance_tracker_flet.views.home_view.TransactionsPanel')
+        self.mock_get_db_patcher = patch('finance_tracker.views.home_view.get_db_session')
+        self.mock_get_transactions_by_date_patcher = patch('finance_tracker.views.home_view.get_transactions_by_date')
+        self.mock_get_by_date_range_patcher = patch('finance_tracker.views.home_view.get_by_date_range')
+        self.mock_get_pending_occurrences_patcher = patch('finance_tracker.views.home_view.get_pending_occurrences')
+        self.mock_get_occurrences_by_date_patcher = patch('finance_tracker.views.home_view.get_occurrences_by_date')
+        self.mock_get_occurrences_by_date_range_patcher = patch('finance_tracker.views.home_view.get_occurrences_by_date_range')
+        self.mock_get_all_pending_payments_patcher = patch('finance_tracker.views.home_view.get_all_pending_payments')
+        self.mock_get_pending_payments_statistics_patcher = patch('finance_tracker.views.home_view.get_pending_payments_statistics')
+        self.mock_transactions_panel_patcher = patch('finance_tracker.views.home_view.TransactionsPanel')
 
         self.mock_get_db = self.mock_get_db_patcher.start()
         self.mock_get_transactions_by_date = self.mock_get_transactions_by_date_patcher.start()

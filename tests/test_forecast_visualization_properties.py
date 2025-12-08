@@ -13,17 +13,17 @@ from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from models.models import (
+from finance_tracker.models.models import (
     Base,
     CategoryDB,
     TransactionDB,
     PlannedTransactionDB,
     RecurrenceRuleDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     TransactionType,
 )
-from services.balance_forecast_service import (
+from finance_tracker.services.balance_forecast_service import (
     detect_cash_gaps,
     calculate_forecast_balance
 )
