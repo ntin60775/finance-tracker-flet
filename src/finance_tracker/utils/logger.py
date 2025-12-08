@@ -16,7 +16,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict
 
-from config import settings
+from finance_tracker.config import settings
 
 class JsonFormatter(logging.Formatter):
     """

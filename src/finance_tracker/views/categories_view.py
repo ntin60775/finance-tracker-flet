@@ -2,16 +2,16 @@ import flet as ft
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from models import TransactionType, CategoryDB
-from database import get_db_session
-from services.category_service import (
+from finance_tracker.models import TransactionType, CategoryDB
+from finance_tracker.database import get_db_session
+from finance_tracker.services.category_service import (
     get_all_categories,
     create_category,
     update_category,
     delete_category
 )
-from utils.logger import get_logger
-from utils.error_handler import safe_handler
+from finance_tracker.utils.logger import get_logger
+from finance_tracker.utils.error_handler import safe_handler
 
 logger = get_logger(__name__)
 

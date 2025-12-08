@@ -6,9 +6,9 @@
 - Приватный функционал (опционально): облачная синхронизация
 """
 
-# Публичный функционал будет добавлен позже
-# from finance_tracker.mobile.export_service import ExportService
-# from finance_tracker.mobile.import_service import ImportService
+# Публичный функционал (всегда доступен)
+from finance_tracker.mobile.export_service import ExportService
+from finance_tracker.mobile.import_service import ImportService
 
 # Приватный функционал (доступен только если submodule установлен)
 try:
@@ -21,8 +21,8 @@ except ImportError:
     PROPRIETARY_AVAILABLE = False
 
 __all__ = [
-    # "ExportService",
-    # "ImportService",
+    "ExportService",
+    "ImportService",
     "CloudSyncService",
     "RealtimeSyncService",
     "PROPRIETARY_AVAILABLE",

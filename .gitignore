@@ -10,6 +10,7 @@ dist/
 build/
 *.egg-info/
 *.spec
+!finance_tracker.spec
 
 # IDE
 .vscode/

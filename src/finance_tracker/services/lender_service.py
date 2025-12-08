@@ -13,8 +13,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
-from models import LenderDB, LenderType, LoanDB, LoanStatus
-from utils.cache import cache
+from finance_tracker.models import LenderDB, LenderType, LoanDB, LoanStatus
+from finance_tracker.utils.cache import cache
 
 # Настройка логирования
 logger = logging.getLogger(__name__)

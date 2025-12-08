@@ -17,7 +17,7 @@ from calendar import monthrange
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.models import (
+from finance_tracker.models.models import (
     PlannedTransactionDB,
     PlannedTransactionCreate,
     RecurrenceRuleDB,
@@ -25,12 +25,12 @@ from models.models import (
     TransactionDB,
     CategoryDB
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     TransactionType,
     OccurrenceStatus
 )
 
-from services.recurrence_service import generate_occurrences_for_period
+from finance_tracker.services.recurrence_service import generate_occurrences_for_period
 
 # Настройка логирования
 logger = logging.getLogger(__name__)

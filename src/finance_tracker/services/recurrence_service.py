@@ -17,12 +17,12 @@ from calendar import monthrange
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.models import (
+from finance_tracker.models.models import (
     PlannedTransactionDB,
     RecurrenceRuleDB,
     PlannedOccurrenceDB
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     RecurrenceType,
     IntervalUnit,
     EndConditionType,

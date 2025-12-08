@@ -12,23 +12,23 @@
 import flet as ft
 from typing import Optional
 
-from models import (
+from finance_tracker.models import (
     LoanDB,
     LoanPaymentDB,
     PaymentStatus,
     LoanStatus
 )
-from database import get_db_session
-from services.loan_service import get_loan_by_id
-from services.loan_payment_service import (
+from finance_tracker.database import get_db_session
+from finance_tracker.services.loan_service import get_loan_by_id
+from finance_tracker.services.loan_payment_service import (
     get_payments_by_loan,
     execute_payment,
     early_repayment_full,
     early_repayment_partial
 )
-from services.lender_service import get_lender_by_id
-from components.early_repayment_modal import EarlyRepaymentModal
-from utils.logger import get_logger
+from finance_tracker.services.lender_service import get_lender_by_id
+from finance_tracker.components.early_repayment_modal import EarlyRepaymentModal
+from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

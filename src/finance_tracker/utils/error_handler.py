@@ -8,7 +8,7 @@ import traceback
 from typing import Callable, Optional
 import flet as ft
 
-from utils.exceptions import (
+from finance_tracker.utils.exceptions import (
     ValidationError,
     BusinessLogicError,
     DatabaseError

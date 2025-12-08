@@ -20,7 +20,7 @@ from io import StringIO
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from models import (
+from finance_tracker.models import (
     LoanPaymentDB, LoanDB, TransactionDB, CategoryDB,
     PaymentStatus, TransactionType, LoanStatus
 )

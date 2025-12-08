@@ -1,17 +1,17 @@
 import flet as ft
-from utils.logger import get_logger
-from config import settings
-from database import get_db_session
-from services.transaction_service import get_total_balance
+from finance_tracker.utils.logger import get_logger
+from finance_tracker.config import settings
+from finance_tracker.database import get_db_session
+from finance_tracker.services.transaction_service import get_total_balance
 
-from views.home_view import HomeView
-from views.categories_view import CategoriesView
-from views.plan_fact_view import PlanFactView
-from views.pending_payments_view import PendingPaymentsView
-from views.planned_transactions_view import PlannedTransactionsView
-from views.lenders_view import LendersView
-from views.loans_view import LoansView
-from views.settings_view import SettingsView
+from finance_tracker.views.home_view import HomeView
+from finance_tracker.views.categories_view import CategoriesView
+from finance_tracker.views.plan_fact_view import PlanFactView
+from finance_tracker.views.pending_payments_view import PendingPaymentsView
+from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
+from finance_tracker.views.lenders_view import LendersView
+from finance_tracker.views.loans_view import LoansView
+from finance_tracker.views.settings_view import SettingsView
 
 logger = get_logger(__name__)
 

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
 
-from models import TransactionDB, TransactionCreate, TransactionType, TransactionUpdate
+from finance_tracker.models import TransactionDB, TransactionCreate, TransactionType, TransactionUpdate
 
 
 # Настройка логирования

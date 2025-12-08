@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import or_
 
-from models.models import (
+from finance_tracker.models.models import (
     PendingPaymentDB,
     PendingPaymentCreate,
     PendingPaymentUpdate,

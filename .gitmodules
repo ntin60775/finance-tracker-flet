@@ -1,0 +1,4 @@
+[submodule "src/finance_tracker/mobile/sync_proprietary"]
+	path = src/finance_tracker/mobile/sync_proprietary
+	url = https://github.com/BarykinME/finance-tracker-sync-proprietary.git
+	branch = main

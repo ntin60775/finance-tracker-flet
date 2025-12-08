@@ -2,39 +2,39 @@ import datetime
 
 import flet as ft
 
-from database import get_db_session
-from models.models import TransactionCreate, PlannedOccurrence
-from services.transaction_service import (
+from finance_tracker.database import get_db_session
+from finance_tracker.models.models import TransactionCreate, PlannedOccurrence
+from finance_tracker.services.transaction_service import (
     get_transactions_by_date,
     get_by_date_range,
     create_transaction,
 )
-from services.planned_transaction_service import (
+from finance_tracker.services.planned_transaction_service import (
     get_pending_occurrences,
     get_occurrences_by_date,
     get_occurrences_by_date_range,
     execute_occurrence,
     skip_occurrence
 )
-from components.calendar_widget import CalendarWidget
-from components.transactions_panel import TransactionsPanel
-from components.calendar_legend import CalendarLegend
-from components.transaction_modal import TransactionModal
-from components.planned_transactions_widget import PlannedTransactionsWidget
-from components.pending_payments_widget import PendingPaymentsWidget
-from components.execute_occurrence_modal import ExecuteOccurrenceModal
-from components.execute_pending_payment_modal import ExecutePendingPaymentModal
-from components.pending_payment_modal import PendingPaymentModal
-from utils.logger import get_logger
-from services.pending_payment_service import (
+from finance_tracker.components.calendar_widget import CalendarWidget
+from finance_tracker.components.transactions_panel import TransactionsPanel
+from finance_tracker.components.calendar_legend import CalendarLegend
+from finance_tracker.components.transaction_modal import TransactionModal
+from finance_tracker.components.planned_transactions_widget import PlannedTransactionsWidget
+from finance_tracker.components.pending_payments_widget import PendingPaymentsWidget
+from finance_tracker.components.execute_occurrence_modal import ExecuteOccurrenceModal
+from finance_tracker.components.execute_pending_payment_modal import ExecutePendingPaymentModal
+from finance_tracker.components.pending_payment_modal import PendingPaymentModal
+from finance_tracker.utils.logger import get_logger
+from finance_tracker.services.pending_payment_service import (
     get_all_pending_payments,
     get_pending_payments_statistics,
     execute_pending_payment,
     cancel_pending_payment,
     delete_pending_payment
 )
-from services.loan_service import execute_payment as execute_loan_payment_service
-from models.models import (
+from finance_tracker.services.loan_service import execute_payment as execute_loan_payment_service
+from finance_tracker.models.models import (
     PendingPaymentExecute,
     PendingPaymentCancel,
     LoanPaymentDB

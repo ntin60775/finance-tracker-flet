@@ -37,64 +37,64 @@
   - Обновить импорты во всех файлах components/ на абсолютные от finance_tracker
   - _Requirements: 2.2, 4.2_
 
-- [ ] 8. Обновление импортов в models/
+- [x] 8. Обновление импортов в models/
   - Обновить импорты в models/__init__.py
   - Обновить импорты в models/enums.py
   - Обновить импорты в models/models.py
   - _Requirements: 2.2, 4.2_
 
-- [ ] 9. Обновление импортов в services/
+- [x] 9. Обновление импортов в services/
   - Обновить импорты во всех сервисах на абсолютные от finance_tracker
   - _Requirements: 2.2, 4.2_
 
-- [ ] 10. Обновление импортов в utils/
+- [x] 10. Обновление импортов в utils/
   - Обновить импорты во всех утилитах на абсолютные от finance_tracker
   - _Requirements: 2.2, 4.2_
 
-- [ ] 11. Обновление импортов в views/
+- [x] 11. Обновление импортов в views/
   - Обновить импорты во всех представлениях на абсолютные от finance_tracker
   - _Requirements: 2.2, 4.2_
 
-- [ ] 12. Создание точки входа __main__.py
+- [x] 12. Создание точки входа __main__.py
   - Создать src/finance_tracker/__main__.py с функцией запуска
   - Импортировать и запускать finance_tracker.app.main
   - _Requirements: 3.1_
 
-- [ ] 13. Обновление launcher main.py в корне
+- [x] 13. Обновление launcher main.py в корне
   - Обновить main.py для импорта из finance_tracker.__main__
   - Добавить комментарии о способах запуска
   - _Requirements: 3.2_
 
-- [ ] 14. Создание публичного мобильного функционала
+- [x] 14. Создание публичного мобильного функционала
   - Создать src/finance_tracker/mobile/__init__.py с импортами и PROPRIETARY_AVAILABLE
   - Создать src/finance_tracker/mobile/export_service.py с ExportService
   - Создать src/finance_tracker/mobile/import_service.py с ImportService
   - _Requirements: 10.5_
 
-- [ ] 15. Создание заглушек для приватного submodule
+- [x] 15. Создание заглушек для приватного submodule
   - Создать src/finance_tracker/mobile/sync_proprietary/__init__.py с заглушками
   - Добавить CloudSyncService и RealtimeSyncService с NotImplementedError
   - _Requirements: 10.1, 10.3_
 
-- [ ] 16. Настройка Git submodule
+- [x] 16. Настройка Git submodule
   - Создать .gitmodules с конфигурацией submodule
   - Добавить путь к приватному репозиторию
   - _Requirements: 10.2, 10.6_
 
-- [ ] 17. Обновление pyproject.toml
+- [x] 17. Обновление pyproject.toml
   - Обновить [tool.setuptools.packages.find] where = ["src"]
   - Добавить [project.scripts] для точки входа
   - Обновить версию до 2.0.0
   - Добавить license = {text = "AGPL-3.0"}
   - _Requirements: 5.1, 5.2_
 
-- [ ] 18. Обновление finance_tracker.spec для PyInstaller
+- [x] 18. Обновление finance_tracker.spec для PyInstaller
   - Обновить pathex на ['src']
   - Обновить точку входа на src/finance_tracker/__main__.py
   - Добавить hiddenimports для всех модулей
   - _Requirements: 3.3, 5.3, 5.4_
 
-- [ ] 19. Создание .gitignore
+- [x] 19. Создание .gitignore
   - Добавить Python-специфичные файлы (__pycache__/, *.pyc, *.pyo, *.pyd)
   - Добавить build-артефакты (dist/, build/, *.egg-info/, *.spec)
   - Добавить IDE файлы (.vscode/, .idea/, *.swp)
@@ -104,11 +104,15 @@
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
 - [ ] 20. Создание LICENSE файла
+
   - Скачать полный текст AGPL-3.0
   - Добавить Copyright 2024 BarykinME
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 - [ ] 21. Обновление импортов в тестах
+
+
+
   - Обновить импорты в tests/conftest.py
   - Обновить импорты во всех тестовых файлах на абсолютные от finance_tracker
   - _Requirements: 2.3, 4.2, 4.4_

@@ -13,7 +13,7 @@ import flet as ft
 from typing import Optional, List
 from datetime import date
 
-from models.models import (
+from finance_tracker.models.models import (
     PendingPaymentDB,
     PendingPaymentCreate,
     PendingPaymentUpdate,
@@ -21,9 +21,9 @@ from models.models import (
     PendingPaymentCancel,
     CategoryDB
 )
-from models.enums import PendingPaymentPriority, PendingPaymentStatus
-from database import get_db_session
-from services.pending_payment_service import (
+from finance_tracker.models.enums import PendingPaymentPriority, PendingPaymentStatus
+from finance_tracker.database import get_db_session
+from finance_tracker.services.pending_payment_service import (
     get_all_pending_payments,
     create_pending_payment,
     update_pending_payment,
@@ -32,9 +32,9 @@ from services.pending_payment_service import (
     delete_pending_payment,
     get_pending_payments_statistics
 )
-from components.pending_payment_modal import PendingPaymentModal
-from components.execute_pending_payment_modal import ExecutePendingPaymentModal
-from utils.logger import get_logger
+from finance_tracker.components.pending_payment_modal import PendingPaymentModal
+from finance_tracker.components.execute_pending_payment_modal import ExecutePendingPaymentModal
+from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

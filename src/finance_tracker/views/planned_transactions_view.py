@@ -11,7 +11,7 @@
 import flet as ft
 from typing import Optional
 
-from models import (
+from finance_tracker.models import (
     TransactionType,
     PlannedTransactionDB,
     PlannedOccurrenceDB,
@@ -19,13 +19,13 @@ from models import (
     CategoryDB,
     RecurrenceType
 )
-from database import get_db_session
-from services.planned_transaction_service import (
+from finance_tracker.database import get_db_session
+from finance_tracker.services.planned_transaction_service import (
     get_all_planned_transactions,
     deactivate_planned_transaction,
     delete_planned_transaction
 )
-from utils.logger import get_logger
+from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

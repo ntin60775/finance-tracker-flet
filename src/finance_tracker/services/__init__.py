@@ -36,7 +36,7 @@ __all__ = [
     "get_period_statistics",
 ]
 
-from .transaction_service import (
+from finance_tracker.services.transaction_service import (
     get_transactions_by_date,
     get_by_date_range,
     create_transaction,
@@ -45,21 +45,21 @@ from .transaction_service import (
     get_month_stats
 )
 
-from .category_service import (
+from finance_tracker.services.category_service import (
     get_all_categories,
     create_category,
     delete_category,
     init_loan_categories
 )
 
-from .lender_service import (
+from finance_tracker.services.lender_service import (
     get_all_lenders,
     create_lender,
     update_lender,
     delete_lender
 )
 
-from .loan_service import (
+from finance_tracker.services.loan_service import (
     get_all_loans,
     create_loan,
     update_loan,
@@ -71,7 +71,7 @@ from .loan_service import (
     execute_payment
 )
 
-from .loan_payment_service import (
+from finance_tracker.services.loan_payment_service import (
     get_payments_by_loan,
     create_payment,
     update_payment,
@@ -83,7 +83,7 @@ from .loan_payment_service import (
     early_repayment_partial
 )
 
-from .loan_statistics_service import (
+from finance_tracker.services.loan_statistics_service import (
     get_summary_statistics,
     get_monthly_burden_statistics,
     get_period_statistics

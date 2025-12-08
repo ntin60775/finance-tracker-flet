@@ -2,11 +2,11 @@ import datetime
 from typing import Optional
 
 import flet as ft
-from services.plan_fact_service import get_plan_fact_analysis
-from services.category_service import get_all_categories
-from database import get_db
-from utils.logger import get_logger
-from components.occurrence_details_modal import OccurrenceDetailsModal
+from finance_tracker.services.plan_fact_service import get_plan_fact_analysis
+from finance_tracker.services.category_service import get_all_categories
+from finance_tracker.database import get_db
+from finance_tracker.utils.logger import get_logger
+from finance_tracker.components.occurrence_details_modal import OccurrenceDetailsModal
 
 logger = get_logger(__name__)
 

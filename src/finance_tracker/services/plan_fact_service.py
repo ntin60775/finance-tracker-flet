@@ -16,15 +16,15 @@ from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.models import (
+from finance_tracker.models.models import (
     PlannedOccurrenceDB,
     PlannedTransactionDB,
     TransactionDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     OccurrenceStatus
 )
-from utils.logger import get_logger
+from finance_tracker.utils.logger import get_logger
 
 # Настройка логирования
 logger = get_logger(__name__)

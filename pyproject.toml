@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "finance_tracker_flet"
-version = "0.1.0"
+version = "2.0.0"
 description = "Finance Tracker desktop application built with Flet"
 authors = [{name = "BarykinME"}]
+license = {text = "AGPL-3.0"}
 requires-python = ">=3.9"
 dependencies = [
     "flet>=0.25.0",
@@ -22,10 +23,13 @@ dev = [
     "hypothesis>=6.80.0",
 ]
 
+[project.scripts]
+finance-tracker = "finance_tracker.__main__:main"
+
 [tool.setuptools]
 py-modules = []
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
+where = ["src"]
+include = ["finance_tracker*"]
 namespaces = false

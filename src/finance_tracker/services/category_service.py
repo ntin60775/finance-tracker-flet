@@ -12,8 +12,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
-from models import CategoryDB, TransactionType
-from utils.cache import cache
+from finance_tracker.models import CategoryDB, TransactionType
+from finance_tracker.utils.cache import cache
 
 # Настройка логирования
 logger = logging.getLogger(__name__)

@@ -16,18 +16,18 @@ from typing import Dict, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.models import (
+from finance_tracker.models.models import (
     TransactionDB,
     PlannedTransactionDB,
     LoanPaymentDB,
     PendingPaymentDB,
 )
-from models.enums import (
+from finance_tracker.models.enums import (
     TransactionType,
     PaymentStatus,
     PendingPaymentStatus
 )
-from services.recurrence_service import generate_occurrences_for_period
+from finance_tracker.services.recurrence_service import generate_occurrences_for_period
 
 # Настройка логирования
 logger = logging.getLogger(__name__)

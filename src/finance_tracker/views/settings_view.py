@@ -1,7 +1,7 @@
 import flet as ft
 import logging
-from config import settings
-from utils.error_handler import safe_handler
+from finance_tracker.config import settings
+from finance_tracker.utils.error_handler import safe_handler
 
 logger = logging.getLogger(__name__)
 

@@ -11,17 +11,17 @@
 import flet as ft
 from typing import Optional
 
-from models.models import LenderDB
-from models.enums import LenderType
-from database import get_db_session
-from services.lender_service import (
+from finance_tracker.models.models import LenderDB
+from finance_tracker.models.enums import LenderType
+from finance_tracker.database import get_db_session
+from finance_tracker.services.lender_service import (
     get_all_lenders,
     create_lender,
     update_lender,
     delete_lender
 )
-from components.lender_modal import LenderModal
-from utils.logger import get_logger
+from finance_tracker.components.lender_modal import LenderModal
+from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -15,7 +15,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from models import (
+from finance_tracker.models import (
     LoanDB, LoanPaymentDB, TransactionDB,
     LoanStatus, PaymentStatus, TransactionType
 )

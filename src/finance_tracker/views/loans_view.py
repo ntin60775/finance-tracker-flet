@@ -11,24 +11,24 @@
 import flet as ft
 from typing import Optional
 
-from models.models import LoanDB
-from models.enums import LoanStatus, LoanType
-from database import get_db_session
-from services.loan_service import (
+from finance_tracker.models.models import LoanDB
+from finance_tracker.models.enums import LoanStatus, LoanType
+from finance_tracker.database import get_db_session
+from finance_tracker.services.loan_service import (
     get_all_loans,
     delete_loan
 )
-from services.loan_statistics_service import (
+from finance_tracker.services.loan_statistics_service import (
     get_summary_statistics,
     get_monthly_burden_statistics
 )
-from services.loan_service import (
+from finance_tracker.services.loan_service import (
     create_loan,
     update_loan
 )
-from components.loan_modal import LoanModal
-from views.loan_details_view import LoanDetailsView
-from utils.logger import get_logger
+from finance_tracker.components.loan_modal import LoanModal
+from finance_tracker.views.loan_details_view import LoanDetailsView
+from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
