@@ -93,11 +93,11 @@
 
 #### Acceptance Criteria
 
-1. WHEN приложение запускается первый раз THEN оно SHALL создать директорию `.finance_tracker_data/` в домашней директории пользователя для хранения пользовательских данных
-2. WHEN приложение создаёт файл базы данных THEN он SHALL сохраняться в `~/.finance_tracker_data/finance.db`
-3. WHEN приложение создаёт логи THEN они SHALL сохраняться в `~/.finance_tracker_data/logs/`
-4. WHEN приложение сохраняет настройки THEN файл config.json SHALL находиться в `~/.finance_tracker_data/config.json`
-5. WHEN приложение работает в режиме .exe THEN пользовательские данные SHALL храниться в той же директории `~/.finance_tracker_data/`, а не рядом с .exe файлом
+1. WHEN приложение запускается первый раз THEN оно SHALL создать директорию `.finance_tracker_data/` в корне проекта (режим разработки) или рядом с .exe файлом (режим .exe) для хранения пользовательских данных
+2. WHEN приложение создаёт файл базы данных THEN он SHALL сохраняться в `.finance_tracker_data/finance.db` относительно корня приложения
+3. WHEN приложение создаёт логи THEN они SHALL сохраняться в `.finance_tracker_data/logs/` относительно корня приложения
+4. WHEN приложение сохраняет настройки THEN файл config.json SHALL находиться в `.finance_tracker_data/config.json` относительно корня приложения
+5. WHEN приложение работает в режиме .exe THEN пользовательские данные SHALL храниться в директории `.finance_tracker_data/` рядом с .exe файлом, обеспечивая портативность приложения
 
 ### Requirement 8
 
