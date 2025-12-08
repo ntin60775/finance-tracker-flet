@@ -40,8 +40,9 @@ class MainWindow(ft.Row):
                 # Если приложение собрано PyInstaller
                 base_path = sys._MEIPASS
             else:
-                # Если запускается из исходников
-                base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                # Если запускается из исходников - идём к корню проекта
+                # src/finance_tracker/views/main_window.py -> корень проекта
+                base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             
             icon_path = os.path.join(base_path, 'assets', 'icon.ico')
             if os.path.exists(icon_path):
