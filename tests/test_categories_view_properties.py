@@ -5,7 +5,6 @@ Property-based тесты для CategoriesView.
 """
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
 from hypothesis import given, strategies as st, settings
 
 from finance_tracker.views.categories_view import CategoriesView

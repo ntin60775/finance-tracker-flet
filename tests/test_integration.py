@@ -9,7 +9,7 @@ from datetime import date
 from decimal import Decimal
 
 from finance_tracker.views.home_view import HomeView
-from finance_tracker.models import TransactionType, TransactionCreate, Base
+from finance_tracker.models import TransactionType, TransactionCreate
 from finance_tracker.services.transaction_service import create_transaction, get_transactions_by_date
 @pytest.fixture
 def mock_page():
@@ -33,19 +33,19 @@ def test_create_transaction_flow(db_session, mock_page):
         # Вместо реального клика по кнопке, вызываем callback сохранения напрямую,
         # как это делает TransactionModal
         
-        transaction_data = TransactionCreate(
-            amount=Decimal("500.00"),
-            type=TransactionType.EXPENSE,
-            category_id=1, # Предполагаем, что категория 1 существует (создадим её)
-            description="Test integration",
-            transaction_date=date(2023, 10, 15)
-        )
-        
         # Создаем категорию для теста
         from finance_tracker.models import CategoryDB
         category = CategoryDB(name="Test Cat", type=TransactionType.EXPENSE)
         db_session.add(category)
         db_session.commit()
+        
+        transaction_data = TransactionCreate(
+            amount=Decimal("500.00"),
+            type=TransactionType.EXPENSE,
+            category_id=category.id, # Используем UUID созданной категории
+            description="Test integration",
+            transaction_date=date(2023, 10, 15)
+        )
         
         # Вызываем метод создания (обычно он вызывается из модального окна)
         # В HomeView логика создания находится внутри _on_transaction_save, который передается в Modal

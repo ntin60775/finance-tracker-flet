@@ -24,6 +24,7 @@ from finance_tracker.models import (
     LoanPaymentDB, LoanDB, TransactionDB, CategoryDB,
     PaymentStatus, TransactionType, LoanStatus
 )
+from finance_tracker.utils.validation import validate_uuid_format
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 def get_payments_by_loan(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     status: Optional[PaymentStatus] = None
 ) -> List[LoanPaymentDB]:
     """
@@ -39,7 +40,7 @@ def get_payments_by_loan(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
         status: Статус платежа для фильтрации (опциональное)
 
     Returns:
@@ -51,10 +52,12 @@ def get_payments_by_loan(
 
     Example:
         >>> with get_db_session() as session:
-        ...     payments = get_payments_by_loan(session, loan_id=1)
-        ...     pending = get_payments_by_loan(session, 1, PaymentStatus.PENDING)
+        ...     payments = get_payments_by_loan(session, loan_id="...")
+        ...     pending = get_payments_by_loan(session, "...", PaymentStatus.PENDING)
     """
     try:
+        validate_uuid_format(loan_id, "loan_id")
+        
         # Проверяем существование кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -90,7 +93,7 @@ def get_payments_by_loan(
 
 def create_payment(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     scheduled_date: date,
     principal_amount: Decimal,
     interest_amount: Decimal,
@@ -101,7 +104,7 @@ def create_payment(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
         scheduled_date: Запланированная дата платежа
         principal_amount: Сумма основного долга (>= 0)
         interest_amount: Сумма процентов (>= 0)
@@ -117,7 +120,7 @@ def create_payment(
     Example:
         >>> with get_db_session() as session:
         ...     payment = create_payment(
-        ...         session, loan_id=1,
+        ...         session, loan_id="...",
         ...         scheduled_date=date(2025, 2, 15),
         ...         principal_amount=Decimal('10000.00'),
         ...         interest_amount=Decimal('500.00'),
@@ -125,6 +128,8 @@ def create_payment(
         ...     )
     """
     try:
+        validate_uuid_format(loan_id, "loan_id")
+        
         # Валидация кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -177,7 +182,7 @@ def create_payment(
 
 def update_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     scheduled_date: Optional[date] = None,
     principal_amount: Optional[Decimal] = None,
     interest_amount: Optional[Decimal] = None,
@@ -188,7 +193,7 @@ def update_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа
+        payment_id: ID платежа (UUID)
         scheduled_date: Новая дата платежа (опциональное)
         principal_amount: Новая сумма основного долга (опциональное)
         interest_amount: Новая сумма процентов (опциональное)
@@ -202,6 +207,8 @@ def update_payment(
         SQLAlchemyError: При ошибках работы с БД
     """
     try:
+        validate_uuid_format(payment_id, "payment_id")
+        
         # Получаем платёж
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:
@@ -244,13 +251,13 @@ def update_payment(
         raise
 
 
-def delete_payment(session: Session, payment_id: int) -> bool:
+def delete_payment(session: Session, payment_id: str) -> bool:
     """
     Удаляет платёж (только если статус PENDING или CANCELLED).
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа для удаления
+        payment_id: ID платежа для удаления (UUID)
 
     Returns:
         True, если платёж успешно удалён
@@ -260,6 +267,8 @@ def delete_payment(session: Session, payment_id: int) -> bool:
         SQLAlchemyError: При ошибках работы с БД
     """
     try:
+        validate_uuid_format(payment_id, "payment_id")
+        
         # Получаем платёж
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:
@@ -387,7 +396,7 @@ def get_overdue_statistics(session: Session) -> dict:
 
 def import_payments_from_csv(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     csv_content: str
 ) -> Dict[str, Any]:
     """
@@ -401,7 +410,7 @@ def import_payments_from_csv(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита для импорта платежей
+        loan_id: ID кредита для импорта платежей (UUID)
         csv_content: Содержимое CSV файла в виде строки
 
     Returns:
@@ -421,10 +430,12 @@ def import_payments_from_csv(
         ... 2025-02-15,10000,500
         ... 2025-03-15,10000,450'''
         >>> with get_db_session() as session:
-        ...     result = import_payments_from_csv(session, 1, csv_data)
+        ...     result = import_payments_from_csv(session, "...", csv_data)
         ...     print(f"Импортировано: {result['success_count']}")
     """
     try:
+        validate_uuid_format(loan_id, "loan_id")
+        
         # Проверяем существование кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -583,7 +594,7 @@ def import_payments_from_csv(
 
 def early_repayment_full(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     repayment_amount: Decimal,
     repayment_date: date
 ) -> dict:
@@ -598,7 +609,7 @@ def early_repayment_full(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита для полного погашения
+        loan_id: ID кредита для полного погашения (UUID)
         repayment_amount: Сумма полного погашения (> 0)
         repayment_date: Дата внесения полного погашения
 
@@ -616,11 +627,13 @@ def early_repayment_full(
     Example:
         >>> with get_db_session() as session:
         ...     result = early_repayment_full(
-        ...         session, loan_id=1, repayment_amount=Decimal('50000.00'), repayment_date=date.today()
+        ...         session, loan_id="...", repayment_amount=Decimal('50000.00'), repayment_date=date.today()
         ...     )
         ...     print(f"Отменено платежей: {result['cancelled_payments_count']}")
     """
     try:
+        validate_uuid_format(loan_id, "loan_id")
+        
         # Валидация входных данных
         # Проверяем существование кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
@@ -706,7 +719,7 @@ def early_repayment_full(
 
 def early_repayment_partial(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     repayment_amount: Decimal,
     repayment_date: date
 ) -> dict:
@@ -721,7 +734,7 @@ def early_repayment_partial(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита для частичного погашения
+        loan_id: ID кредита для частичного погашения (UUID)
         repayment_amount: Сумма частичного погашения (> 0)
         repayment_date: Дата внесения частичного погашения
 
@@ -740,11 +753,13 @@ def early_repayment_partial(
     Example:
         >>> with get_db_session() as session:
         ...     result = early_repayment_partial(
-        ...         session, loan_id=1, repayment_amount=Decimal('5000.00'), repayment_date=date.today()
+        ...         session, loan_id="...", repayment_amount=Decimal('5000.00'), repayment_date=date.today()
         ...     )
         ...     print(f"Новый остаток: {result['new_balance']}")
     """
     try:
+        validate_uuid_format(loan_id, "loan_id")
+        
         # Валидация входных данных
         # Проверяем существование кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
@@ -865,7 +880,7 @@ def get_payments_by_date(
 
 def execute_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     transaction_date: Optional[date] = None
 ) -> LoanPaymentDB:
     """
@@ -876,7 +891,7 @@ def execute_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа в графике
+        payment_id: ID платежа в графике (UUID)
         transaction_date: Дата исполнения (по умолчанию сегодня)
 
     Returns:
@@ -888,10 +903,12 @@ def execute_payment(
 
     Example:
         >>> with get_db_session() as session:
-        ...     payment = execute_payment(session, payment_id=1)
+        ...     payment = execute_payment(session, payment_id="...")
         ...     print(f"Платёж исполнен: {payment.executed_amount}")
     """
     try:
+        validate_uuid_format(payment_id, "payment_id")
+        
         # Получаем платёж для получения суммы
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:

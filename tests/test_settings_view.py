@@ -9,7 +9,7 @@
 - Сохранение настроек
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
+from unittest.mock import Mock, patch
 import flet as ft
 
 from finance_tracker.views.settings_view import SettingsView

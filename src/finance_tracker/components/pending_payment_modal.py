@@ -4,6 +4,7 @@
 
 import datetime
 from typing import Optional, Callable
+from decimal import Decimal
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -27,7 +28,7 @@ class PendingPaymentModal:
         self,
         session: Session,
         on_save: Callable[[PendingPaymentCreate], None],
-        on_update: Optional[Callable[[int, PendingPaymentUpdate], None]] = None,
+        on_update: Optional[Callable[[str, PendingPaymentUpdate], None]] = None,
     ):
         """
         Инициализация модального окна.
@@ -41,7 +42,7 @@ class PendingPaymentModal:
         self.on_save = on_save
         self.on_update = on_update
         self.page: Optional[ft.Page] = None
-        self.edit_payment_id: Optional[int] = None
+        self.edit_payment_id: Optional[str] = None
         self.planned_date: Optional[datetime.date] = None
 
         # UI Controls
@@ -298,8 +299,8 @@ class PendingPaymentModal:
             return
 
         try:
-            amount = float(self.amount_field.value)
-            category_id = int(self.category_dropdown.value)
+            amount = Decimal(self.amount_field.value)
+            category_id = self.category_dropdown.value
             description = self.description_field.value.strip()
             priority = PendingPaymentPriority(self.priority_dropdown.value)
             planned_date = self.planned_date if self.has_date_checkbox.value else None

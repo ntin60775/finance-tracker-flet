@@ -8,6 +8,7 @@
 
 import datetime
 from typing import Optional, Callable
+from decimal import Decimal
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -31,7 +32,7 @@ class ExecutePendingPaymentModal:
     def __init__(
         self,
         session: Session,
-        on_execute: Callable[[int, float, datetime.date], None],
+        on_execute: Callable[[str, Decimal, datetime.date], None],
     ):
         """
         Инициализация модального окна.
@@ -212,7 +213,7 @@ class ExecutePendingPaymentModal:
             return
 
         try:
-            executed_amount = float(self.amount_field.value)
+            executed_amount = Decimal(self.amount_field.value)
             executed_date = self.current_date
 
             self.on_execute(self.payment.id, executed_amount, executed_date)

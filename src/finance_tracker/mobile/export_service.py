@@ -5,12 +5,10 @@
 """
 
 import json
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Optional
 from datetime import datetime
 
 from finance_tracker.config import settings
-from finance_tracker.database import get_db_session
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -5,9 +5,8 @@
 """
 
 import json
-from typing import Dict, Any
+from typing import Dict
 
-from finance_tracker.database import get_db_session
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +37,7 @@ class ImportService:
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             logger.error(f"Файл импорта не найден: {filepath}")
             raise
         except json.JSONDecodeError as e:

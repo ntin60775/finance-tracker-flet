@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from finance_tracker.models import LenderDB, LenderType, LoanDB, LoanStatus
 from finance_tracker.utils.cache import cache
+from finance_tracker.utils.validation import validate_uuid_format
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -58,17 +59,18 @@ def get_all_lenders(
         raise
 
 
-def get_lender_by_id(session: Session, lender_id: int) -> Optional[LenderDB]:
+def get_lender_by_id(session: Session, lender_id: str) -> Optional[LenderDB]:
     """
     Получает займодателя по ID.
 
     Args:
         session: Активная сессия БД
-        lender_id: ID займодателя
+        lender_id: ID займодателя (UUID)
 
     Returns:
         Объект LenderDB или None, если займодатель не найден
     """
+    validate_uuid_format(lender_id, "lender_id")
     try:
         return session.query(LenderDB).filter_by(id=lender_id).first()
     except SQLAlchemyError as e:
@@ -135,7 +137,7 @@ def create_lender(
 
 def update_lender(
     session: Session,
-    lender_id: int,
+    lender_id: str,
     name: Optional[str] = None,
     lender_type: Optional[LenderType] = None,
     description: Optional[str] = None,
@@ -146,6 +148,7 @@ def update_lender(
     Обновляет информацию о займодателе.
     Инвалидирует кэш займодателей.
     """
+    validate_uuid_format(lender_id, "lender_id")
     try:
         # Получаем займодателя
         lender = session.query(LenderDB).filter_by(id=lender_id).first()
@@ -202,11 +205,12 @@ def update_lender(
         raise
 
 
-def delete_lender(session: Session, lender_id: int) -> bool:
+def delete_lender(session: Session, lender_id: str) -> bool:
     """
     Удаляет займодателя после проверки активных кредитов.
     Инвалидирует кэш займодателей.
     """
+    validate_uuid_format(lender_id, "lender_id")
     try:
         # Получаем займодателя
         lender = session.query(LenderDB).filter_by(id=lender_id).first()

@@ -5,9 +5,9 @@ Property-based тесты для проверки производительно
 
 from datetime import date
 import time
-import pytest
 from finance_tracker.services.transaction_service import get_total_balance, get_month_stats
 from finance_tracker.models import TransactionDB, TransactionType
+from sqlalchemy.orm import sessionmaker, Session
 
 def test_initialization_performance():
     """
@@ -18,8 +18,6 @@ def test_initialization_performance():
     
     # Импортируем основные модули (имитация запуска)
     from finance_tracker import config
-    from finance_tracker import database
-    from finance_tracker import models
     
     # Создаем конфигурацию
     config.Config()

@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch
 import flet as ft
 import datetime
+import uuid
 
 from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
 from finance_tracker.models import (
@@ -27,9 +28,13 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.session = Mock()
         self.on_save = Mock()
 
+        # Generate UUIDs
+        self.cat_id_1 = str(uuid.uuid4())
+        self.cat_id_2 = str(uuid.uuid4())
+
         # Мокируем загрузку категорий
-        self.expense_categories = [CategoryDB(id=1, name="Rent", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
-        self.income_categories = [CategoryDB(id=2, name="Freelance", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
+        self.expense_categories = [CategoryDB(id=self.cat_id_1, name="Rent", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
+        self.income_categories = [CategoryDB(id=self.cat_id_2, name="Freelance", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
         self.mock_get_all_categories.side_effect = lambda session, t_type: (
             self.expense_categories if t_type == TransactionType.EXPENSE else self.income_categories
         )
@@ -85,7 +90,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.modal.open(self.page)
 
         self.modal.amount_field.value = "500"
-        self.modal.category_dropdown.value = "1"
+        self.modal.category_dropdown.value = self.cat_id_1
         self.modal.description_field.value = "One-time payment"
 
         self.modal._save(None)
@@ -95,7 +100,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
         
         self.assertIsInstance(called_arg, PlannedTransactionCreate)
         self.assertEqual(called_arg.amount, 500)
-        self.assertEqual(called_arg.category_id, 1)
+        self.assertEqual(called_arg.category_id, self.cat_id_1)
         self.assertIsNone(called_arg.recurrence_rule)
         self.assertFalse(self.modal.dialog.open)
         
@@ -105,7 +110,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
         # Заполняем основные поля
         self.modal.amount_field.value = "250"
-        self.modal.category_dropdown.value = "1"
+        self.modal.category_dropdown.value = self.cat_id_1
         
         # Настраиваем повторение
         self.modal.recurrence_type_dropdown.value = RecurrenceType.MONTHLY.value
@@ -128,7 +133,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
         
         # Заполняем основные поля
         self.modal.amount_field.value = "100"
-        self.modal.category_dropdown.value = "1"
+        self.modal.category_dropdown.value = self.cat_id_1
         
         # Некорректный интервал
         self.modal.recurrence_type_dropdown.value = RecurrenceType.CUSTOM.value

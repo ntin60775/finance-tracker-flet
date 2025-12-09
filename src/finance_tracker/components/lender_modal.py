@@ -26,7 +26,7 @@ class LenderModal:
         self,
         session: Session,
         on_save: Callable[[str, LenderType, Optional[str], Optional[str], Optional[str]], None],
-        on_update: Optional[Callable[[int, str, LenderType, Optional[str], Optional[str], Optional[str]], None]] = None,
+        on_update: Optional[Callable[[str, str, LenderType, Optional[str], Optional[str], Optional[str]], None]] = None,
     ):
         """
         Инициализация модального окна.
@@ -42,7 +42,7 @@ class LenderModal:
         self.on_save = on_save
         self.on_update = on_update
         self.page: Optional[ft.Page] = None
-        self.edit_lender_id: Optional[int] = None
+        self.edit_lender_id: Optional[str] = None
 
         # UI Controls
         self.name_field = ft.TextField(

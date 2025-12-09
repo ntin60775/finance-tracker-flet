@@ -10,6 +10,7 @@
 
 import datetime
 from typing import Optional, Callable
+from decimal import Decimal
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -474,7 +475,7 @@ class PlannedTransactionModal:
 
         try:
             selected_type = list(self.type_segment.selected)[0]
-            amount = float(self.amount_field.value)
+            amount = Decimal(self.amount_field.value)
 
             # Build recurrence rule (if periodic)
             recurrence_rule = self._build_recurrence_rule()
@@ -488,7 +489,7 @@ class PlannedTransactionModal:
             planned_tx_data = PlannedTransactionCreate(
                 amount=amount,
                 type=TransactionType(selected_type),
-                category_id=int(self.category_dropdown.value),
+                category_id=self.category_dropdown.value,
                 description=self.description_field.value or None,
                 start_date=self.current_start_date,
                 end_date=end_date,

@@ -12,6 +12,7 @@
 import flet as ft
 from typing import Optional, List
 from datetime import date
+from decimal import Decimal
 
 from finance_tracker.models.models import (
     PendingPaymentDB,
@@ -460,7 +461,7 @@ class PendingPaymentsView(ft.Column):
             logger.error(f"Ошибка создания отложенного платежа: {e}")
             self.show_error(f"Ошибка создания: {str(e)}")
 
-    def on_update_payment(self, payment_id: int, payment_data: PendingPaymentUpdate):
+    def on_update_payment(self, payment_id: str, payment_data: PendingPaymentUpdate):
         """Callback обновления платежа."""
         try:
             update_pending_payment(self.session, payment_id, payment_data)
@@ -472,7 +473,7 @@ class PendingPaymentsView(ft.Column):
             logger.error(f"Ошибка обновления отложенного платежа: {e}")
             self.show_error(f"Ошибка обновления: {str(e)}")
 
-    def on_execute_payment(self, payment_id: int, executed_amount: float, executed_date: date):
+    def on_execute_payment(self, payment_id: str, executed_amount: Decimal, executed_date: date):
         """Callback исполнения платежа."""
         try:
             execute_data = PendingPaymentExecute(

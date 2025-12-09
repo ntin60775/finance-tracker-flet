@@ -10,12 +10,11 @@
 - Обновление статистики
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, MagicMock, ANY
 from decimal import Decimal
 from datetime import date, timedelta
 from contextlib import contextmanager
 
-import pytest
 from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -37,7 +36,7 @@ from finance_tracker.services.pending_payment_service import (
     get_all_pending_payments
 )
 from test_view_base import ViewTestBase
-from test_factories import create_test_pending_payment, create_test_category
+from test_factories import create_test_pending_payment
 
 
 class TestPendingPaymentsView(ViewTestBase):

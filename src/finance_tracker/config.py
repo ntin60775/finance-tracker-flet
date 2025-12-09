@@ -11,7 +11,6 @@
 """
 
 import os
-import sys
 import json
 import logging
 from pathlib import Path

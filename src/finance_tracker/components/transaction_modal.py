@@ -226,7 +226,7 @@ class TransactionModal:
         transaction_data = TransactionCreate(
             amount=amount,
             type=TransactionType(selected_type),
-            category_id=int(self.category_dropdown.value),
+            category_id=self.category_dropdown.value,
             description=self.description_field.value,
             transaction_date=self.current_date
         )

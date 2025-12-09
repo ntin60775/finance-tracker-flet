@@ -30,8 +30,8 @@ class LoanModal:
     def __init__(
         self,
         session: Session,
-        on_save: Callable[[int, str, LoanType, Decimal, datetime.date, Optional[Decimal], Optional[datetime.date], Optional[str], Optional[str]], None],
-        on_update: Optional[Callable[[int, Optional[str], Optional[LoanType], Optional[Decimal], Optional[datetime.date], Optional[Decimal], Optional[datetime.date], Optional[str], Optional[str]], None]] = None,
+        on_save: Callable[[str, str, LoanType, Decimal, datetime.date, Optional[Decimal], Optional[datetime.date], Optional[str], Optional[str]], None],
+        on_update: Optional[Callable[[str, Optional[str], Optional[LoanType], Optional[Decimal], Optional[datetime.date], Optional[Decimal], Optional[datetime.date], Optional[str], Optional[str]], None]] = None,
     ):
         """
         Инициализация модального окна.
@@ -49,7 +49,7 @@ class LoanModal:
         self.on_save = on_save
         self.on_update = on_update
         self.page: Optional[ft.Page] = None
-        self.edit_loan_id: Optional[int] = None
+        self.edit_loan_id: Optional[str] = None
         self.issue_date: Optional[datetime.date] = None
         self.end_date: Optional[datetime.date] = None
 
@@ -354,7 +354,7 @@ class LoanModal:
 
         # Собираем данные
         return {
-            "lender_id": int(self.lender_dropdown.value),
+            "lender_id": self.lender_dropdown.value,
             "name": self.name_field.value.strip(),
             "loan_type": LoanType(self.type_dropdown.value),
             "amount": amount,

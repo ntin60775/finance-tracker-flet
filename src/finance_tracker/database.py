@@ -13,15 +13,16 @@ from contextlib import contextmanager
 from typing import Generator
 import logging
 
-from sqlalchemy import create_engine, Engine
+from sqlalchemy import create_engine, Engine, inspect
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
+import os
 
 from finance_tracker.config import settings
 
 # Imports will be available after Task 2.1 and 3.2
 # from models import Base, CategoryDB, TransactionType
-# from services.category_service import init_loan_categories
+from finance_tracker.services.category_service import init_loan_categories
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -110,7 +111,6 @@ def init_db() -> Engine:
     
     # Import inside function
     from finance_tracker.models import Base
-    # from finance_tracker.services.category_service import init_loan_categories
     
     try:
         # Получаем путь к БД из конфигурации
@@ -125,6 +125,33 @@ def init_db() -> Engine:
             connect_args={"check_same_thread": False},  # Для SQLite
             echo=False
         )
+
+        # Проверка схемы на устаревший Integer ID
+        try:
+            inspector = inspect(_engine)
+            if inspector.has_table("categories"):
+                columns = inspector.get_columns("categories")
+                id_column = next((c for c in columns if c["name"] == "id"), None)
+                if id_column:
+                    type_name = str(id_column["type"]).upper()
+                    if "INT" in type_name:
+                        logger.warning("Обнаружена устаревшая схема (Integer ID). Пересоздание базы данных...")
+                        _engine.dispose()
+                        if os.path.exists(db_path):
+                            try:
+                                os.remove(db_path)
+                                logger.info("Старая база данных удалена.")
+                            except PermissionError:
+                                logger.error("Не удалось удалить файл БД (занят другим процессом).")
+                        
+                        # Пересоздаем engine
+                        _engine = create_engine(
+                            database_url,
+                            connect_args={"check_same_thread": False},
+                            echo=False
+                        )
+        except Exception as e:
+            logger.warning(f"Ошибка при проверке схемы БД: {e}")
         
         # Создаём все таблицы на основе моделей
         Base.metadata.create_all(bind=_engine)
@@ -140,7 +167,7 @@ def init_db() -> Engine:
         # Инициализируем предопределённые категории
         with get_db_session() as session:
             init_default_categories(session)
-            # init_loan_categories(session) # Will be uncommented when service exists
+            init_loan_categories(session)
 
         logger.info("База данных успешно инициализирована")
         return _engine

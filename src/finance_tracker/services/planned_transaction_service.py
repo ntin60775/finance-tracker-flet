@@ -13,6 +13,7 @@ import logging
 from typing import List, Optional
 from datetime import date
 from calendar import monthrange
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -29,7 +30,7 @@ from finance_tracker.models.enums import (
     TransactionType,
     OccurrenceStatus
 )
-
+from finance_tracker.utils.validation import validate_uuid_format
 from finance_tracker.services.recurrence_service import generate_occurrences_for_period
 
 # Настройка логирования
@@ -87,6 +88,7 @@ def create_planned_transaction(
         ...     )
     """
     # Валидация: проверка существования категории (Fail Fast)
+    validate_uuid_format(planned_tx.category_id, "category_id")
     category = session.query(CategoryDB).filter_by(id=planned_tx.category_id).first()
     if not category:
         error_msg = f"Категория с ID {planned_tx.category_id} не найдена"
@@ -191,7 +193,7 @@ def create_planned_transaction(
 
 def update_planned_transaction(
     session: Session,
-    planned_tx_id: int,
+    planned_tx_id: str,
     planned_tx: PlannedTransactionCreate
 ) -> Optional[PlannedTransactionDB]:
     """
@@ -203,7 +205,7 @@ def update_planned_transaction(
     
     Args:
         session: Активная сессия БД для выполнения операций
-        planned_tx_id: ID плановой транзакции для обновления
+        planned_tx_id: ID плановой транзакции для обновления (UUID)
         planned_tx: Новые данные для плановой транзакции
     
     Returns:
@@ -224,6 +226,8 @@ def update_planned_transaction(
         ...     )
         ...     updated_tx = update_planned_transaction(session, 1, updated_data)
     """
+    validate_uuid_format(planned_tx_id, "planned_tx_id")
+    
     # Валидация: проверка существования плановой транзакции (Fail Fast)
     existing_tx = session.query(PlannedTransactionDB).filter_by(id=planned_tx_id).first()
     if not existing_tx:
@@ -232,6 +236,7 @@ def update_planned_transaction(
         raise ValueError(error_msg)
     
     # Валидация: проверка существования категории (Fail Fast)
+    validate_uuid_format(planned_tx.category_id, "category_id")
     category = session.query(CategoryDB).filter_by(id=planned_tx.category_id).first()
     if not category:
         error_msg = f"Категория с ID {planned_tx.category_id} не найдена"
@@ -279,7 +284,7 @@ def update_planned_transaction(
 
 def deactivate_planned_transaction(
     session: Session,
-    planned_tx_id: int
+    planned_tx_id: str
 ) -> bool:
     """
     Деактивирует плановую транзакцию (прекращает генерацию вхождений).
@@ -290,7 +295,7 @@ def deactivate_planned_transaction(
     
     Args:
         session: Активная сессия БД для выполнения операций
-        planned_tx_id: ID плановой транзакции для деактивации
+        planned_tx_id: ID плановой транзакции для деактивации (UUID)
     
     Returns:
         True, если транзакция успешно деактивирована
@@ -305,6 +310,8 @@ def deactivate_planned_transaction(
         ...     if success:
         ...         print("Плановая транзакция деактивирована")
     """
+    validate_uuid_format(planned_tx_id, "planned_tx_id")
+    
     # Валидация: проверка существования плановой транзакции (Fail Fast)
     planned_tx = session.query(PlannedTransactionDB).filter_by(id=planned_tx_id).first()
     if not planned_tx:
@@ -331,7 +338,7 @@ def deactivate_planned_transaction(
 
 def delete_planned_transaction(
     session: Session,
-    planned_tx_id: int,
+    planned_tx_id: str,
     delete_actual_transactions: bool = False
 ) -> bool:
     """
@@ -345,7 +352,7 @@ def delete_planned_transaction(
     
     Args:
         session: Активная сессия БД для выполнения операций
-        planned_tx_id: ID плановой транзакции для удаления
+        planned_tx_id: ID плановой транзакции для удаления (UUID)
         delete_actual_transactions: Удалять ли связанные фактические транзакции
     
     Returns:
@@ -363,6 +370,8 @@ def delete_planned_transaction(
         ...     # Удалить план И все фактические транзакции
         ...     success = delete_planned_transaction(session, 2, delete_actual_transactions=True)
     """
+    validate_uuid_format(planned_tx_id, "planned_tx_id")
+    
     # Валидация: проверка существования плановой транзакции (Fail Fast)
     planned_tx = session.query(PlannedTransactionDB).filter_by(id=planned_tx_id).first()
     if not planned_tx:
@@ -444,21 +453,6 @@ def get_all_planned_transactions(
     
     Raises:
         SQLAlchemyError: При ошибках работы с БД
-    
-    Example:
-        >>> with get_db_session() as session:
-        ...     # Получить все активные плановые транзакции
-        ...     active_txs = get_all_planned_transactions(session)
-        ...     
-        ...     # Получить все плановые транзакции (включая неактивные)
-        ...     all_txs = get_all_planned_transactions(session, active_only=False)
-        ...     
-        ...     # Получить только активные доходы
-        ...     income_txs = get_all_planned_transactions(
-        ...         session,
-        ...         active_only=True,
-        ...         transaction_type=TransactionType.INCOME
-        ...     )
     """
     try:
         # Базовый запрос
@@ -548,22 +542,24 @@ def get_pending_occurrences(
 
 def execute_occurrence(
     session: Session,
-    occurrence_id: int,
+    occurrence_id: str,
     execution_date: date,
-    amount: float
+    amount: Decimal
 ) -> TransactionDB:
     """
     Исполняет плановое вхождение, создавая фактическую транзакцию.
     
     Args:
         session: Активная сессия БД
-        occurrence_id: ID вхождения
+        occurrence_id: ID вхождения (UUID)
         execution_date: Дата фактического исполнения
         amount: Фактическая сумма
         
     Returns:
         Созданная транзакция (TransactionDB)
     """
+    validate_uuid_format(occurrence_id, "occurrence_id")
+    
     occurrence = session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
     if not occurrence:
         raise ValueError(f"Вхождение {occurrence_id} не найдено")
@@ -583,9 +579,17 @@ def execute_occurrence(
         planned_occurrence_id=occurrence.id
     )
     session.add(transaction)
+    session.flush()  # Get ID
     
     # Обновляем статус вхождения
     occurrence.status = OccurrenceStatus.EXECUTED
+    occurrence.executed_date = execution_date
+    occurrence.executed_amount = amount
+    occurrence.actual_transaction_id = transaction.id
+    
+    session.commit()
+    session.refresh(transaction)
+    session.refresh(occurrence)
     
     # Если это было однократное вхождение без повторений, можно пометить саму транзакцию как завершенную?
     # Пока оставляем как есть, is_active влияет на генерацию новых.
@@ -596,23 +600,27 @@ def execute_occurrence(
 
 def skip_occurrence(
     session: Session,
-    occurrence_id: int
+    occurrence_id: str
 ) -> PlannedOccurrenceDB:
     """
     Пропускает плановое вхождение.
     
     Args:
         session: Активная сессия БД
-        occurrence_id: ID вхождения
+        occurrence_id: ID вхождения (UUID)
         
     Returns:
         Обновленное вхождение
     """
+    validate_uuid_format(occurrence_id, "occurrence_id")
+    
     occurrence = session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
     if not occurrence:
         raise ValueError(f"Вхождение {occurrence_id} не найдено")
         
     occurrence.status = OccurrenceStatus.SKIPPED
+    occurrence.skipped_date = date.today()
+    
     logger.info(f"Пропущено плановое вхождение {occurrence_id}")
     return occurrence
 

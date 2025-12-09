@@ -22,6 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
 
 from finance_tracker.models import TransactionDB, TransactionCreate, TransactionType, TransactionUpdate
+from finance_tracker.utils.validation import validate_uuid_format
 
 
 # Настройка логирования
@@ -144,10 +145,7 @@ def create_transaction(session: Session, transaction: TransactionCreate) -> Tran
             logger.error(error_msg)
             raise ValueError(error_msg)
         
-        if transaction.category_id <= 0:
-            error_msg = "Некорректный ID категории"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+        validate_uuid_format(transaction.category_id, "category_id")
         
         # Создаём объект БД из Pydantic модели
         db_transaction = TransactionDB(**transaction.model_dump())
@@ -178,7 +176,7 @@ def create_transaction(session: Session, transaction: TransactionCreate) -> Tran
 
 def update_transaction(
     session: Session, 
-    transaction_id: int, 
+    transaction_id: str, 
     transaction: TransactionUpdate
 ) -> Optional[TransactionDB]:
     """
@@ -186,7 +184,7 @@ def update_transaction(
     
     Args:
         session: Активная сессия БД
-        transaction_id: ID транзакции для обновления
+        transaction_id: ID транзакции для обновления (UUID)
         transaction: Новые данные транзакции (Pydantic модель)
         
     Returns:
@@ -198,6 +196,7 @@ def update_transaction(
         SQLAlchemyError: При ошибках работы с базой данных
     """
     try:
+        validate_uuid_format(transaction_id, "transaction_id")
         logger.debug(f"Обновление транзакции ID: {transaction_id}")
         
         # Ищем транзакцию
@@ -216,6 +215,7 @@ def update_transaction(
             db_transaction.amount = transaction.amount
             
         if transaction.category_id is not None:
+            validate_uuid_format(transaction.category_id, "category_id")
             db_transaction.category_id = transaction.category_id
             
         if transaction.description is not None:
@@ -250,13 +250,13 @@ def update_transaction(
         raise
 
 
-def delete_transaction(session: Session, transaction_id: int) -> bool:
+def delete_transaction(session: Session, transaction_id: str) -> bool:
     """
     Удаляет транзакцию с проверкой существования.
     
     Args:
         session: Активная сессия БД
-        transaction_id: ID транзакции для удаления
+        transaction_id: ID транзакции для удаления (UUID)
         
     Returns:
         True если транзакция успешно удалена, False если не найдена
@@ -265,6 +265,7 @@ def delete_transaction(session: Session, transaction_id: int) -> bool:
         SQLAlchemyError: При ошибках работы с базой данных
     """
     try:
+        validate_uuid_format(transaction_id, "transaction_id")
         logger.debug(f"Удаление транзакции ID: {transaction_id}")
         
         # Ищем транзакцию

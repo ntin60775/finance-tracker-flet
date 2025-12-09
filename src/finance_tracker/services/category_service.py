@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from finance_tracker.models import CategoryDB, TransactionType
 from finance_tracker.utils.cache import cache
+from finance_tracker.utils.validation import validate_uuid_format
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -121,23 +122,25 @@ def create_category(
 
 def update_category(
     session: Session,
-    category_id: int,
+    category_id: str,
     name: str
 ) -> CategoryDB:
     """
     Обновляет название пользовательской категории.
     Инвалидирует кэш категорий.
     """
-    # Валидация входных данных (Fail Fast)
-    if not name or not name.strip():
-        error_msg = "Название категории не может быть пустым"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-
-    # Очищаем название от пробелов
-    name = name.strip()
-
     try:
+        validate_uuid_format(category_id, "category_id")
+        
+        # Валидация входных данных (Fail Fast)
+        if not name or not name.strip():
+            error_msg = "Название категории не может быть пустым"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Очищаем название от пробелов
+        name = name.strip()
+
         # Получаем категорию
         category = session.query(CategoryDB).filter_by(id=category_id).first()
 
@@ -198,13 +201,15 @@ def update_category(
 
 def delete_category(
     session: Session,
-    category_id: int
+    category_id: str
 ) -> bool:
     """
     Удаляет пользовательскую категорию с проверкой is_system.
     Инвалидирует кэш категорий.
     """
     try:
+        validate_uuid_format(category_id, "category_id")
+        
         # Получаем категорию
         category = session.query(CategoryDB).filter_by(id=category_id).first()
         

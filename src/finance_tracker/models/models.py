@@ -12,6 +12,7 @@ from datetime import datetime
 from datetime import date as date_type
 from typing import Optional
 from decimal import Decimal
+import uuid
 
 from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, Enum as SQLEnum, Boolean, ForeignKey, Index
 from sqlalchemy.orm import relationship, DeclarativeBase
@@ -34,19 +35,21 @@ class CategoryDB(Base):
     Справочник категорий для классификации транзакций.
 
     Attributes:
-        id: Уникальный идентификатор категории
+        id: Уникальный идентификатор категории (UUID)
         name: Название категории (уникальное)
         type: Тип категории (доход или расход)
         is_system: Признак системной категории (нельзя удалить)
         created_at: Дата создания категории
+        updated_at: Дата последнего обновления
     """
     __tablename__ = "categories"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     name = Column(String, nullable=False, unique=True)
     type = Column(SQLEnum(TransactionType), nullable=False)
     is_system = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Связи
     transactions = relationship("TransactionDB", back_populates="category")
@@ -62,9 +65,9 @@ class PlannedTransactionDB(Base):
     Для периодических транзакций генерирует вхождения (PlannedOccurrenceDB).
 
     Attributes:
-        id: Уникальный идентификатор плановой транзакции
+        id: Уникальный идентификатор плановой транзакции (UUID)
         amount: Плановая сумма транзакции
-        category_id: Ссылка на категорию из справочника
+        category_id: Ссылка на категорию из справочника (UUID)
         description: Описание плановой транзакции
         type: Тип транзакции (доход или расход)
         start_date: Дата начала действия плана
@@ -75,9 +78,9 @@ class PlannedTransactionDB(Base):
     """
     __tablename__ = "planned_transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     amount = Column(Numeric(10, 2), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id"), nullable=False)
     description = Column(String)
     type = Column(SQLEnum(TransactionType), nullable=False, index=True)
     start_date = Column(Date, nullable=False, index=True)
@@ -100,8 +103,8 @@ class RecurrenceRuleDB(Base):
     вхождения плановой транзакции.
 
     Attributes:
-        id: Уникальный идентификатор правила
-        planned_transaction_id: Ссылка на плановую транзакцию (1:1)
+        id: Уникальный идентификатор правила (UUID)
+        planned_transaction_id: Ссылка на плановую транзакцию (1:1) (UUID)
         recurrence_type: Тип повторения (ежедневно, еженедельно и т.д.)
         interval: Интервал повторения (каждые N единиц)
         interval_unit: Единица интервала (дни, недели, месяцы, годы)
@@ -110,11 +113,13 @@ class RecurrenceRuleDB(Base):
         end_condition_type: Тип условия окончания
         end_date: Дата окончания (для UNTIL_DATE)
         occurrences_count: Количество повторений (для AFTER_COUNT)
+        created_at: Дата создания записи
+        updated_at: Дата последнего обновления
     """
     __tablename__ = "recurrence_rules"
 
-    id = Column(Integer, primary_key=True, index=True)
-    planned_transaction_id = Column(Integer, ForeignKey("planned_transactions.id"), nullable=False, unique=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    planned_transaction_id = Column(String(36), ForeignKey("planned_transactions.id"), nullable=False, unique=True)
     recurrence_type = Column(SQLEnum(RecurrenceType), nullable=False, default=RecurrenceType.NONE)
     interval = Column(Integer, nullable=True)
     interval_unit = Column(SQLEnum(IntervalUnit), nullable=True)
@@ -123,6 +128,8 @@ class RecurrenceRuleDB(Base):
     end_condition_type = Column(SQLEnum(EndConditionType), nullable=False, default=EndConditionType.NEVER)
     end_date = Column(Date, nullable=True)
     occurrences_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Связи
     planned_transaction = relationship("PlannedTransactionDB", back_populates="recurrence_rule")
@@ -136,17 +143,18 @@ class PlannedOccurrenceDB(Base):
     Каждое вхождение соответствует одной дате исполнения плановой транзакции.
 
     Attributes:
-        id: Уникальный идентификатор вхождения
-        planned_transaction_id: Ссылка на шаблон плановой транзакции
+        id: Уникальный идентификатор вхождения (UUID)
+        planned_transaction_id: Ссылка на шаблон плановой транзакции (UUID)
         occurrence_date: Дата вхождения (когда должна быть выполнена)
         amount: Сумма для этого вхождения (по умолчанию = плановая)
         status: Статус вхождения (pending, executed, skipped)
-        actual_transaction_id: Ссылка на фактическую транзакцию (после исполнения)
+        actual_transaction_id: Ссылка на фактическую транзакцию (после исполнения) (UUID)
         executed_date: Фактическая дата исполнения
         executed_amount: Фактическая сумма исполнения
         skipped_date: Дата пропуска
         skip_reason: Причина пропуска
         created_at: Дата создания записи
+        updated_at: Дата последнего обновления
         
     Properties (aliases и вычисляемые поля):
         scheduled_date: Alias для occurrence_date (обратная совместимость)
@@ -155,17 +163,18 @@ class PlannedOccurrenceDB(Base):
     """
     __tablename__ = "planned_occurrences"
 
-    id = Column(Integer, primary_key=True, index=True)
-    planned_transaction_id = Column(Integer, ForeignKey("planned_transactions.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    planned_transaction_id = Column(String(36), ForeignKey("planned_transactions.id"), nullable=False)
     occurrence_date = Column(Date, nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(OccurrenceStatus), default=OccurrenceStatus.PENDING, index=True)
-    actual_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+    actual_transaction_id = Column(String(36), ForeignKey("transactions.id"), nullable=True)
     executed_date = Column(Date, nullable=True)
     executed_amount = Column(Numeric(10, 2), nullable=True)
     skipped_date = Column(Date, nullable=True)
     skip_reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Связи
     planned_transaction = relationship("PlannedTransactionDB", back_populates="occurrences")
@@ -257,13 +266,13 @@ class TransactionDB(Base):
     Это основная модель для хранения всех реальных финансовых операций.
 
     Attributes:
-        id: Уникальный идентификатор транзакции
+        id: Уникальный идентификатор транзакции (UUID)
         amount: Сумма транзакции (положительное число)
         type: Тип транзакции (доход или расход)
-        category_id: Ссылка на категорию из справочника
+        category_id: Ссылка на категорию из справочника (UUID)
         description: Описание транзакции (необязательное)
         transaction_date: Дата совершения транзакции
-        planned_occurrence_id: Ссылка на плановое вхождение (если создана из плана)
+        planned_occurrence_id: Ссылка на плановое вхождение (если создана из плана) (UUID)
         created_at: Дата создания записи
         updated_at: Дата последнего обновления
         
@@ -272,13 +281,13 @@ class TransactionDB(Base):
     """
     __tablename__ = "transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     type = Column(SQLEnum(TransactionType), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id"), nullable=False)
     description = Column(String)
     transaction_date = Column(Date, nullable=False, index=True)
-    planned_occurrence_id = Column(Integer, ForeignKey("planned_occurrences.id", ondelete="SET NULL"), nullable=True)
+    planned_occurrence_id = Column(String(36), ForeignKey("planned_occurrences.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -321,7 +330,7 @@ class LenderDB(Base):
     Займодатель (банк, микрофинансовая организация или физическое лицо).
 
     Attributes:
-        id: Уникальный идентификатор
+        id: Уникальный идентификатор (UUID)
         name: Название займодателя
         lender_type: Тип займодателя (основное поле)
         type: Alias для lender_type (обратная совместимость)
@@ -334,7 +343,7 @@ class LenderDB(Base):
     """
     __tablename__ = "lenders"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     name = Column(String, nullable=False, unique=True)
     lender_type = Column(SQLEnum(LenderType), default=LenderType.OTHER)
     description = Column(String, nullable=True)
@@ -372,8 +381,8 @@ class LoanDB(Base):
     Кредит или займ.
 
     Attributes:
-        id: Уникальный идентификатор
-        lender_id: ID займодателя
+        id: Уникальный идентификатор (UUID)
+        lender_id: ID займодателя (UUID)
         name: Название кредита
         loan_type: Тип кредита
         amount: Сумма кредита
@@ -381,7 +390,7 @@ class LoanDB(Base):
         term_months: Срок кредита в месяцах
         issue_date: Дата выдачи кредита
         end_date: Дата окончания кредита (опционально, вычисляется автоматически если не указана)
-        disbursement_transaction_id: ID транзакции выдачи кредита (опционально)
+        disbursement_transaction_id: ID транзакции выдачи кредита (опционально) (UUID)
         contract_number: Номер договора (опционально)
         description: Описание (опционально)
         status: Статус кредита
@@ -399,8 +408,8 @@ class LoanDB(Base):
     """
     __tablename__ = "loans"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    lender_id = Column(Integer, ForeignKey("lenders.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    lender_id = Column(String(36), ForeignKey("lenders.id"), nullable=False)
     name = Column(String, nullable=False)
     loan_type = Column(SQLEnum(LoanType), default=LoanType.OTHER)
     amount = Column(Numeric(10, 2), nullable=False)
@@ -408,7 +417,7 @@ class LoanDB(Base):
     term_months = Column(Integer, nullable=True)
     issue_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)  # НОВОЕ: явная дата окончания кредита
-    disbursement_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)  # Транзакция выдачи
+    disbursement_transaction_id = Column(String(36), ForeignKey("transactions.id"), nullable=True)  # Транзакция выдачи
     contract_number = Column(String, nullable=True)
     description = Column(String, nullable=True)
     status = Column(SQLEnum(LoanStatus), default=LoanStatus.ACTIVE)
@@ -474,15 +483,15 @@ class LoanPaymentDB(Base):
     Платёж по кредиту.
 
     Attributes:
-        id: Уникальный идентификатор
-        loan_id: ID кредита
+        id: Уникальный идентификатор (UUID)
+        loan_id: ID кредита (UUID)
         scheduled_date: Запланированная дата платежа
         principal_amount: Сумма основного долга
         interest_amount: Сумма процентов
         total_amount: Общая сумма платежа
         status: Статус платежа
-        planned_transaction_id: ID плановой транзакции
-        actual_transaction_id: ID фактической транзакции (после исполнения)
+        planned_transaction_id: ID плановой транзакции (UUID)
+        actual_transaction_id: ID фактической транзакции (после исполнения) (UUID)
         executed_date: Фактическая дата выплаты
         executed_amount: Фактическая сумма выплаты
         overdue_days: Количество дней просрочки
@@ -494,15 +503,15 @@ class LoanPaymentDB(Base):
     """
     __tablename__ = "loan_payments"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    loan_id = Column(Integer, ForeignKey("loans.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    loan_id = Column(String(36), ForeignKey("loans.id"), nullable=False)
     scheduled_date = Column(Date, nullable=False)
     principal_amount = Column(Numeric(10, 2), nullable=False)
     interest_amount = Column(Numeric(10, 2), nullable=False)
     total_amount = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.PENDING)
-    planned_transaction_id = Column(Integer, ForeignKey("planned_transactions.id"), nullable=True)
-    actual_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+    planned_transaction_id = Column(String(36), ForeignKey("planned_transactions.id"), nullable=True)
+    actual_transaction_id = Column(String(36), ForeignKey("transactions.id"), nullable=True)
     executed_date = Column(Date, nullable=True)
     executed_amount = Column(Numeric(10, 2), nullable=True)
     overdue_days = Column(Integer, nullable=True)
@@ -532,14 +541,14 @@ class PendingPaymentDB(Base):
     можно установить плановую дату для интеграции с календарём и прогнозом баланса.
 
     Attributes:
-        id: Уникальный идентификатор платежа
+        id: Уникальный идентификатор платежа (UUID)
         amount: Сумма платежа
-        category_id: Ссылка на категорию расходов (ОБЯЗАТЕЛЬНО тип EXPENSE)
+        category_id: Ссылка на категорию расходов (ОБЯЗАТЕЛЬНО тип EXPENSE) (UUID)
         description: Описание платежа (НЕ может быть пустым)
         priority: Приоритет (low, medium, high, critical)
         planned_date: Опциональная плановая дата исполнения (NULL = без даты)
         status: Статус (active, executed, cancelled)
-        actual_transaction_id: Ссылка на фактическую транзакцию (после исполнения)
+        actual_transaction_id: Ссылка на фактическую транзакцию (после исполнения) (UUID)
         executed_date: Фактическая дата исполнения
         executed_amount: Фактическая сумма исполнения
         cancelled_date: Дата отмены
@@ -549,16 +558,16 @@ class PendingPaymentDB(Base):
     """
     __tablename__ = "pending_payments"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     amount = Column(Numeric(10, 2), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id"), nullable=False)
     description = Column(String, nullable=False)
     priority = Column(SQLEnum(PendingPaymentPriority), default=PendingPaymentPriority.MEDIUM)
     planned_date = Column(Date, nullable=True)
     status = Column(SQLEnum(PendingPaymentStatus), default=PendingPaymentStatus.ACTIVE)
 
     # Факт исполнения
-    actual_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+    actual_transaction_id = Column(String(36), ForeignKey("transactions.id"), nullable=True)
     executed_date = Column(Date, nullable=True, index=True)
     executed_amount = Column(Numeric(10, 2), nullable=True)
 
@@ -599,15 +608,25 @@ class TransactionCreate(BaseModel):
     Attributes:
         amount: Сумма транзакции (должна быть больше 0)
         type: Тип транзакции (доход или расход)
-        category_id: ID категории из справочника
+        category_id: ID категории из справочника (UUID)
         description: Необязательное описание транзакции
         transaction_date: Дата транзакции (по умолчанию текущая дата)
     """
     amount: Decimal = Field(gt=Decimal('0'), description="Сумма транзакции должна быть положительной")
     type: TransactionType
-    category_id: int
+    category_id: str
     description: Optional[str] = None
     transaction_date: date_type = Field(default_factory=date_type.today)
+
+    @field_validator('category_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
 
 class TransactionUpdate(BaseModel):
@@ -618,9 +637,20 @@ class TransactionUpdate(BaseModel):
     """
     amount: Optional[Decimal] = Field(None, gt=Decimal('0'))
     type: Optional[TransactionType] = None
-    category_id: Optional[int] = None
+    category_id: Optional[str] = None
     description: Optional[str] = None
     transaction_date: Optional[date_type] = None
+
+    @field_validator('category_id')
+    @classmethod
+    def validate_uuid(cls, v: Optional[str]) -> Optional[str]:
+        """Валидация формата UUID."""
+        if v is not None:
+            try:
+                uuid.UUID(v)
+            except ValueError:
+                raise ValueError(f'Невалидный UUID: {v}')
+        return v
 
 
 class Transaction(TransactionCreate):
@@ -632,7 +662,7 @@ class Transaction(TransactionCreate):
     - created_at
     - updated_at
     """
-    id: int
+    id: str
     created_at: datetime
     updated_at: datetime
 
@@ -645,11 +675,12 @@ class Category(BaseModel):
 
     Используется для чтения категорий из БД и возврата через API.
     """
-    id: int
+    id: str
     name: str
     type: TransactionType
     is_system: bool
     created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -704,7 +735,7 @@ class PlannedTransactionCreate(BaseModel):
 
     Attributes:
         amount: Сумма транзакции (должна быть > 0)
-        category_id: ID категории (должен быть > 0)
+        category_id: ID категории (UUID)
         description: Описание (опционально)
         type: Тип транзакции (INCOME или EXPENSE)
         start_date: Дата начала
@@ -713,13 +744,23 @@ class PlannedTransactionCreate(BaseModel):
         is_active: Флаг активности (по умолчанию True)
     """
     amount: Decimal = Field(gt=Decimal('0'), description="Сумма транзакции")
-    category_id: int = Field(gt=0, description="ID категории должен быть больше нуля")
+    category_id: str = Field(description="ID категории (UUID)")
     description: Optional[str] = None
     type: TransactionType
     start_date: date_type
     end_date: Optional[date_type] = None
     recurrence_rule: Optional["RecurrenceRuleCreate"] = None
     is_active: bool = True
+
+    @field_validator('category_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
     @field_validator('end_date')
     @classmethod
@@ -736,7 +777,7 @@ class PlannedTransaction(PlannedTransactionCreate):
     """
     Pydantic модель для чтения плановой транзакции из БД.
     """
-    id: int
+    id: str
     created_at: datetime
     updated_at: datetime
 
@@ -775,8 +816,8 @@ class RecurrenceRule(RecurrenceRuleCreate):
     """
     Pydantic модель для чтения правила повторения из БД.
     """
-    id: int
-    planned_transaction_id: int
+    id: str
+    planned_transaction_id: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -785,23 +826,34 @@ class PlannedOccurrenceCreate(BaseModel):
     """
     Pydantic модель для создания вхождения плановой транзакции.
     """
-    planned_transaction_id: int
+    planned_transaction_id: str
     occurrence_date: date_type
     amount: Decimal = Field(gt=Decimal('0'))
     status: OccurrenceStatus = OccurrenceStatus.PENDING
+
+    @field_validator('planned_transaction_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
 
 class PlannedOccurrence(PlannedOccurrenceCreate):
     """
     Pydantic модель для чтения вхождения из БД.
     """
-    id: int
-    actual_transaction_id: Optional[int] = None
+    id: str
+    actual_transaction_id: Optional[str] = None
     executed_date: Optional[date_type] = None
     executed_amount: Optional[Decimal] = None
     skipped_date: Optional[date_type] = None
     skip_reason: Optional[str] = None
     created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -821,7 +873,7 @@ class Lender(BaseModel):
         created_at: Дата создания
         updated_at: Дата обновления
     """
-    id: int
+    id: str
     name: str
     lender_type: LenderType
     description: Optional[str] = None
@@ -903,8 +955,8 @@ class Loan(BaseModel):
         created_at: Дата создания
         updated_at: Дата обновления
     """
-    id: int
-    lender_id: int
+    id: str
+    lender_id: str
     name: str
     loan_type: LoanType
     amount: Decimal
@@ -937,7 +989,7 @@ class LoanCreate(BaseModel):
         contract_number: Номер договора (опционально)
         description: Описание (опционально)
     """
-    lender_id: int
+    lender_id: str
     name: str = Field(min_length=1, max_length=200, description="Название кредита")
     loan_type: LoanType = LoanType.OTHER
     amount: Decimal = Field(gt=Decimal('0'), description="Сумма кредита")
@@ -947,6 +999,16 @@ class LoanCreate(BaseModel):
     end_date: Optional[date_type] = Field(None, description="Планируемая дата окончания")
     contract_number: Optional[str] = Field(None, max_length=100, description="Номер договора")
     description: Optional[str] = Field(None, max_length=500, description="Описание")
+
+    @field_validator('lender_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
     @field_validator('name')
     @classmethod
@@ -984,11 +1046,21 @@ class LoanPaymentCreate(BaseModel):
         interest_amount: Сумма процентов (должна быть >= 0)
         total_amount: Общая сумма платежа (должна быть > 0)
     """
-    loan_id: int
+    loan_id: str
     scheduled_date: date_type
     principal_amount: Decimal = Field(ge=Decimal('0'), description="Сумма основного долга")
     interest_amount: Decimal = Field(ge=Decimal('0'), description="Сумма процентов")
     total_amount: Decimal = Field(gt=Decimal('0'), description="Общая сумма платежа")
+
+    @field_validator('loan_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
     @field_validator('total_amount')
     @classmethod
@@ -1016,10 +1088,10 @@ class LoanPayment(LoanPaymentCreate):
         created_at: Дата создания
         updated_at: Дата обновления
     """
-    id: int
+    id: str
     status: PaymentStatus
-    planned_transaction_id: Optional[int] = None
-    actual_transaction_id: Optional[int] = None
+    planned_transaction_id: Optional[str] = None
+    actual_transaction_id: Optional[str] = None
     executed_date: Optional[date_type] = None
     executed_amount: Optional[Decimal] = None
     overdue_days: Optional[int] = None
@@ -1041,10 +1113,20 @@ class PendingPaymentCreate(BaseModel):
         planned_date: Опциональная плановая дата
     """
     amount: Decimal = Field(gt=Decimal('0'), description="Сумма платежа")
-    category_id: int = Field(gt=0, description="ID категории")
+    category_id: str = Field(description="ID категории")
     description: str = Field(min_length=1, description="Описание платежа")
     priority: PendingPaymentPriority = PendingPaymentPriority.MEDIUM
     planned_date: Optional[date_type] = None
+
+    @field_validator('category_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
 
     @field_validator('description')
     @classmethod
@@ -1062,10 +1144,21 @@ class PendingPaymentUpdate(BaseModel):
     Все поля опциональные — обновляются только указанные.
     """
     amount: Optional[Decimal] = Field(None, gt=Decimal('0'))
-    category_id: Optional[int] = Field(None, gt=0)
+    category_id: Optional[str] = Field(None)
     description: Optional[str] = Field(None, min_length=1)
     priority: Optional[PendingPaymentPriority] = None
     planned_date: Optional[date_type] = None
+
+    @field_validator('category_id')
+    @classmethod
+    def validate_uuid(cls, v: Optional[str]) -> Optional[str]:
+        """Валидация формата UUID."""
+        if v is not None:
+            try:
+                uuid.UUID(v)
+            except ValueError:
+                raise ValueError(f'Невалидный UUID: {v}')
+        return v
 
     @field_validator('description')
     @classmethod
@@ -1104,9 +1197,9 @@ class PendingPayment(PendingPaymentCreate):
     """
     Pydantic модель для чтения отложенного платежа из БД.
     """
-    id: int
+    id: str
     status: PendingPaymentStatus
-    actual_transaction_id: Optional[int] = None
+    actual_transaction_id: Optional[str] = None
     executed_date: Optional[date_type] = None
     executed_amount: Optional[Decimal] = None
     cancelled_date: Optional[date_type] = None

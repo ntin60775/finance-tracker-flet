@@ -10,10 +10,9 @@
 - Ошибку при удалении займодателя с активными кредитами
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, patch
 
 from finance_tracker.views.lenders_view import LendersView
-from finance_tracker.components.lender_modal import LenderModal
 from finance_tracker.models.enums import LenderType
 from test_view_base import ViewTestBase
 from test_factories import create_test_lender

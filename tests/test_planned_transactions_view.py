@@ -10,18 +10,15 @@
 - Удаление плановой транзакции
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock
 from decimal import Decimal
-from datetime import date, datetime, timedelta
 
 from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
-from finance_tracker.models.enums import TransactionType, RecurrenceType, OccurrenceStatus
+from finance_tracker.models.enums import TransactionType
 from test_view_base import ViewTestBase
 from test_factories import (
     create_test_planned_transaction,
     create_test_category,
-    create_test_recurrence_rule,
-    create_test_planned_occurrence,
 )
 
 

@@ -352,7 +352,7 @@ class CategoriesView(ft.Column):
         self.page.open(dialog)
         self.page.update()
 
-    def confirm_delete(self, category_id: int, name: str):
+    def confirm_delete(self, category_id: str, name: str):
         """Диалог подтверждения удаления."""
         @safe_handler()
         def delete_action(e):

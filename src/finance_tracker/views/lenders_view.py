@@ -303,7 +303,7 @@ class LendersView(ft.Column):
 
     def on_update_lender(
         self,
-        lender_id: int,
+        lender_id: str,
         name: str,
         lender_type: LenderType,
         description: Optional[str],

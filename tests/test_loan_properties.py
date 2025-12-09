@@ -135,7 +135,7 @@ class TestLoanProperties:
                 create_loan(
                     session=session,
                     name=f"{loan_name}_2",
-                    lender_id=999999,  # Несуществующий займодатель
+                    lender_id="00000000-0000-0000-0000-000000000000",  # Несуществующий займодатель
                     loan_type=LoanType.CONSUMER,
                     amount=amount,
                     issue_date=issue_date

@@ -30,6 +30,7 @@ from finance_tracker.models.models import (
     TransactionDB,
     TransactionType,
 )
+from finance_tracker.utils.validation import validate_uuid_format
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -71,13 +72,15 @@ def create_pending_payment(
         >>> with get_db_session() as session:
         ...     payment_data = PendingPaymentCreate(
         ...         amount=1000.0,
-        ...         category_id=5,
+        ...         category_id="...",
         ...         description="Оплата интернета",
         ...         priority=PendingPaymentPriority.HIGH
         ...     )
         ...     payment = create_pending_payment(session, payment_data)
     """
     try:
+        validate_uuid_format(payment_data.category_id, "category_id")
+        
         # <ai:step type="validation">Проверка существования категории</ai:step>
         category = session.query(CategoryDB).filter(
             CategoryDB.id == payment_data.category_id
@@ -134,14 +137,14 @@ def create_pending_payment(
 
 def get_pending_payment_by_id(
     session: Session,
-    payment_id: int
+    payment_id: str
 ) -> Optional[PendingPaymentDB]:
     """
     Получает отложенный платёж по ID.
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа
+        payment_id: ID платежа (UUID)
 
     Returns:
         Объект PendingPaymentDB или None, если не найден
@@ -151,10 +154,11 @@ def get_pending_payment_by_id(
 
     Example:
         >>> with get_db_session() as session:
-        ...     payment = get_pending_payment_by_id(session, 1)
+        ...     payment = get_pending_payment_by_id(session, "...")
         ...     if payment:
         ...         print(f"Платёж: {payment.description}")
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         payment = session.query(PendingPaymentDB).filter(
             PendingPaymentDB.id == payment_id
@@ -177,7 +181,7 @@ def get_all_pending_payments(
     session: Session,
     status: Optional[PendingPaymentStatus] = None,
     has_planned_date: Optional[bool] = None,
-    category_id: Optional[int] = None,
+    category_id: Optional[str] = None,
     priority: Optional[PendingPaymentPriority] = None
 ) -> List[PendingPaymentDB]:
     """
@@ -193,7 +197,7 @@ def get_all_pending_payments(
         status: Фильтр по статусу (None = только ACTIVE)
         has_planned_date: Фильтр по наличию плановой даты
                          (True = только с датой, False = только без даты, None = все)
-        category_id: Фильтр по категории
+        category_id: Фильтр по категории (UUID)
         priority: Фильтр по приоритету
 
     Returns:
@@ -234,6 +238,7 @@ def get_all_pending_payments(
 
         # <ai:condition test="Фильтр по категории">
         if category_id is not None:
+            validate_uuid_format(category_id, "category_id")
             query = query.filter(PendingPaymentDB.category_id == category_id)
         # </ai:condition>
 
@@ -280,7 +285,7 @@ def get_all_pending_payments(
 
 def update_pending_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     payment_data: PendingPaymentUpdate
 ) -> PendingPaymentDB:
     """
@@ -293,7 +298,7 @@ def update_pending_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа для обновления
+        payment_id: ID платежа для обновления (UUID)
         payment_data: Новые данные (только указанные поля)
 
     Returns:
@@ -309,8 +314,9 @@ def update_pending_payment(
         ...         amount=1500.0,
         ...         priority=PendingPaymentPriority.CRITICAL
         ...     )
-        ...     payment = update_pending_payment(session, 1, update_data)
+        ...     payment = update_pending_payment(session, "...", update_data)
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         # <ai:step type="validation">Получение и проверка платежа</ai:step>
         payment = get_pending_payment_by_id(session, payment_id)
@@ -334,6 +340,7 @@ def update_pending_payment(
 
         # <ai:step type="validation">Проверка новой категории, если указана</ai:step>
         if payment_data.category_id is not None:
+            validate_uuid_format(payment_data.category_id, "category_id")
             category = session.query(CategoryDB).filter(
                 CategoryDB.id == payment_data.category_id
             ).first()
@@ -383,7 +390,7 @@ def update_pending_payment(
 
 def delete_pending_payment(
     session: Session,
-    payment_id: int
+    payment_id: str
 ) -> bool:
     """
     Удаляет отложенный платёж.
@@ -396,7 +403,7 @@ def delete_pending_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа для удаления
+        payment_id: ID платежа для удаления (UUID)
 
     Returns:
         True, если удаление успешно
@@ -407,9 +414,10 @@ def delete_pending_payment(
 
     Example:
         >>> with get_db_session() as session:
-        ...     success = delete_pending_payment(session, 1)
+        ...     success = delete_pending_payment(session, "...")
         ...     print(f"Удалено: {success}")
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         # <ai:step type="validation">Получение и проверка платежа</ai:step>
         payment = get_pending_payment_by_id(session, payment_id)
@@ -457,7 +465,7 @@ def delete_pending_payment(
 
 def execute_pending_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     execute_data: PendingPaymentExecute
 ) -> Tuple[TransactionDB, PendingPaymentDB]:
     """
@@ -477,7 +485,7 @@ def execute_pending_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа для исполнения
+        payment_id: ID платежа для исполнения (UUID)
         execute_data: Данные исполнения (дата, сумма)
 
     Returns:
@@ -493,8 +501,9 @@ def execute_pending_payment(
         ...         executed_date=date.today(),
         ...         executed_amount=1000.0
         ...     )
-        ...     transaction, payment = execute_pending_payment(session, 1, execute_data)
+        ...     transaction, payment = execute_pending_payment(session, "...", execute_data)
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         # <ai:step type="validation">Получение и проверка платежа</ai:step>
         payment = get_pending_payment_by_id(session, payment_id)
@@ -560,7 +569,7 @@ def execute_pending_payment(
 
 def cancel_pending_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     cancel_data: PendingPaymentCancel
 ) -> PendingPaymentDB:
     """
@@ -574,7 +583,7 @@ def cancel_pending_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа для отмены
+        payment_id: ID платежа для отмены (UUID)
         cancel_data: Данные отмены (причина)
 
     Returns:
@@ -587,8 +596,9 @@ def cancel_pending_payment(
     Example:
         >>> with get_db_session() as session:
         ...     cancel_data = PendingPaymentCancel(cancel_reason="Больше не актуально")
-        ...     payment = cancel_pending_payment(session, 1, cancel_data)
+        ...     payment = cancel_pending_payment(session, "...", cancel_data)
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         # <ai:step type="validation">Получение и проверка платежа</ai:step>
         payment = get_pending_payment_by_id(session, payment_id)

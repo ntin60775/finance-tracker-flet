@@ -8,18 +8,10 @@
 - Smoke test для всех пунктов меню
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock
 from decimal import Decimal
 
 from finance_tracker.views.main_window import MainWindow
-from finance_tracker.views.home_view import HomeView
-from finance_tracker.views.categories_view import CategoriesView
-from finance_tracker.views.lenders_view import LendersView
-from finance_tracker.views.loans_view import LoansView
-from finance_tracker.views.pending_payments_view import PendingPaymentsView
-from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
-from finance_tracker.views.plan_fact_view import PlanFactView
-from finance_tracker.views.settings_view import SettingsView
 from test_view_base import ViewTestBase
 
 

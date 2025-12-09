@@ -10,17 +10,13 @@
 - Расчет и форматирование отклонений
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch
 from decimal import Decimal
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from finance_tracker.views.plan_fact_view import PlanFactView
-from finance_tracker.models.enums import TransactionType, OccurrenceStatus
 from test_view_base import ViewTestBase
 from test_factories import (
-    create_test_planned_transaction,
     create_test_category,
-    create_test_planned_occurrence,
 )
 
 

@@ -9,8 +9,7 @@
 - Открытие модального окна редактирования
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
-from decimal import Decimal
+from unittest.mock import Mock
 
 from finance_tracker.views.categories_view import CategoriesView, CategoryDialog
 from finance_tracker.models.enums import TransactionType

@@ -2,17 +2,14 @@
 Интеграционные тесты для отображения платежей по кредитам в TransactionsPanel.
 """
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from finance_tracker.models.models import (
-    LenderDB, LoanDB, LoanPaymentDB, CategoryDB, Base
+    LenderDB, LoanDB, LoanPaymentDB
 )
 from finance_tracker.models.enums import (
-    LenderType, LoanType, LoanStatus, PaymentStatus, TransactionType
+    LenderType, LoanType, LoanStatus, PaymentStatus
 )
 from finance_tracker.services.loan_payment_service import get_payments_by_date
 

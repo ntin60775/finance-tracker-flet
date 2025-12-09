@@ -6,6 +6,7 @@ from unittest.mock import Mock, MagicMock, patch
 import flet as ft
 import datetime
 from decimal import Decimal
+import uuid
 
 from finance_tracker.components.transaction_modal import TransactionModal
 from finance_tracker.models import TransactionType, CategoryDB, TransactionCreate
@@ -22,9 +23,13 @@ class TestTransactionModal(unittest.TestCase):
         self.session = Mock()
         self.on_save = Mock()
 
+        # Generate UUIDs
+        self.cat_id_1 = str(uuid.uuid4())
+        self.cat_id_2 = str(uuid.uuid4())
+
         # Мокируем загрузку категорий
-        self.expense_categories = [CategoryDB(id=1, name="Food", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
-        self.income_categories = [CategoryDB(id=2, name="Salary", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
+        self.expense_categories = [CategoryDB(id=self.cat_id_1, name="Food", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
+        self.income_categories = [CategoryDB(id=self.cat_id_2, name="Salary", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
         self.mock_get_all_categories.side_effect = lambda session, t_type: (
             self.expense_categories if t_type == TransactionType.EXPENSE else self.income_categories
         )
@@ -74,7 +79,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.open(self.page)
 
         self.modal.amount_field.value = "123.45"
-        self.modal.category_dropdown.value = "1"
+        self.modal.category_dropdown.value = self.cat_id_1
         self.modal.description_field.value = "Test Description"
         
         self.modal._save(None)
@@ -82,7 +87,7 @@ class TestTransactionModal(unittest.TestCase):
         expected_data = TransactionCreate(
             amount=Decimal("123.45"),
             type=TransactionType.EXPENSE,
-            category_id=1,
+            category_id=self.cat_id_1,
             description="Test Description",
             transaction_date=datetime.date.today()
         )

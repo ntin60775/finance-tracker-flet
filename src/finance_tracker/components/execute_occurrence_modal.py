@@ -9,6 +9,7 @@
 
 import datetime
 from typing import Optional, Callable
+from decimal import Decimal, InvalidOperation
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -32,8 +33,8 @@ class ExecuteOccurrenceModal:
     def __init__(
         self,
         session: Session,
-        on_execute: Callable[[int, float, datetime.date], None],
-        on_skip: Callable[[int, Optional[str]], None],
+        on_execute: Callable[[str, Decimal, datetime.date], None],
+        on_skip: Callable[[str, Optional[str]], None],
     ):
         """
         Инициализация модального окна.
@@ -255,11 +256,11 @@ class ExecuteOccurrenceModal:
 
         # Validate Amount
         try:
-            amount = float(self.amount_field.value)
-            if amount <= 0:
+            amount = Decimal(self.amount_field.value)
+            if amount <= Decimal('0'):
                 self.amount_field.error_text = "Сумма должна быть больше 0"
                 errors = True
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, InvalidOperation):
             self.amount_field.error_text = "Введите корректное число"
             errors = True
 

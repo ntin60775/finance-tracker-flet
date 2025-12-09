@@ -7,6 +7,7 @@ from unittest.mock import Mock, MagicMock, patch
 import flet as ft
 import datetime
 from decimal import Decimal
+import uuid
 
 from finance_tracker.components.loan_modal import LoanModal
 from finance_tracker.models.models import LenderDB
@@ -25,10 +26,14 @@ class TestLoanModal(unittest.TestCase):
         self.on_save = Mock()
         self.on_update = Mock()
 
+        # Generate UUIDs
+        self.lender_id_1 = str(uuid.uuid4())
+        self.lender_id_2 = str(uuid.uuid4())
+
         # Мокируем загрузку займодателей
         self.mock_lenders = [
-            LenderDB(id=1, name="Bank 1", lender_type=LenderType.BANK),
-            LenderDB(id=2, name="Individual", lender_type=LenderType.INDIVIDUAL),
+            LenderDB(id=self.lender_id_1, name="Bank 1", lender_type=LenderType.BANK),
+            LenderDB(id=self.lender_id_2, name="Individual", lender_type=LenderType.INDIVIDUAL),
         ]
         self.mock_get_all_lenders.return_value = self.mock_lenders
 
@@ -53,7 +58,7 @@ class TestLoanModal(unittest.TestCase):
         self.modal.open(self.page)
         self.mock_get_all_lenders.assert_called_once_with(self.session)
         self.assertEqual(len(self.modal.lender_dropdown.options), 2)
-        self.assertEqual(self.modal.lender_dropdown.options[0].key, "1")
+        self.assertEqual(self.modal.lender_dropdown.options[0].key, self.lender_id_1)
         self.assertEqual(self.modal.lender_dropdown.options[0].text, "Bank 1")
 
     def test_open_in_create_mode(self):
@@ -72,7 +77,7 @@ class TestLoanModal(unittest.TestCase):
         self.modal.open(self.page)
         
         # Заполняем поля
-        self.modal.lender_dropdown.value = "1"
+        self.modal.lender_dropdown.value = self.lender_id_1
         self.modal.name_field.value = "New Loan"
         self.modal.type_dropdown.value = LoanType.MORTGAGE.value
         self.modal.amount_field.value = "100000.50"
@@ -83,7 +88,7 @@ class TestLoanModal(unittest.TestCase):
         self.modal._save(None)
 
         self.on_save.assert_called_once_with(
-            1,
+            self.lender_id_1,
             "New Loan",
             LoanType.MORTGAGE,
             Decimal("100000.50"),
@@ -110,7 +115,7 @@ class TestLoanModal(unittest.TestCase):
     def test_save_validation_failure_bad_amount(self):
         """Тест ошибки валидации - некорректная сумма."""
         self.modal.open(self.page)
-        self.modal.lender_dropdown.value = "1"
+        self.modal.lender_dropdown.value = self.lender_id_1
         self.modal.name_field.value = "Loan"
         self.modal.amount_field.value = "abc" # Bad amount
         self.modal.issue_date = datetime.date(2024, 1, 1)

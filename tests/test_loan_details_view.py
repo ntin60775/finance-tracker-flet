@@ -9,7 +9,7 @@
 - Тест открытия модального окна досрочного погашения
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock
 from decimal import Decimal
 from datetime import date, timedelta
 

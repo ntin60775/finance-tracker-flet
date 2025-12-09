@@ -10,7 +10,7 @@
 """
 
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from datetime import date
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from finance_tracker.models import (
     LoanDB, LoanPaymentDB, LenderDB, TransactionDB, CategoryDB,
     LoanType, LoanStatus, TransactionType, PaymentStatus
 )
+from finance_tracker.utils.validation import validate_uuid_format
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def get_all_loans(
     session: Session,
-    lender_id: Optional[int] = None,
+    lender_id: Optional[str] = None,
     loan_type: Optional[LoanType] = None,
     status: Optional[LoanStatus] = None
 ) -> List[LoanDB]:
@@ -39,7 +40,7 @@ def get_all_loans(
 
     Args:
         session: Активная сессия БД для выполнения запросов
-        lender_id: ID займодателя для фильтрации (опциональное)
+        lender_id: ID займодателя для фильтрации (опциональное) (UUID)
         loan_type: Тип кредита для фильтрации (опциональное)
         status: Статус кредита для фильтрации (опциональное)
 
@@ -55,10 +56,13 @@ def get_all_loans(
         ...     # Получить все кредиты
         ...     all_loans = get_all_loans(session)
         ...
-        ...     # Получить активные кредиты банка с ID 1
-        ...     active = get_all_loans(session, lender_id=1, status=LoanStatus.ACTIVE)
+        ...     # Получить активные кредиты банка с ID ...
+        ...     active = get_all_loans(session, lender_id="...", status=LoanStatus.ACTIVE)
     """
     try:
+        if lender_id is not None:
+            validate_uuid_format(lender_id, "lender_id")
+
         # Базовый запрос
         query = session.query(LoanDB)
 
@@ -91,17 +95,18 @@ def get_all_loans(
         raise
 
 
-def get_loan_by_id(session: Session, loan_id: int) -> Optional[LoanDB]:
+def get_loan_by_id(session: Session, loan_id: str) -> Optional[LoanDB]:
     """
     Получает кредит по ID.
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
 
     Returns:
         Объект LoanDB или None, если кредит не найден
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         return session.query(LoanDB).filter_by(id=loan_id).first()
     except SQLAlchemyError as e:
@@ -113,7 +118,7 @@ def get_loan_by_id(session: Session, loan_id: int) -> Optional[LoanDB]:
 def create_loan(
     session: Session,
     name: str,
-    lender_id: int,
+    lender_id: str,
     loan_type: LoanType,
     amount: Decimal,
     issue_date: date,
@@ -134,7 +139,7 @@ def create_loan(
     Args:
         session: Активная сессия БД для выполнения операций
         name: Название кредита (обязательное)
-        lender_id: ID займодателя (обязательное, должен существовать)
+        lender_id: ID займодателя (обязательное, должен существовать) (UUID)
         loan_type: Тип кредита (обязательное)
         amount: Сумма кредита (обязательное, > 0)
         issue_date: Дата выдачи кредита (обязательное)
@@ -149,20 +154,8 @@ def create_loan(
     Raises:
         ValueError: Если валидация не прошла
         SQLAlchemyError: При ошибках работы с БД
-
-    Example:
-        >>> with get_db_session() as session:
-        ...     loan = create_loan(
-        ...         session,
-        ...         name="Ипотека на квартиру",
-        ...         lender_id=1,
-        ...         loan_type=LoanType.MORTGAGE,
-        ...         amount=Decimal('3000000.00'),
-        ...         issue_date=date(2024, 1, 15),
-        ...         interest_rate=Decimal('8.5'),
-        ...         end_date=date(2054, 1, 15)
-        ...     )
     """
+    validate_uuid_format(lender_id, "lender_id")
     try:
         # Валидация суммы
         if amount <= Decimal('0'):
@@ -211,13 +204,13 @@ def create_loan(
         raise
 
 
-def update_loan_status(session: Session, loan_id: int, new_status: LoanStatus) -> LoanDB:
+def update_loan_status(session: Session, loan_id: str, new_status: LoanStatus) -> LoanDB:
     """
     Обновляет статус кредита.
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
         new_status: Новый статус кредита
 
     Returns:
@@ -227,6 +220,7 @@ def update_loan_status(session: Session, loan_id: int, new_status: LoanStatus) -
         ValueError: Если кредит не найден
         SQLAlchemyError: При ошибках работы с БД
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -250,7 +244,7 @@ def update_loan_status(session: Session, loan_id: int, new_status: LoanStatus) -
         raise
 
 
-def calculate_loan_balance(session: Session, loan_id: int) -> Dict[str, Decimal]:
+def calculate_loan_balance(session: Session, loan_id: str) -> Dict[str, Decimal]:
     """
     Рассчитывает остаток по кредиту на основе выполненных платежей.
 
@@ -260,7 +254,7 @@ def calculate_loan_balance(session: Session, loan_id: int) -> Dict[str, Decimal]
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
 
     Returns:
         Словарь с ключами:
@@ -271,6 +265,7 @@ def calculate_loan_balance(session: Session, loan_id: int) -> Dict[str, Decimal]
         ValueError: Если кредит не найден
         SQLAlchemyError: При ошибках работы с БД
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -314,7 +309,7 @@ def calculate_loan_balance(session: Session, loan_id: int) -> Dict[str, Decimal]
         raise
 
 
-def calculate_loan_statistics(session: Session, loan_id: int) -> dict:
+def calculate_loan_statistics(session: Session, loan_id: str) -> dict:
     """
     Рассчитывает статистику по кредиту.
 
@@ -325,7 +320,7 @@ def calculate_loan_statistics(session: Session, loan_id: int) -> dict:
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
 
     Returns:
         Словарь со статистикой
@@ -334,6 +329,7 @@ def calculate_loan_statistics(session: Session, loan_id: int) -> dict:
         ValueError: Если кредит не найден
         SQLAlchemyError: При ошибках работы с БД
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -368,13 +364,13 @@ def calculate_loan_statistics(session: Session, loan_id: int) -> dict:
         raise
 
 
-def delete_loan(session: Session, loan_id: int, keep_transactions: bool = True) -> bool:
+def delete_loan(session: Session, loan_id: str, keep_transactions: bool = True) -> bool:
     """
     Удаляет кредит с опциональным сохранением фактических транзакций.
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита для удаления
+        loan_id: ID кредита для удаления (UUID)
         keep_transactions: Сохранять ли фактические транзакции (по умолчанию True)
 
     Returns:
@@ -384,6 +380,7 @@ def delete_loan(session: Session, loan_id: int, keep_transactions: bool = True) 
         ValueError: Если кредит не найден
         SQLAlchemyError: При ошибках работы с БД
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
         if loan is None:
@@ -409,7 +406,7 @@ def delete_loan(session: Session, loan_id: int, keep_transactions: bool = True) 
 
 def create_disbursement_transaction(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     transaction_date: Optional[date] = None
 ) -> TransactionDB:
     """
@@ -420,7 +417,7 @@ def create_disbursement_transaction(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита
+        loan_id: ID кредита (UUID)
         transaction_date: Дата транзакции (по умолчанию дата выдачи кредита)
 
     Returns:
@@ -429,11 +426,8 @@ def create_disbursement_transaction(
     Raises:
         ValueError: Если кредит не найден или транзакция уже существует
         SQLAlchemyError: При ошибках работы с БД
-
-    Example:
-        >>> with get_db_session() as session:
-        ...     transaction = create_disbursement_transaction(session, loan_id=1)
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         # Получаем кредит
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
@@ -495,7 +489,7 @@ def create_disbursement_transaction(
 
 def update_loan(
     session: Session,
-    loan_id: int,
+    loan_id: str,
     name: Optional[str] = None,
     interest_rate: Optional[Decimal] = None,
     end_date: Optional[date] = None,
@@ -510,7 +504,7 @@ def update_loan(
 
     Args:
         session: Активная сессия БД
-        loan_id: ID кредита для обновления
+        loan_id: ID кредита для обновления (UUID)
         name: Новое название (опциональное)
         interest_rate: Новая процентная ставка (опциональное, 0-100)
         end_date: Новая дата окончания (опциональное)
@@ -523,11 +517,8 @@ def update_loan(
     Raises:
         ValueError: Если кредит не найден или валидация не прошла
         SQLAlchemyError: При ошибках работы с БД
-
-    Example:
-        >>> with get_db_session() as session:
-        ...     loan = update_loan(session, loan_id=1, interest_rate=Decimal('9.5'))
     """
+    validate_uuid_format(loan_id, "loan_id")
     try:
         # Получаем кредит
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
@@ -573,10 +564,10 @@ def update_loan(
 
 def execute_payment(
     session: Session,
-    payment_id: int,
+    payment_id: str,
     transaction_amount: Decimal,
     transaction_date: Optional[date] = None
-) -> tuple[LoanPaymentDB, TransactionDB]:
+) -> Tuple[LoanPaymentDB, TransactionDB]:
     """
     Исполняет платёж по кредиту через создание фактической транзакции.
 
@@ -585,7 +576,7 @@ def execute_payment(
 
     Args:
         session: Активная сессия БД
-        payment_id: ID платежа в графике
+        payment_id: ID платежа в графике (UUID)
         transaction_amount: Сумма исполненного платежа
         transaction_date: Дата исполнения (по умолчанию сегодня)
 
@@ -595,13 +586,8 @@ def execute_payment(
     Raises:
         ValueError: Если платёж не найден, неверная сумма или статус
         SQLAlchemyError: При ошибках работы с БД
-
-    Example:
-        >>> with get_db_session() as session:
-        ...     payment, transaction = execute_payment(
-        ...         session, payment_id=1, transaction_amount=Decimal('10500.00')
-        ...     )
     """
+    validate_uuid_format(payment_id, "payment_id")
     try:
         # Получаем платёж
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()

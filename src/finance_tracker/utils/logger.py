@@ -11,7 +11,6 @@
 import json
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict

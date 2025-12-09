@@ -12,7 +12,7 @@ Property-based тесты для статистики кредитов (Flet в�
 
 from datetime import date, timedelta
 from contextlib import contextmanager
-from hypothesis import given, strategies as st, settings, assume
+from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from decimal import Decimal
@@ -36,7 +36,6 @@ from finance_tracker.models.enums import (
 from finance_tracker.services.lender_service import create_lender
 from finance_tracker.services.loan_service import create_loan
 from finance_tracker.services.loan_payment_service import create_payment
-from finance_tracker.services.category_service import create_category
 from finance_tracker.services.transaction_service import create_transaction
 from finance_tracker.services.loan_statistics_service import (
     get_summary_statistics,

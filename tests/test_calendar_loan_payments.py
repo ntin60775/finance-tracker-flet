@@ -7,7 +7,6 @@
 - Выделение просроченных платежей красной рамкой/фоном
 """
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
 from contextlib import contextmanager

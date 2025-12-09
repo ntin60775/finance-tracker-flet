@@ -10,7 +10,7 @@
 - Обновление статистики
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock
 from decimal import Decimal
 from datetime import date
 
@@ -635,8 +635,6 @@ if __name__ == '__main__':
 # ============================================================================
 
 from hypothesis import given, strategies as st, settings
-from decimal import Decimal
-from datetime import date, timedelta
 
 
 class TestLoansViewProperties(ViewTestBase):

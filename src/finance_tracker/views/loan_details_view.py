@@ -49,7 +49,7 @@ class LoanDetailsView(ft.Column):
     - Позволяет исполнять платежи и делать досрочное погашение
     """
 
-    def __init__(self, page: ft.Page, loan_id: int, on_back: callable):
+    def __init__(self, page: ft.Page, loan_id: str, on_back: callable):
         """
         Инициализация экрана деталей кредита.
 

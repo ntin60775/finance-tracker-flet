@@ -462,7 +462,7 @@ class LoansView(ft.Column):
 
     def on_create_loan(
         self,
-        lender_id: int,
+        lender_id: str,
         name: str,
         loan_type: LoanType,
         amount: float,
@@ -514,7 +514,7 @@ class LoansView(ft.Column):
 
     def on_update_loan(
         self,
-        loan_id: int,
+        loan_id: str,
         name: Optional[str],
         loan_type: Optional[LoanType],
         amount: Optional[float],
