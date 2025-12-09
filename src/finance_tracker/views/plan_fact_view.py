@@ -21,6 +21,7 @@ class PlanFactView(ft.Container):
 
     def __init__(self):
         super().__init__()
+        self.alignment = ft.alignment.top_left
         self.start_date = datetime.date.today().replace(day=1)
         self.end_date = self._get_last_day_of_month(datetime.date.today())
         self.selected_category_id: Optional[int] = None
@@ -95,7 +96,8 @@ class PlanFactView(ft.Container):
             ],
             spacing=20,
             scroll=ft.ScrollMode.AUTO, # Page scroll
-            expand=True
+            expand=True,
+            alignment=ft.MainAxisAlignment.START
         )
 
     def did_mount(self):

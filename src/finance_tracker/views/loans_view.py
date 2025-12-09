@@ -57,7 +57,7 @@ class LoansView(ft.Column):
         Args:
             page: Страница Flet для отображения UI
         """
-        super().__init__(expand=True, spacing=20)
+        super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.status_filter: Optional[LoanStatus] = None
         self.selected_loan: Optional[LoanDB] = None
@@ -103,7 +103,7 @@ class LoansView(ft.Column):
                 ],
                 spacing=10
             ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            bgcolor=ft.Colors.ON_SURFACE_VARIANT,
             padding=15,
             border_radius=10,
         )
@@ -441,7 +441,7 @@ class LoansView(ft.Column):
 
         return ft.Container(
             content=card_content,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            bgcolor=ft.Colors.ON_SURFACE_VARIANT,
             padding=15,
             border_radius=10,
             on_click=lambda e, loan=loan: self.open_loan_details(loan)

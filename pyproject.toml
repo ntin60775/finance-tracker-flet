@@ -33,3 +33,10 @@ py-modules = []
 where = ["src"]
 include = ["finance_tracker*"]
 namespaces = false
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    "ignore::sqlalchemy.exc.SAWarning",
+]

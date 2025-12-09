@@ -55,7 +55,7 @@ class HomeView(ft.Column):
     """
 
     def __init__(self, page: ft.Page):
-        super().__init__(expand=True)
+        super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.selected_date = datetime.date.today()
         

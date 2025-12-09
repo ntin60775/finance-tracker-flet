@@ -146,7 +146,7 @@ class CategoriesView(ft.Column):
     Экран управления категориями.
     """
     def __init__(self, page: ft.Page):
-        super().__init__(expand=True)
+        super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.current_filter: Optional[TransactionType] = None
         

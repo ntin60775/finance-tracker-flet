@@ -159,7 +159,7 @@ class MainWindow(ft.Row):
         self.content_area = ft.Container(
             content=self.get_view(settings.last_selected_index),
             expand=True,
-            alignment=ft.alignment.center,
+            alignment=ft.alignment.top_left,
             padding=20
         )
 

@@ -65,7 +65,7 @@ class PendingPaymentsView(ft.Column):
         Args:
             page: Страница Flet для отображения UI
         """
-        super().__init__(expand=True)
+        super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.has_date_filter: Optional[bool] = None  # None=все, True=с датой, False=без даты
         self.priority_filter: Optional[PendingPaymentPriority] = None

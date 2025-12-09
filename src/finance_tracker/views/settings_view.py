@@ -12,11 +12,13 @@ class SettingsView(ft.Column):
     """
 
     def __init__(self, page: ft.Page):
-        super().__init__()
+        super().__init__(
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+            spacing=20,
+            alignment=ft.MainAxisAlignment.START
+        )
         self.page = page
-        self.expand = True
-        self.scroll = ft.ScrollMode.AUTO
-        self.spacing = 20
         
         self._init_controls()
         self._update_controls_values()
@@ -44,7 +46,8 @@ class SettingsView(ft.Column):
                 ft.Text("Внешний вид", size=20, weight=ft.FontWeight.W_500),
                 self.theme_dropdown,
             ],
-            spacing=10
+            spacing=10,
+            alignment=ft.MainAxisAlignment.START
         )
         
         # Секция "База данных"
@@ -70,7 +73,8 @@ class SettingsView(ft.Column):
                 ),
                 ft.Text("Текущий путь к файлу базы данных (изменение пока недоступно в UI)", size=12, color=ft.Colors.GREY_700),
             ],
-            spacing=10
+            spacing=10,
+            alignment=ft.MainAxisAlignment.START
         )
         
         # Секция "Форматы"
@@ -90,7 +94,8 @@ class SettingsView(ft.Column):
                 ft.Text("Форматы", size=20, weight=ft.FontWeight.W_500),
                 self.date_format_dropdown,
             ],
-            spacing=10
+            spacing=10,
+            alignment=ft.MainAxisAlignment.START
         )
         
         # Кнопка сохранения (хотя изменения применяются сразу, кнопка для явного подтверждения сохранения в файл)

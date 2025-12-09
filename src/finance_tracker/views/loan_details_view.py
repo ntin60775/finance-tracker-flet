@@ -58,7 +58,7 @@ class LoanDetailsView(ft.Column):
             loan_id: ID кредита для отображения
             on_back: Callback для возврата к списку кредитов
         """
-        super().__init__(expand=True, spacing=20)
+        super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.loan_id = loan_id
         self.on_back = on_back
@@ -671,3 +671,11 @@ class LoanDetailsView(ft.Column):
             )
             self.page.snack_bar.open = True
             self.page.update()
+    def will_unmount(self):
+        """Очистка ресурсов при размонтировании view."""
+        if hasattr(self, 'cm') and self.cm is not None:
+            try:
+                self.cm.__exit__(None, None, None)
+                logger.debug("Сессия LoanDetailsView закрыта")
+            except Exception as e:
+                logger.error(f"Ошибка при закрытии сессии БД в LoanDetailsView: {e}")

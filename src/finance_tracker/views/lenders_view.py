@@ -48,7 +48,7 @@ class LendersView(ft.Column):
         Args:
             page: Страница Flet для отображения UI
         """
-        super().__init__(expand=True, spacing=20)
+        super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.lender_type_filter: Optional[LenderType] = None
         self.selected_lender: Optional[LenderDB] = None

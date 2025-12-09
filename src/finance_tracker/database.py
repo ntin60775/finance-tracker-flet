@@ -12,6 +12,7 @@
 from contextlib import contextmanager
 from typing import Generator
 import logging
+import atexit
 
 from sqlalchemy import create_engine, Engine, inspect
 from sqlalchemy.orm import sessionmaker, Session
@@ -169,6 +170,9 @@ def init_db() -> Engine:
             init_default_categories(session)
             init_loan_categories(session)
 
+        # Регистрируем автоматическое закрытие при завершении процесса
+        atexit.register(close_db)
+
         logger.info("База данных успешно инициализирована")
         return _engine
         
@@ -217,3 +221,19 @@ def get_db_session() -> Generator[Session, None, None]:
 
 # Алиас для обратной совместимости
 get_db = get_db_session
+
+
+def close_db() -> None:
+    """
+    Закрывает соединение с базой данных и освобождает ресурсы.
+    
+    Должна вызываться при завершении работы приложения.
+    """
+    global _engine, _SessionLocal
+    
+    if _engine is not None:
+        logger.info("Закрытие соединения с базой данных...")
+        _engine.dispose()
+        _engine = None
+        _SessionLocal = None
+        logger.info("Соединение с базой данных закрыто")

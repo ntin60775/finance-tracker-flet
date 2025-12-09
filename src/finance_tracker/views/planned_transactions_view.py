@@ -52,7 +52,7 @@ class PlannedTransactionsView(ft.Column):
         Args:
             page: Страница Flet для отображения UI
         """
-        super().__init__(expand=True)
+        super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.status_filter: Optional[bool] = True  # True = активные, None = все
         self.type_filter: Optional[TransactionType] = None
