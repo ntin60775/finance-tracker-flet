@@ -103,7 +103,7 @@ class LoansView(ft.Column):
                 ],
                 spacing=10
             ),
-            bgcolor=ft.Colors.ON_SURFACE_VARIANT,
+            bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
         )
@@ -441,7 +441,7 @@ class LoansView(ft.Column):
 
         return ft.Container(
             content=card_content,
-            bgcolor=ft.Colors.ON_SURFACE_VARIANT,
+            bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
             on_click=lambda e, loan=loan: self.open_loan_details(loan)

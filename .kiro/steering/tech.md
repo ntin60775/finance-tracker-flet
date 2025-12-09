@@ -139,6 +139,34 @@ with get_db_session() as session:
 - **Context**: логируются входные параметры, состояние системы
 - **Levels**: ERROR (требует внимания), WARNING (потенциальная проблема), INFO (важные события), DEBUG (детали)
 
+## Flet UI Guidelines
+
+### Color Usage
+
+**CRITICAL**: Используй только существующие цвета из `ft.Colors`. Несуществующие атрибуты вызывают `AttributeError`.
+
+**Корректные цвета для фона контейнеров:**
+- `ft.Colors.SURFACE` - основной цвет поверхности (рекомендуется для карточек)
+- `ft.Colors.PRIMARY_CONTAINER` - контейнер с primary цветом
+- `ft.Colors.SECONDARY_CONTAINER` - контейнер с secondary цветом
+- `ft.Colors.ERROR_CONTAINER` - контейнер для ошибок
+- Или не указывай `bgcolor` - будет использован цвет по умолчанию
+
+**Корректные цвета для текста:**
+- `ft.Colors.ON_SURFACE` - текст на поверхности
+- `ft.Colors.ON_SURFACE_VARIANT` - вторичный текст на поверхности
+- `ft.Colors.ON_PRIMARY` - текст на primary фоне
+- `ft.Colors.ON_SECONDARY` - текст на secondary фоне
+- `ft.Colors.ERROR` - текст ошибки
+- `ft.Colors.PRIMARY` - акцентный текст
+
+**ЗАПРЕЩЕНО использовать (не существуют в Flet):**
+- ❌ `ft.Colors.SURFACE_VARIANT` - НЕ СУЩЕСТВУЕТ
+- ❌ `ft.Colors.SURFACE_CONTAINER` - НЕ СУЩЕСТВУЕТ
+- ❌ `ft.Colors.SURFACE_CONTAINER_HIGH` - НЕ СУЩЕСТВУЕТ
+
+**Правило:** Перед использованием нового цвета проверь, что он существует в документации Flet или используй стандартные цвета из списка выше.
+
 ## Testing Strategy
 
 - **Unit tests**: для сервисов и бизнес-логики
