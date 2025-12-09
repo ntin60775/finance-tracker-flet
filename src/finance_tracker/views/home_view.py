@@ -48,9 +48,10 @@ class HomeView(ft.Column):
     """
     Главный экран приложения (Календарь + Транзакции + Плановые операции).
     
-    Состоит из двух колонок:
-    - Левая: Календарь, легенда и виджет плановых транзакций
-    - Правая: Список транзакций выбранного дня и кнопка добавления
+    Состоит из трёх колонок:
+    - Левая (2/7 ширины): Виджет отложенных платежей
+    - Центральная (3/7 ширины): Календарь вверху, легенда и плановые транзакции внизу
+    - Правая (2/7 ширины): Список транзакций выбранного дня и кнопка добавления
     """
 
     def __init__(self, page: ft.Page):
@@ -123,29 +124,44 @@ class HomeView(ft.Column):
         self.controls = [
             ft.Row(
                 controls=[
-                    # Левая колонка: Календарь + Легенда + Плановые + Отложенные платежи
+                    # Левая колонка (2/7): Отложенные платежи
                     ft.Column(
                         controls=[
-                            self.calendar_widget,
-                            self.legend,
-                            self.planned_widget,
                             self.pending_payments_widget
                         ],
                         expand=2,
                         spacing=20,
-                        scroll=ft.ScrollMode.AUTO
+                        scroll=ft.ScrollMode.AUTO,
+                        alignment=ft.MainAxisAlignment.START
                     ),
                     ft.VerticalDivider(width=1),
-                    # Правая колонка: Панель транзакций
+                    # Центральная колонка (3/7): Календарь вверху, легенда и плановые внизу
+                    ft.Column(
+                        controls=[
+                            self.calendar_widget,
+                            self.legend,
+                            self.planned_widget
+                        ],
+                        expand=3,
+                        spacing=20,
+                        scroll=ft.ScrollMode.AUTO,
+                        alignment=ft.MainAxisAlignment.START
+                    ),
+                    ft.VerticalDivider(width=1),
+                    # Правая колонка (2/7): Панель транзакций
                     ft.Column(
                         controls=[
                             self.transactions_panel
                         ],
-                        expand=3
+                        expand=2,
+                        scroll=ft.ScrollMode.AUTO,
+                        alignment=ft.MainAxisAlignment.START
                     )
                 ],
                 expand=True,
-                spacing=20
+                spacing=20,
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.START
             )
         ]
         

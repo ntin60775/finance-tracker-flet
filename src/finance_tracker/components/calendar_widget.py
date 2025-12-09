@@ -256,8 +256,13 @@ class CalendarWidget(ft.Container):
             week_row = ft.Row(spacing=2)
             for day in week:
                 if day == 0:
-                    # Пустая ячейка
-                    week_row.controls.append(ft.Container(expand=True, height=70))
+                    # Пустая ячейка - квадратная
+                    week_row.controls.append(
+                        ft.Container(
+                            expand=True,
+                            aspect_ratio=1.0
+                        )
+                    )
                 else:
                     current_day_date = datetime.date(self.current_date.year, self.current_date.month, day)
                     is_selected = self.selected_date == current_day_date
@@ -323,7 +328,7 @@ class CalendarWidget(ft.Container):
                             spacing=2
                         ),
                         expand=True,
-                        height=70,
+                        aspect_ratio=1.0,
                         bgcolor=bg_color,
                         border_radius=8,
                         border=border,
