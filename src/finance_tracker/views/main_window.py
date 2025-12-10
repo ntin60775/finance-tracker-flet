@@ -20,6 +20,15 @@ class MainWindow(ft.Row):
         super().__init__()
         self.page = page
         self.expand = True
+
+        # Создаем persistent сессию для HomeView через context manager
+        # Session передается в HomeView через Dependency Injection
+        self.home_view_session_cm = get_db_session()
+        self.home_view_session = self.home_view_session_cm.__enter__()
+
+        # HomeView будет создан один раз в init_ui() и переиспользован
+        self.home_view = None
+
         self.setup_page()
         self.init_ui()
 
@@ -80,6 +89,10 @@ class MainWindow(ft.Row):
             logger.error(f"Ошибка при обновлении баланса: {e}")
 
     def init_ui(self):
+        # Создаем HomeView один раз с persistent Session
+        # HomeView получает Session через Dependency Injection и не управляет его жизненным циклом
+        self.home_view = HomeView(self.page, self.home_view_session)
+
         # Боковая панель навигации
         self.rail = ft.NavigationRail(
             selected_index=settings.last_selected_index,
@@ -134,12 +147,12 @@ class MainWindow(ft.Row):
 
         # Текст баланса (будет обновляться в 4.4)
         self.balance_text = ft.Text(
-            "Баланс: 0.00 ₽", 
-            size=20, 
+            "Баланс: 0.00 ₽",
+            size=20,
             weight=ft.FontWeight.BOLD,
             color=ft.Colors.ON_SURFACE_VARIANT
         )
-        
+
         # AppBar
         self.page.appbar = ft.AppBar(
             leading=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET),
@@ -190,9 +203,14 @@ class MainWindow(ft.Row):
         logger.info(f"Переход в раздел с индексом: {index}")
 
     def get_view(self, index: int) -> ft.Control:
-        """Возвращает содержимое для выбранного раздела"""
+        """
+        Возвращает содержимое для выбранного раздела.
+
+        HomeView переиспользуется (создан в init_ui), остальные view создаются заново.
+        """
         if index == 0:
-            return HomeView(self.page)
+            # Переиспользуем созданный HomeView (не создаем новый)
+            return self.home_view
         if index == 1:
             return PlannedTransactionsView(self.page)
         if index == 2:
@@ -209,3 +227,18 @@ class MainWindow(ft.Row):
             return SettingsView(self.page)
 
         return ft.Text("Раздел не найден")
+
+    def cleanup(self):
+        """
+        Корректно закрывает ресурсы MainWindow.
+
+        ВАЖНО: Session для HomeView управляется MainWindow, а не самим View.
+        MainWindow создал Session через context manager и должен корректно его закрыть.
+        """
+        try:
+            if hasattr(self, 'home_view_session_cm'):
+                # Вызываем __exit__ для корректного закрытия Session
+                self.home_view_session_cm.__exit__(None, None, None)
+                logger.info("Session для HomeView корректно закрыт")
+        except Exception as e:
+            logger.error(f"Ошибка при закрытии Session: {e}")

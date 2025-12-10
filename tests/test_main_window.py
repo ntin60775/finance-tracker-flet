@@ -8,7 +8,7 @@
 - Smoke test для всех пунктов меню
 """
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY
 from decimal import Decimal
 
 from finance_tracker.views.main_window import MainWindow
@@ -118,9 +118,10 @@ class TestMainWindow(ViewTestBase):
         
         # Проверяем, что appbar установлен
         self.assertIsNotNone(self.page.appbar)
-        
+
         # Проверяем, что начальный View загружен (HomeView по умолчанию)
-        self.mock_home_view.assert_called_once_with(self.page)
+        # HomeView теперь получает page и session через DI
+        self.mock_home_view.assert_called_once_with(self.page, ANY)
         
         # Проверяем, что rail содержит все пункты меню
         self.assertEqual(len(self.window.rail.destinations), 8)
@@ -314,25 +315,31 @@ class TestMainWindow(ViewTestBase):
     def test_navigate_back_to_home(self):
         """
         Тест навигации обратно к HomeView.
-        
+
         Проверяет:
         - После навигации к другому View можно вернуться к HomeView
-        - При возврате создается новый экземпляр HomeView
-        
+        - При возврате переиспользуется тот же экземпляр HomeView (не создается новый)
+
         Validates: Requirements 5.1, 5.2
         """
+        # HomeView уже создан в init_ui
+        initial_home_view = self.window.home_view
+
         # Навигация к CategoriesView
         self.window.navigate(6)
-        
+
         # Сбрасываем счетчики
         self.mock_home_view.reset_mock()
-        
+
         # Навигация обратно к HomeView (индекс 0)
         self.window.navigate(0)
-        
-        # Проверяем, что HomeView создан заново
-        self.mock_home_view.assert_called_once_with(self.page)
-        
+
+        # Проверяем, что HomeView НЕ создавался заново (счетчик вызовов остался 0)
+        self.mock_home_view.assert_not_called()
+
+        # Проверяем, что переиспользуется тот же экземпляр
+        self.assertEqual(self.window.get_view(0), initial_home_view)
+
         # Проверяем, что selected_index обновлен
         self.assertEqual(self.window.rail.selected_index, 0)
 
@@ -415,15 +422,18 @@ class TestMainWindow(ViewTestBase):
     def test_get_view_returns_correct_view_for_each_index(self):
         """
         Smoke test для всех пунктов меню.
-        
+
         Проверяет:
         - Для каждого индекса меню get_view() возвращает соответствующий View
         - Все View создаются без исключений
-        
+        - HomeView создается один раз в init_ui и переиспользуется
+
         Validates: Requirements 5.4
         """
-        # Сбрасываем все счетчики
-        self.mock_home_view.reset_mock()
+        # HomeView уже создан в init_ui (в setUp), проверяем, что был вызван
+        self.mock_home_view.assert_called_once_with(self.page, ANY)
+
+        # Сбрасываем счетчик для других view
         self.mock_planned_transactions_view.reset_mock()
         self.mock_loans_view.reset_mock()
         self.mock_pending_payments_view.reset_mock()
@@ -431,29 +441,30 @@ class TestMainWindow(ViewTestBase):
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
         self.mock_settings_view.reset_mock()
-        
-        # Проверяем каждый индекс
+
+        # Проверяем, что get_view(0) возвращает переиспользованный HomeView
         view_0 = self.window.get_view(0)
-        self.mock_home_view.assert_called_once_with(self.page)
-        
+        self.assertEqual(view_0, self.window.home_view)
+
+        # Остальные view создаются при каждом вызове get_view
         view_1 = self.window.get_view(1)
         self.mock_planned_transactions_view.assert_called_once_with(self.page)
-        
+
         view_2 = self.window.get_view(2)
         self.mock_loans_view.assert_called_once_with(self.page)
-        
+
         view_3 = self.window.get_view(3)
         self.mock_pending_payments_view.assert_called_once_with(self.page)
-        
+
         view_4 = self.window.get_view(4)
         self.mock_plan_fact_view.assert_called_once_with()
-        
+
         view_5 = self.window.get_view(5)
         self.mock_lenders_view.assert_called_once_with(self.page)
-        
+
         view_6 = self.window.get_view(6)
         self.mock_categories_view.assert_called_once_with(self.page)
-        
+
         view_7 = self.window.get_view(7)
         self.mock_settings_view.assert_called_once_with(self.page)
 
@@ -587,19 +598,19 @@ class TestMainWindowProperties(ViewTestBase):
     def test_property_navigation_between_views(self, menu_index):
         """
         Feature: ui-testing, Property 8: Навигация между View
-        
+
         Проверяет:
         - Для любого валидного индекса меню (0-7) навигация работает корректно
-        - Соответствующий View создается
+        - Соответствующий View создается (кроме HomeView, который переиспользуется)
         - selected_index обновляется
         - Настройки сохраняются
-        
+
         Validates: Requirements 5.1, 5.2
         """
         # Создаем MainWindow
         window = MainWindow(self.page)
         window.content_area.update = Mock()
-        
+
         # Сбрасываем счетчики после инициализации
         self.mock_home_view.reset_mock()
         self.mock_planned_transactions_view.reset_mock()
@@ -610,13 +621,13 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_categories_view.reset_mock()
         self.mock_settings_view.reset_mock()
         self.mock_settings.save.reset_mock()
-        
+
         # Выполняем навигацию
         window.navigate(menu_index)
-        
+
         # Проверяем, что selected_index обновлен
         self.assertEqual(window.rail.selected_index, menu_index)
-        
+
         # Проверяем, что соответствующий View был создан
         view_mocks = [
             self.mock_home_view,
@@ -628,10 +639,16 @@ class TestMainWindowProperties(ViewTestBase):
             self.mock_categories_view,
             self.mock_settings_view,
         ]
-        
-        # Проверяем, что был вызван правильный мок View
-        view_mocks[menu_index].assert_called()
-        
+
+        # HomeView (индекс 0) переиспользуется, поэтому не вызывается при навигации
+        # Остальные view создаются заново при каждой навигации
+        if menu_index == 0:
+            # HomeView не вызывается при navigate(0), так как переиспользуется
+            self.mock_home_view.assert_not_called()
+        else:
+            # Остальные view создаются при navigate
+            view_mocks[menu_index].assert_called()
+
         # Проверяем, что content_area.update был вызван
         window.content_area.update.assert_called()
         
@@ -649,18 +666,19 @@ class TestMainWindowProperties(ViewTestBase):
     def test_property_view_closure_on_navigation(self, first_index, second_index):
         """
         Feature: ui-testing, Property 9: Закрытие View при навигации
-        
+
         Проверяет:
-        - При переходе от одного View к другому создается новый экземпляр View
-        - Каждая навигация вызывает создание нового View (старый заменяется)
+        - При переходе от одного View к другому создается новый экземпляр View (кроме HomeView)
+        - HomeView переиспользуется при каждой навигации к индексу 0
+        - Остальные view создаются заново при каждой навигации (старый заменяется)
         - Настройки сохраняются при каждой навигации
-        
+
         Validates: Requirements 5.1, 5.2, 5.3
         """
         # Создаем MainWindow
         window = MainWindow(self.page)
         window.content_area.update = Mock()
-        
+
         # Сбрасываем счетчики после инициализации
         self.mock_home_view.reset_mock()
         self.mock_planned_transactions_view.reset_mock()
@@ -671,13 +689,13 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_categories_view.reset_mock()
         self.mock_settings_view.reset_mock()
         self.mock_settings.save.reset_mock()
-        
+
         # Первая навигация
         window.navigate(first_index)
-        
+
         # Запоминаем количество вызовов после первой навигации
         first_save_count = self.mock_settings.save.call_count
-        
+
         # Сбрасываем счетчики
         self.mock_home_view.reset_mock()
         self.mock_planned_transactions_view.reset_mock()
@@ -687,13 +705,13 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
         self.mock_settings_view.reset_mock()
-        
+
         # Вторая навигация
         window.navigate(second_index)
-        
+
         # Проверяем, что selected_index обновлен
         self.assertEqual(window.rail.selected_index, second_index)
-        
+
         # Проверяем, что новый View был создан
         view_mocks = [
             self.mock_home_view,
@@ -705,9 +723,15 @@ class TestMainWindowProperties(ViewTestBase):
             self.mock_categories_view,
             self.mock_settings_view,
         ]
-        
-        # Проверяем, что был вызван правильный мок View для второй навигации
-        view_mocks[second_index].assert_called()
+
+        # HomeView (индекс 0) переиспользуется, поэтому не вызывается при второй навигации
+        # Остальные view создаются заново при каждой навигации
+        if second_index == 0:
+            # HomeView не вызывается при navigate(0), так как переиспользуется
+            self.mock_home_view.assert_not_called()
+        else:
+            # Остальные view создаются при navigate
+            view_mocks[second_index].assert_called()
         
         # Проверяем, что content_area был обновлен
         self.assertIsNotNone(window.content_area.content)
