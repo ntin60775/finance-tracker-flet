@@ -81,8 +81,13 @@ class HomePresenter:
         try:
             payments = pending_payment_service.get_all_pending_payments(self.session)
             statistics = pending_payment_service.get_pending_payments_statistics(self.session)
-            # The design doc for IHomeViewCallbacks.update_pending_payments expects Tuple[int, float] for statistics
-            self.callbacks.update_pending_payments(payments, (statistics["total_active"], float(statistics["total_amount"])))
+            
+            # Проверяем, что statistics - это словарь
+            if not isinstance(statistics, dict):
+                logger.warning(f"statistics имеет неожиданный тип: {type(statistics)}")
+                statistics = {"total_active": 0, "total_amount": 0.0}
+            
+            self.callbacks.update_pending_payments(payments, statistics)
         except Exception as e:
             self._handle_error("Ошибка загрузки отложенных платежей", e)
     

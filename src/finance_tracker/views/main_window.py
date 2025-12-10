@@ -183,6 +183,23 @@ class MainWindow(ft.Row):
             self.content_area,
         ]
 
+    def did_mount(self):
+        """Вызывается после добавления на страницу - инициализируем данные HomeView"""
+        try:
+            # Теперь HomeView добавлен на страницу и можно загружать данные
+            if self.home_view and hasattr(self.home_view, 'presenter'):
+                self.home_view.presenter.load_initial_data()
+            
+            # Обновляем баланс в AppBar
+            self.update_balance()
+            
+            logger.info("MainWindow успешно инициализирован после монтирования")
+        except Exception as e:
+            logger.error(f"Ошибка при инициализации данных после монтирования: {e}")
+            # Показываем ошибку пользователю, но не падаем
+            if self.page:
+                self.page.add(ft.Text(f"Ошибка инициализации: {e}", color=ft.Colors.ERROR))
+
     def save_state(self):
         """Сохраняет текущее состояние приложения"""
         settings.last_selected_index = self.rail.selected_index

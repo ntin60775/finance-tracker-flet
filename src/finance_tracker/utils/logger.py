@@ -12,8 +12,9 @@ import json
 import logging
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict
+from decimal import Decimal
 
 from finance_tracker.config import settings
 
@@ -48,13 +49,34 @@ class JsonFormatter(logging.Formatter):
                           "funcName", "levelname", "levelno", "lineno", "module",
                           "msecs", "message", "msg", "name", "pathname", "process",
                           "processName", "relativeCreated", "stack_info", "thread", "threadName"]:
-                log_record[key] = value
+                # Преобразуем несериализуемые типы в строки
+                log_record[key] = self._serialize_value(value)
 
         # Обработка исключений
         if record.exc_info:
             log_record['exception'] = self.formatException(record.exc_info)
             
         return json.dumps(log_record, ensure_ascii=False)
+    
+    def _serialize_value(self, value: Any) -> Any:
+        """
+        Преобразует значение в JSON-сериализуемый формат.
+        
+        Args:
+            value: Значение для сериализации
+            
+        Returns:
+            JSON-сериализуемое значение
+        """
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        elif isinstance(value, Decimal):
+            return float(value)
+        elif hasattr(value, '__dict__'):
+            # Для объектов с атрибутами возвращаем строковое представление
+            return str(value)
+        else:
+            return value
 
 def setup_logging() -> None:
     """

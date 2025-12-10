@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Dict
 
 import flet as ft
 from sqlalchemy.orm import Session
@@ -150,9 +150,6 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             )
         ]
 
-        # Загружаем начальные данные через Presenter
-        self.presenter.load_initial_data()
-
         logger.info("HomeView инициализирован")
 
     def will_unmount(self):
@@ -178,7 +175,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.planned_widget.set_occurrences(occurrences)
         self.update()
 
-    def update_pending_payments(self, payments: List[Any], statistics: Tuple[int, float]) -> None:
+    def update_pending_payments(self, payments: List[Any], statistics: Dict[str, Any]) -> None:
         """Обновить список отложенных платежей."""
         self.pending_payments_widget.set_payments(payments, statistics)
         self.update()

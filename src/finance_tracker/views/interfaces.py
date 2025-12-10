@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Dict
 from datetime import date
 
 class IHomeViewCallbacks(ABC):
@@ -39,7 +39,7 @@ class IHomeViewCallbacks(ABC):
         pass
     
     @abstractmethod
-    def update_pending_payments(self, payments: List[Any], statistics: Tuple[int, float]) -> None:
+    def update_pending_payments(self, payments: List[Any], statistics: Dict[str, Any]) -> None:
         """
         Обновить список отложенных платежей.
         
