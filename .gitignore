@@ -39,6 +39,7 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Development concepts and ideas (не для репозитория)
 concepts/
