@@ -110,29 +110,27 @@
   - **Property 6: Component Lifecycle Consistency**
   - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
-- [ ] 6. Создать интеграционные тесты для предотвращения регрессий
-
-- [ ] 6.1 Создать test_integration_regression.py
+- [x] 6. Создать интеграционные тесты для предотвращения регрессий
+- [x] 6.1 Создать test_integration_regression.py
   - Создать TestIntegrationRegression класс
   - Добавить mock объекты для полного приложения
   - Реализовать базовую структуру интеграционных тестов
   - _Requirements: 9.1_
 
-- [ ] 6.2 Реализовать тесты полного цикла инициализации
+- [x] 6.2 Реализовать тесты полного цикла инициализации
   - test_application_startup_sequence - проверка полной последовательности запуска
   - test_main_window_to_home_view_flow - проверка потока от MainWindow к HomeView
   - test_navigation_without_offstage_errors - проверка навигации без Offstage ошибок
   - _Requirements: 9.1, 9.2, 9.3_
 
-- [ ] 6.3 Реализовать тесты обработки ошибок
+- [x] 6.3 Реализовать тесты обработки ошибок
   - test_error_handling_with_logging - проверка обработки ошибок с логированием
   - test_graceful_degradation - проверка graceful degradation при ошибках
   - _Requirements: 9.4, 9.5_
 
-- [ ] 6.4 Написать property test для robustness приложения
+- [x] 6.4 Написать property test для robustness приложения
   - **Property 9: Application Startup Robustness**
   - **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 
-- [ ] 7. Final Checkpoint - Полная проверка всех тестов
-
+- [x] 7. Final Checkpoint - Полная проверка всех тестов
 - Ensure all tests pass, ask the user if questions arise.

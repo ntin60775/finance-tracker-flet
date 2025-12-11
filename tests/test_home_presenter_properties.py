@@ -323,10 +323,10 @@ def test_pending_payment_data_loading_consistency(unused_arg):
         mock_pending_payment_service.get_all_pending_payments.assert_called_once_with(session)
         mock_pending_payment_service.get_pending_payments_statistics.assert_called_once_with(session)
 
-        # Verify callback called with correct structure (payments list and tuple of statistics)
+        # Verify callback called with correct structure (payments list and dict of statistics)
         callbacks.update_pending_payments.assert_called_once_with(
             mock_payments,
-            (5, 1500.50)  # tuple of (total_active, total_amount as float)
+            {'total_active': 5, 'total_amount': Decimal('1500.50')}  # dict format
         )
 
         # Verify no errors shown
@@ -577,10 +577,10 @@ def test_operation_result_callback_consistency(unused_arg):
         callbacks.reset_mock()
         presenter.load_pending_payments()
         
-        # Assert - verify callback called with payments and statistics tuple
+        # Assert - verify callback called with payments and statistics dict
         callbacks.update_pending_payments.assert_called_once_with(
             mock_payments, 
-            (2, 500.0)  # tuple of (total_active, total_amount as float)
+            {'total_active': 2, 'total_amount': Decimal('500.00')}  # dict format
         )
 
         # Verify no errors shown

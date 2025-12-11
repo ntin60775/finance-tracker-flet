@@ -175,9 +175,9 @@ class TestHomePresenter(unittest.TestCase):
         self.mock_pending_payment_service.get_all_pending_payments.assert_called_once_with(self.session)
         self.mock_pending_payment_service.get_pending_payments_statistics.assert_called_once_with(self.session)
         
-        # Проверяем callback с правильным форматом (payments, tuple)
+        # Проверяем callback с правильным форматом (payments, dict)
         self.callbacks.update_pending_payments.assert_called_once_with(
-            mock_payments, (5, 1500.5)
+            mock_payments, {'total_active': 5, 'total_amount': Decimal('1500.50')}
         )
         self.callbacks.show_error.assert_not_called()
 
