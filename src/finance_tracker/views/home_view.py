@@ -196,7 +196,56 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def open_add_transaction_modal(self):
         """Открытие модального окна добавления транзакции."""
-        self.transaction_modal.open(self.page, self.selected_date)
+        try:
+            logger.debug(f"Открытие модального окна добавления транзакции для даты: {self.selected_date}")
+            
+            if not self.page:
+                logger.error("Page не инициализирована для открытия модального окна")
+                return
+                
+            if not self.transaction_modal:
+                logger.error("TransactionModal не инициализирован")
+                return
+                
+            self.transaction_modal.open(self.page, self.selected_date)
+            logger.info("Модальное окно добавления транзакции успешно открыто")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии модального окна добавления транзакции: {e}", exc_info=True)
+            if self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Не удалось открыть форму добавления транзакции"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
+    
+    def _close_bottom_sheet(self):
+        """Закрытие BottomSheet."""
+        try:
+            if hasattr(self, 'bottom_sheet'):
+                self.bottom_sheet.open = False
+                self.page.update()
+                logger.info("BottomSheet закрыт")
+        except Exception as e:
+            logger.error(f"Ошибка при закрытии BottomSheet: {e}")
+    
+    def _open_real_modal_from_sheet(self):
+        """Открытие настоящего модального окна транзакции из BottomSheet."""
+        try:
+            # Закрываем BottomSheet
+            self._close_bottom_sheet()
+            
+            if not self.transaction_modal:
+                logger.error("TransactionModal не инициализирован")
+                return
+                
+            self.transaction_modal.open(self.page, self.selected_date)
+            logger.info("Настоящее модальное окно добавления транзакции открыто")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии настоящего модального окна: {e}", exc_info=True)
 
     def on_transaction_saved(self, data: TransactionCreate):
         """Обработка сохранения новой транзакции - делегирует в Presenter."""

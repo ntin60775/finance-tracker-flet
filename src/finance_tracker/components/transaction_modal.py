@@ -38,21 +38,13 @@ class TransactionModal:
         self.page: Optional[ft.Page] = None
         self.current_date = datetime.date.today()
         
-        # UI Controls
-        self.type_segment = ft.SegmentedButton(
-            segments=[
-                ft.Segment(
-                    value=TransactionType.EXPENSE.value,
-                    label=ft.Text("Расход"),
-                    icon=ft.Icons.ARROW_CIRCLE_DOWN,
-                ),
-                ft.Segment(
-                    value=TransactionType.INCOME.value,
-                    label=ft.Text("Доход"),
-                    icon=ft.Icons.ARROW_CIRCLE_UP,
-                ),
-            ],
-            selected={TransactionType.EXPENSE.value},
+        # UI Controls - заменяем SegmentedButton на простые RadioButton
+        self.type_radio = ft.RadioGroup(
+            content=ft.Row([
+                ft.Radio(value=TransactionType.EXPENSE.value, label="Расход"),
+                ft.Radio(value=TransactionType.INCOME.value, label="Доход"),
+            ]),
+            value=TransactionType.EXPENSE.value,
             on_change=self._on_type_change,
         )
         
@@ -91,14 +83,13 @@ class TransactionModal:
             last_date=datetime.date(2030, 12, 31),
         )
 
-        # Dialog
+        # Dialog - восстанавливаем полную функциональность
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Новая транзакция"),
             content=ft.Column(
                 controls=[
-                    ft.Row([self.type_segment], alignment=ft.MainAxisAlignment.CENTER),
-                    ft.Container(height=10),
+                    self.type_radio,
                     self.date_button,
                     self.amount_field,
                     self.category_dropdown,
@@ -113,7 +104,6 @@ class TransactionModal:
                 ft.TextButton("Отмена", on_click=self.close),
                 ft.ElevatedButton("Сохранить", on_click=self._save),
             ],
-            actions_alignment=ft.MainAxisAlignment.END,
         )
 
     def open(self, page: ft.Page, date: Optional[datetime.date] = None):
@@ -124,34 +114,52 @@ class TransactionModal:
             page: Ссылка на страницу Flet.
             date: Предустановленная дата (по умолчанию сегодня).
         """
-        self.page = page
-        self.page.dialog = self.dialog
+        from finance_tracker.utils.logger import get_logger
+        logger = get_logger(__name__)
         
-        # Setup Date Picker if not added
-        if self.date_picker not in self.page.overlay:
-            self.page.overlay.append(self.date_picker)
+        try:
+            logger.debug(f"Открытие TransactionModal для даты: {date}")
             
-        # Reset fields
-        self.current_date = date or datetime.date.today()
-        self.date_button.text = self.current_date.strftime("%d.%m.%Y")
-        self.date_picker.value = self.current_date
-        self.amount_field.value = ""
-        self.amount_field.error_text = None
-        self.description_field.value = ""
-        self.error_text.value = ""
-        
-        # Default to Expense
-        self.type_segment.selected = {TransactionType.EXPENSE.value}
-        
-        # Load categories
-        self._load_categories(TransactionType.EXPENSE)
-        
-        self.dialog.open = True
-        self.page.update()
+            if not page:
+                raise ValueError("Page не может быть None")
+                
+            self.page = page
+            self.current_date = date or datetime.date.today()
+            
+            # Сбрасываем поля формы
+            self.date_button.text = self.current_date.strftime("%d.%m.%Y")
+            self.amount_field.value = ""
+            self.amount_field.error_text = None
+            self.description_field.value = ""
+            self.error_text.value = ""
+            self.type_radio.value = TransactionType.EXPENSE.value
+            
+            # Загружаем категории
+            self._load_categories(TransactionType.EXPENSE)
+            
+            # Открываем диалог используя overlay (как в работающих примерах)
+            page.overlay.append(self.dialog)
+            self.dialog.open = True
+            page.update()
+            
+            logger.info("TransactionModal успешно открыт через overlay")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии TransactionModal: {e}", exc_info=True)
+            
+            # Показываем пользователю сообщение об ошибке
+            if page:
+                try:
+                    page.open(ft.SnackBar(
+                        content=ft.Text(f"Ошибка при открытии формы: {str(e)}"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog:
+        if self.dialog and self.page:
             self.dialog.open = False
             self.page.update()
 
@@ -168,25 +176,45 @@ class TransactionModal:
 
     def _on_type_change(self, e):
         """Обработка смены типа транзакции."""
-        if not self.type_segment.selected:
-             # Prevent deselecting all
-             return
+        if not self.type_radio.value:
+            return
         
-        selected_type = list(self.type_segment.selected)[0]
+        selected_type = self.type_radio.value
         self._load_categories(TransactionType(selected_type))
-        self.page.update()
+        if self.page:
+            self.page.update()
 
     def _load_categories(self, t_type: TransactionType):
         """Загрузка категорий выбранного типа."""
+        from finance_tracker.utils.logger import get_logger
+        logger = get_logger(__name__)
+        
         try:
+            logger.debug(f"Загрузка категорий типа: {t_type}")
+            
+            if not self.session:
+                raise ValueError("Session не инициализирована")
+                
             categories = get_all_categories(self.session, t_type)
+            logger.debug(f"Получено {len(categories)} категорий из сервиса")
+            
             self.category_dropdown.options = [
                 ft.dropdown.Option(key=str(c.id), text=c.name) for c in categories
             ]
+            logger.debug(f"Создано {len(self.category_dropdown.options)} опций для dropdown")
+            
             self.category_dropdown.value = None
             self.category_dropdown.error_text = None
+            
+            logger.debug("Категории успешно загружены в dropdown")
+                
         except Exception as e:
-            self.error_text.value = f"Ошибка загрузки категорий: {e}"
+            error_msg = f"Ошибка загрузки категорий: {e}"
+            self.error_text.value = error_msg
+            
+            logger.error(f"Ошибка при загрузке категорий в TransactionModal: {e}", exc_info=True)
+            
+            # Не обновляем page здесь, чтобы не мешать основному процессу открытия
 
     def _clear_error(self, e):
         """Сброс ошибок при вводе."""
@@ -204,7 +232,7 @@ class TransactionModal:
         
         # Validate Amount
         try:
-            amount = Decimal(self.amount_field.value)
+            amount = Decimal(self.amount_field.value or "0")
             if amount <= Decimal('0'):
                 self.amount_field.error_text = "Сумма должна быть больше 0"
                 errors = True
@@ -218,18 +246,23 @@ class TransactionModal:
             errors = True
             
         if errors:
-            self.page.update()
+            if self.page:
+                self.page.update()
             return
 
-        selected_type = list(self.type_segment.selected)[0]
+        selected_type = self.type_radio.value
         
         transaction_data = TransactionCreate(
             amount=amount,
             type=TransactionType(selected_type),
             category_id=self.category_dropdown.value,
-            description=self.description_field.value,
+            description=self.description_field.value or "",
             transaction_date=self.current_date
         )
         
-        self.on_save(transaction_data)
+        # ВАЖНО: Закрываем диалог ПЕРЕД вызовом callback
         self.close()
+        
+        # Вызываем callback ПОСЛЕ закрытия
+        if self.on_save:
+            self.on_save(transaction_data)

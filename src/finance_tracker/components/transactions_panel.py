@@ -163,10 +163,11 @@ class TransactionsPanel(ft.Container):
                 self.header_text,
                 ft.IconButton(
                     icon=ft.Icons.ADD,
-                    on_click=lambda _: self.on_add_transaction(),
+                    on_click=self._safe_add_transaction,
                     tooltip="Добавить транзакцию",
                     bgcolor=ft.Colors.PRIMARY,
                     icon_color=ft.Colors.ON_PRIMARY,
+                    disabled=self.on_add_transaction is None,
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -175,6 +176,37 @@ class TransactionsPanel(ft.Container):
     def _build_summary(self):
         """Создание строки с итогами дня."""
         return self.summary_row
+
+    def _safe_add_transaction(self, e):
+        """
+        Безопасный вызов callback для добавления транзакции.
+        
+        Args:
+            e: Event от Flet (не используется).
+        """
+        try:
+            if self.on_add_transaction is not None:
+                logger.debug("Вызов callback для добавления транзакции")
+                self.on_add_transaction()
+            else:
+                logger.warning("Callback для добавления транзакции не установлен")
+                # Показываем пользователю информацию о том, что функция недоступна
+                if hasattr(self, 'page') and self.page:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Функция добавления транзакции недоступна"),
+                        bgcolor=ft.Colors.WARNING
+                    ))
+        except Exception as ex:
+            logger.error(f"Ошибка при вызове callback добавления транзакции: {ex}", exc_info=True)
+            # Показываем пользователю сообщение об ошибке, если есть доступ к page
+            if hasattr(self, 'page') and self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Ошибка при открытии формы добавления транзакции"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar с ошибкой: {snack_error}")
 
     def _update_view(self):
         """Обновление содержимого виджета."""

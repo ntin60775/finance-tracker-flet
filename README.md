@@ -122,95 +122,287 @@ finance-tracker
 
 ## Запуск тестов
 
-Проект использует pytest для тестирования и включает как unit-тесты, так и property-based тесты (с использованием Hypothesis).
+Проект использует комплексную стратегию тестирования с pytest, включающую unit-тесты, property-based тесты (Hypothesis), UI-тесты и интеграционные тесты.
 
-### Запуск всех тестов
+### Типы тестов
 
-Для запуска всех тестов (unit-тесты + property-based тесты):
+**Unit тесты** - изолированное тестирование отдельных компонентов:
+- Сервисы (`test_*_service.py`)
+- UI компоненты (`test_*_view.py`, `test_*_modal.py`)
+- Утилиты и вспомогательные функции
 
+**Property-based тесты** - проверка универсальных свойств на случайных данных:
+- Инварианты бизнес-логики (`test_*_properties.py`)
+- Корректность алгоритмов
+- Обработка граничных случаев
+
+**UI тесты** - тестирование пользовательского интерфейса:
+- Инициализация View компонентов
+- Взаимодействие с кнопками и формами
+- Открытие модальных окон
+- Валидация пользовательского ввода
+
+**Интеграционные тесты** - проверка взаимодействия компонентов:
+- Полные пользовательские сценарии
+- Взаимодействие View ↔ Service ↔ Database
+- End-to-end тестирование функций
+
+### Быстрый старт
+
+Запуск всех тестов:
 ```bash
 pytest tests/
 ```
 
-### Запуск только UI-тестов
-
-Для запуска только тестов пользовательского интерфейса (View компонентов):
-
-```bash
-pytest tests/test_*_view.py
-```
-
-Или для запуска тестов конкретного View:
-
-```bash
-pytest tests/test_home_view.py
-pytest tests/test_categories_view.py
-pytest tests/test_loans_view.py
-```
-
-### Запуск property-based тестов
-
-Для запуска только property-based тестов (тесты с суффиксом `_properties`):
-
-```bash
-pytest tests/test_*_properties.py
-```
-
-Или для запуска конкретной группы property-тестов:
-
-```bash
-pytest tests/test_transaction_properties.py
-pytest tests/test_loan_properties.py
-pytest tests/test_category_properties.py
-```
-
-### Проверка покрытия кода
-
-Для запуска тестов с проверкой покрытия кода:
-
+Запуск с покрытием кода:
 ```bash
 pytest tests/ --cov=src/finance_tracker --cov-report=html
 ```
 
-После выполнения команды отчет о покрытии будет доступен в директории `htmlcov/index.html`.
-
-Для вывода покрытия в терминал:
-
+Просмотр отчета о покрытии:
 ```bash
-pytest tests/ --cov=src/finance_tracker --cov-report=term
+# Откройте htmlcov/index.html в браузере
 ```
 
-Для проверки покрытия только View компонентов:
+### Запуск по категориям тестов
 
+#### Unit тесты
+
+Все unit тесты:
 ```bash
+pytest tests/test_*_service.py tests/test_*_view.py tests/test_*_modal.py
+```
+
+Тесты сервисов (бизнес-логика):
+```bash
+pytest tests/test_*_service.py
+```
+
+Тесты UI компонентов:
+```bash
+pytest tests/test_*_view.py tests/test_*_modal.py
+```
+
+Конкретный компонент:
+```bash
+pytest tests/test_home_view.py
+pytest tests/test_transaction_modal.py
+pytest tests/test_transaction_service.py
+```
+
+#### Property-based тесты
+
+Все property-based тесты:
+```bash
+pytest tests/test_*_properties.py
+```
+
+По доменам:
+```bash
+pytest tests/test_transaction_properties.py    # Транзакции
+pytest tests/test_loan_properties.py           # Кредиты
+pytest tests/test_category_properties.py       # Категории
+pytest tests/test_balance_forecast_properties.py # Прогноз баланса
+```
+
+#### UI тесты
+
+Все UI тесты (View + Modal):
+```bash
+pytest tests/test_*_view.py tests/test_*_modal.py
+```
+
+Тесты View компонентов:
+```bash
+pytest tests/test_*_view.py
+```
+
+Тесты модальных окон:
+```bash
+pytest tests/test_*_modal.py
+```
+
+Тесты конкретного UI компонента:
+```bash
+pytest tests/test_home_view.py              # Главный экран
+pytest tests/test_categories_view.py        # Управление категориями
+pytest tests/test_loans_view.py             # Список кредитов
+pytest tests/test_transaction_modal.py      # Модальное окно транзакции
+```
+
+#### Интеграционные тесты
+
+Все интеграционные тесты:
+```bash
+pytest tests/test_integration*.py
+```
+
+Конкретные интеграции:
+```bash
+pytest tests/test_integration.py                    # Основные интеграции
+pytest tests/test_loan_payment_integration.py       # Интеграция платежей по кредитам
+pytest tests/test_integration_regression.py         # Регрессионные тесты
+```
+
+### Проверка покрытия кода
+
+Полное покрытие:
+```bash
+pytest tests/ --cov=src/finance_tracker --cov-report=html --cov-report=term
+```
+
+Покрытие по компонентам:
+```bash
+# Только View компоненты
 pytest tests/test_*_view.py --cov=src/finance_tracker/views --cov-report=html
+
+# Только сервисы
+pytest tests/test_*_service.py --cov=src/finance_tracker/services --cov-report=html
+
+# Только модальные окна
+pytest tests/test_*_modal.py --cov=src/finance_tracker/components --cov-report=html
+```
+
+Минимальный порог покрытия:
+```bash
+pytest tests/ --cov=src/finance_tracker --cov-fail-under=80
+```
+
+### Специальные тесты
+
+#### Тесты кнопки добавления транзакции
+
+Полный набор тестов для кнопки добавления транзакции:
+```bash
+pytest tests/ -k "add_transaction_button or transaction_modal"
+```
+
+Unit тесты кнопки:
+```bash
+pytest tests/test_home_view.py -k "add_transaction"
+pytest tests/test_transactions_panel.py -k "add_button"
+```
+
+Property-based тесты кнопки:
+```bash
+pytest tests/test_*_properties.py -k "button or modal"
+```
+
+#### Тесты обработки ошибок
+
+Тесты устойчивости к ошибкам:
+```bash
+pytest tests/ -k "error or exception or robustness"
+```
+
+#### Performance тесты
+
+Тесты производительности:
+```bash
+pytest tests/test_performance_properties.py
 ```
 
 ### Дополнительные опции pytest
 
-Запуск тестов с подробным выводом:
-
+Подробный вывод:
 ```bash
 pytest tests/ -v
 ```
 
-Запуск тестов с остановкой на первой ошибке:
-
+Остановка на первой ошибке:
 ```bash
 pytest tests/ -x
 ```
 
 Запуск конкретного теста:
-
 ```bash
 pytest tests/test_home_view.py::TestHomeView::test_initialization
 ```
 
-Запуск тестов с фильтром по имени:
-
+Фильтрация по имени теста:
 ```bash
 pytest tests/ -k "test_load_data"
+pytest tests/ -k "property and transaction"
+pytest tests/ -k "not slow"  # Исключить медленные тесты
 ```
+
+Параллельный запуск (требует pytest-xdist):
+```bash
+pytest tests/ -n auto  # Автоматическое определение количества процессов
+pytest tests/ -n 4     # 4 параллельных процесса
+```
+
+Повторный запуск упавших тестов:
+```bash
+pytest tests/ --lf      # Только последние упавшие тесты
+pytest tests/ --ff      # Сначала упавшие, потом остальные
+```
+
+### Отладка тестов
+
+Запуск с отладчиком:
+```bash
+pytest tests/test_home_view.py --pdb
+```
+
+Вывод print statements:
+```bash
+pytest tests/ -s
+```
+
+Подробная информация о фикстурах:
+```bash
+pytest tests/ --fixtures
+```
+
+### CI/CD команды
+
+Команды для непрерывной интеграции:
+
+Быстрая проверка (smoke tests):
+```bash
+pytest tests/test_*_view.py -x --tb=short
+```
+
+Полная проверка с покрытием:
+```bash
+pytest tests/ --cov=src/finance_tracker --cov-report=xml --cov-fail-under=80 --tb=short
+```
+
+Только критические тесты:
+```bash
+pytest tests/ -m "not slow" --tb=short
+```
+
+### Создание новых тестов
+
+Для добавления новых тестов в проект следуйте этим шагам:
+
+1. **Определите тип теста:**
+   - `test_*_service.py` - для тестирования бизнес-логики
+   - `test_*_view.py` - для тестирования UI компонентов
+   - `test_*_properties.py` - для property-based тестов
+   - `test_integration*.py` - для интеграционных тестов
+
+2. **Используйте существующие паттерны:**
+   ```bash
+   # Изучите похожие тесты
+   ls tests/test_*_view.py
+   
+   # Скопируйте структуру существующего теста
+   cp tests/test_home_view.py tests/test_new_view.py
+   ```
+
+3. **Проверьте новый тест:**
+   ```bash
+   # Запустите изолированно
+   pytest tests/test_new_file.py -v
+   
+   # Проверьте покрытие
+   pytest tests/test_new_file.py --cov=src/finance_tracker/your_module
+   ```
+
+**Подробное руководство:** См. `.kiro/steering/ui-testing.md` → "Adding New Tests to the System"
 
 ## Мобильный функционал
 
