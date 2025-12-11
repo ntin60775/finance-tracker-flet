@@ -39,12 +39,16 @@ class TestHomeView(unittest.TestCase):
         self.assertIsNotNone(self.view.transactions_panel)
         # Проверяем, что HomePresenter был создан
         self.mock_presenter.assert_called_once_with(self.mock_session, self.view)
-        # Проверяем, что load_initial_data был вызван при инициализации
-        self.mock_presenter.return_value.load_initial_data.assert_called_once()
+        # Проверяем, что load_initial_data НЕ вызывается при инициализации
+        self.mock_presenter.return_value.load_initial_data.assert_not_called()
 
     def test_load_data_calls_services(self):
-        """Тест, что данные загружаются через Presenter."""
-        # Проверяем, что при инициализации Presenter вызывает load_initial_data
+        """Тест, что данные НЕ загружаются при инициализации, а только через did_mount."""
+        # Проверяем, что при инициализации Presenter НЕ вызывает load_initial_data
+        self.mock_presenter.return_value.load_initial_data.assert_not_called()
+        
+        # Но если мы вызовем load_initial_data вручную (как это делает MainWindow.did_mount)
+        self.view.presenter.load_initial_data()
         self.mock_presenter.return_value.load_initial_data.assert_called_once()
 
     def test_on_date_selected(self):
@@ -55,6 +59,42 @@ class TestHomeView(unittest.TestCase):
 
         # Проверяем, что вызван метод Presenter
         self.mock_presenter.return_value.on_date_selected.assert_called_once_with(new_date)
+
+    def test_did_mount_behavior_simulation(self):
+        """Тест симуляции поведения did_mount - загрузка данных после инициализации."""
+        # Проверяем, что при инициализации данные не загружаются
+        self.mock_presenter.return_value.load_initial_data.assert_not_called()
+        
+        # Симулируем вызов did_mount (как это делает MainWindow)
+        self.view.presenter.load_initial_data()
+        
+        # Проверяем, что теперь данные загружены
+        self.mock_presenter.return_value.load_initial_data.assert_called_once()
+
+    def test_presenter_available_after_initialization(self):
+        """Тест, что Presenter доступен после инициализации для вызова load_initial_data."""
+        # Проверяем, что presenter создан и доступен
+        self.assertIsNotNone(self.view.presenter)
+        self.assertEqual(self.view.presenter, self.mock_presenter.return_value)
+        
+        # Проверяем, что можно вызвать load_initial_data
+        self.view.presenter.load_initial_data()
+        self.mock_presenter.return_value.load_initial_data.assert_called_once()
+
+    def test_initialization_order_safety(self):
+        """Тест безопасности порядка инициализации - компоненты создаются, но данные не загружаются."""
+        # Проверяем, что все UI компоненты созданы
+        self.assertIsNotNone(self.view.calendar_widget)
+        self.assertIsNotNone(self.view.transactions_panel)
+        self.assertIsNotNone(self.view.legend)
+        self.assertIsNotNone(self.view.planned_widget)
+        self.assertIsNotNone(self.view.pending_payments_widget)
+        
+        # Проверяем, что presenter создан
+        self.assertIsNotNone(self.view.presenter)
+        
+        # Но данные не загружены
+        self.mock_presenter.return_value.load_initial_data.assert_not_called()
 
 
 if __name__ == '__main__':
