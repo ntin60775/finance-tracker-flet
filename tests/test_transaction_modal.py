@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given, strategies as st, settings
 
 from finance_tracker.components.transaction_modal import TransactionModal
-from finance_tracker.models import TransactionType, CategoryDB, TransactionCreate
+from finance_tracker.models import TransactionType, CategoryDB, TransactionCreate, TransactionDB, TransactionUpdate
 
 
 class TestTransactionModal(unittest.TestCase):
@@ -2068,6 +2068,293 @@ class TestTransactionModalCancelProperties:
             # 7. Модальное окно должно закрыться после успешного сохранения
             assert not modal.dialog.open, \
                 "Модальное окно должно закрыться после успешного сохранения новых данных"
+
+
+if __name__ == '__main__':
+    unittest.main()
+
+class TestTransactionModalEditMode(unittest.TestCase):
+    """Тесты для режима редактирования TransactionModal."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.patcher = patch('finance_tracker.components.transaction_modal.get_all_categories')
+        self.mock_get_all_categories = self.patcher.start()
+
+        self.session = Mock()
+        self.on_save = Mock()
+        self.on_update = Mock()
+
+        # Generate UUIDs
+        self.cat_id_1 = str(uuid.uuid4())
+        self.cat_id_2 = str(uuid.uuid4())
+        self.transaction_id = str(uuid.uuid4())
+
+        # Мокируем загрузку категорий
+        self.expense_categories = [CategoryDB(id=self.cat_id_1, name="Food", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
+        self.income_categories = [CategoryDB(id=self.cat_id_2, name="Salary", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
+        self.mock_get_all_categories.side_effect = lambda session, t_type: (
+            self.expense_categories if t_type == TransactionType.EXPENSE else self.income_categories
+        )
+
+        # Создаем тестовую транзакцию для редактирования
+        self.test_transaction = Mock(spec=TransactionDB)
+        self.test_transaction.id = self.transaction_id
+        self.test_transaction.amount = Decimal("150.75")
+        self.test_transaction.type = TransactionType.EXPENSE
+        self.test_transaction.category_id = self.cat_id_1
+        self.test_transaction.description = "Test transaction"
+        self.test_transaction.transaction_date = datetime.date(2024, 12, 15)
+
+        self.modal = TransactionModal(
+            session=self.session,
+            on_save=self.on_save,
+            on_update=self.on_update
+        )
+        self.page = MagicMock()
+        self.page.overlay = []
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_initialization_with_on_update_callback(self):
+        """Тест инициализации TransactionModal с callback для обновления."""
+        # Проверяем, что callback сохранен
+        self.assertEqual(self.modal.on_update, self.on_update)
+        
+        # Проверяем начальное состояние режима редактирования
+        self.assertFalse(self.modal.edit_mode)
+        self.assertIsNone(self.modal.editing_transaction)
+
+    def test_open_edit_mode(self):
+        """Тест открытия модального окна в режиме редактирования."""
+        # Act - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+
+        # Assert - проверяем режим редактирования
+        self.assertTrue(self.modal.edit_mode)
+        self.assertEqual(self.modal.editing_transaction, self.test_transaction)
+        self.assertEqual(self.modal.dialog_title.value, "Редактировать транзакцию")
+        
+        # Проверяем предзаполнение полей
+        self.assertEqual(self.modal.amount_field.value, "150.75")
+        self.assertEqual(self.modal.description_field.value, "Test transaction")
+        self.assertEqual(self.modal.type_radio.value, TransactionType.EXPENSE.value)
+        self.assertEqual(self.modal.category_dropdown.value, self.cat_id_1)
+        self.assertEqual(self.modal.date_button.text, "15.12.2024")
+        
+        # Проверяем, что диалог открыт
+        self.assertTrue(self.modal.dialog.open)
+        self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)
+
+    def test_prefill_form_with_transaction_data(self):
+        """Тест предзаполнения формы данными транзакции."""
+        # Arrange - создаем транзакцию с полными данными
+        transaction = Mock(spec=TransactionDB)
+        transaction.id = self.transaction_id
+        transaction.amount = Decimal("250.50")
+        transaction.type = TransactionType.INCOME
+        transaction.category_id = self.cat_id_2
+        transaction.description = "Salary payment"
+        transaction.transaction_date = datetime.date(2024, 12, 20)
+
+        # Act - предзаполняем форму
+        self.modal._prefill_form(transaction)
+
+        # Assert - проверяем все поля
+        self.assertEqual(self.modal.amount_field.value, "250.50")
+        self.assertEqual(self.modal.description_field.value, "Salary payment")
+        self.assertEqual(self.modal.type_radio.value, TransactionType.INCOME.value)
+        self.assertEqual(self.modal.category_dropdown.value, self.cat_id_2)
+        self.assertEqual(self.modal.date_button.text, "20.12.2024")
+        
+        # Проверяем сброс ошибок
+        self.assertIsNone(self.modal.amount_field.error_text)
+        self.assertIsNone(self.modal.category_dropdown.error_text)
+        self.assertEqual(self.modal.error_text.value, "")
+
+    def test_prefill_form_with_empty_description(self):
+        """Тест предзаполнения формы с пустым описанием."""
+        # Arrange - создаем транзакцию без описания
+        transaction = Mock(spec=TransactionDB)
+        transaction.id = self.transaction_id
+        transaction.amount = Decimal("100.00")
+        transaction.type = TransactionType.EXPENSE
+        transaction.category_id = self.cat_id_1
+        transaction.description = None  # Пустое описание
+        transaction.transaction_date = datetime.date(2024, 12, 10)
+
+        # Act - предзаполняем форму
+        self.modal._prefill_form(transaction)
+
+        # Assert - проверяем обработку пустого описания
+        self.assertEqual(self.modal.description_field.value, "")
+
+    def test_save_in_edit_mode(self):
+        """Тест сохранения в режиме редактирования."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Изменяем данные
+        self.modal.amount_field.value = "200.00"
+        self.modal.description_field.value = "Updated description"
+
+        # Act - сохраняем изменения
+        self.modal._save(None)
+
+        # Assert - проверяем вызов on_update
+        self.on_update.assert_called_once()
+        call_args = self.on_update.call_args
+        
+        # Проверяем переданные параметры
+        transaction_id, transaction_update = call_args[0]
+        self.assertEqual(transaction_id, self.transaction_id)
+        self.assertIsInstance(transaction_update, TransactionUpdate)
+        
+        # Проверяем данные обновления
+        self.assertEqual(transaction_update.amount, Decimal("200.00"))
+        self.assertEqual(transaction_update.type, TransactionType.EXPENSE)
+        self.assertEqual(transaction_update.category_id, self.cat_id_1)
+        self.assertEqual(transaction_update.description, "Updated description")
+        self.assertEqual(transaction_update.transaction_date, datetime.date(2024, 12, 15))
+        
+        # Проверяем, что on_save НЕ был вызван
+        self.on_save.assert_not_called()
+        
+        # Проверяем закрытие диалога
+        self.assertFalse(self.modal.dialog.open)
+
+    def test_save_in_create_mode(self):
+        """Тест сохранения в режиме создания (для сравнения)."""
+        # Arrange - открываем в режиме создания
+        self.modal.open(self.page, datetime.date(2024, 12, 15))
+        
+        # Заполняем данные
+        self.modal.amount_field.value = "100.00"
+        self.modal.category_dropdown.value = self.cat_id_1
+        self.modal.description_field.value = "New transaction"
+
+        # Act - сохраняем
+        self.modal._save(None)
+
+        # Assert - проверяем вызов on_save
+        self.on_save.assert_called_once()
+        call_args = self.on_save.call_args
+        
+        # Проверяем переданные параметры
+        transaction_create = call_args[0][0]
+        self.assertIsInstance(transaction_create, TransactionCreate)
+        
+        # Проверяем, что on_update НЕ был вызван
+        self.on_update.assert_not_called()
+
+    def test_category_loading_in_edit_mode(self):
+        """Тест загрузки категорий в режиме редактирования."""
+        # Arrange - создаем транзакцию типа INCOME
+        income_transaction = Mock(spec=TransactionDB)
+        income_transaction.id = self.transaction_id
+        income_transaction.amount = Decimal("1000.00")
+        income_transaction.type = TransactionType.INCOME
+        income_transaction.category_id = self.cat_id_2
+        income_transaction.description = "Salary"
+        income_transaction.transaction_date = datetime.date(2024, 12, 15)
+
+        # Act - открываем в режиме редактирования
+        self.modal.open_edit(self.page, income_transaction)
+
+        # Assert - проверяем загрузку категорий дохода
+        self.mock_get_all_categories.assert_called_with(self.session, TransactionType.INCOME)
+        
+        # Проверяем, что выбрана правильная категория
+        self.assertEqual(self.modal.category_dropdown.value, self.cat_id_2)
+
+    def test_type_change_in_edit_mode(self):
+        """Тест смены типа транзакции в режиме редактирования."""
+        # Arrange - открываем в режиме редактирования (EXPENSE)
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Act - меняем тип на INCOME
+        self.modal.type_radio.value = TransactionType.INCOME.value
+        self.modal._on_type_change(None)
+
+        # Assert - проверяем загрузку категорий дохода
+        self.mock_get_all_categories.assert_called_with(self.session, TransactionType.INCOME)
+        
+        # Проверяем, что категория сброшена (так как старая категория не подходит для нового типа)
+        # Flet может устанавливать пустую строку вместо None
+        self.assertIn(self.modal.category_dropdown.value, [None, ""])
+
+    def test_validation_in_edit_mode(self):
+        """Тест валидации в режиме редактирования."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Устанавливаем невалидные данные
+        self.modal.amount_field.value = "-50.00"  # Отрицательная сумма
+        self.modal.category_dropdown.value = None  # Не выбрана категория
+
+        # Act - пытаемся сохранить
+        self.modal._save(None)
+
+        # Assert - проверяем ошибки валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0")
+        self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
+        
+        # Проверяем, что callback не был вызван
+        self.on_update.assert_not_called()
+        
+        # Проверяем, что диалог остается открытым
+        self.assertTrue(self.modal.dialog.open)
+
+    def test_edit_mode_without_on_update_callback(self):
+        """Тест режима редактирования без callback для обновления."""
+        # Arrange - создаем модал без on_update callback
+        modal_without_update = TransactionModal(
+            session=self.session,
+            on_save=self.on_save,
+            on_update=None  # Нет callback для обновления
+        )
+        modal_without_update.page = self.page
+        
+        # Открываем в режиме редактирования
+        modal_without_update.open_edit(self.page, self.test_transaction)
+        
+        # Заполняем валидные данные
+        modal_without_update.amount_field.value = "200.00"
+        modal_without_update.category_dropdown.value = self.cat_id_1
+
+        # Act - попытка сохранения (ошибка перехватывается safe_handler)
+        modal_without_update._save(None)
+        
+        # Assert - проверяем, что ошибка отображается в UI
+        self.assertIn("on_update callback не установлен", modal_without_update.error_text.value)
+        
+        # Проверяем, что диалог остается открытым
+        self.assertTrue(modal_without_update.dialog.open)
+
+    def test_reset_form_method(self):
+        """Тест метода сброса формы."""
+        # Arrange - устанавливаем некоторые значения
+        test_date = datetime.date(2024, 12, 20)
+        self.modal.current_date = test_date
+        self.modal.amount_field.value = "100.50"
+        self.modal.description_field.value = "Some description"
+        self.modal.type_radio.value = TransactionType.INCOME.value
+        self.modal.category_dropdown.value = self.cat_id_2
+
+        # Act - сбрасываем форму
+        self.modal._reset_form()
+
+        # Assert - проверяем сброс всех полей
+        self.assertEqual(self.modal.date_button.text, "20.12.2024")
+        self.assertEqual(self.modal.amount_field.value, "")
+        self.assertEqual(self.modal.description_field.value, "")
+        self.assertEqual(self.modal.type_radio.value, TransactionType.EXPENSE.value)
+        # Flet может устанавливать пустую строку вместо None
+        self.assertIn(self.modal.category_dropdown.value, [None, ""])
+        self.assertEqual(self.modal.error_text.value, "")
+        self.assertIsNone(self.modal.amount_field.error_text)
+        self.assertIsNone(self.modal.category_dropdown.error_text)
 
 
 if __name__ == '__main__':

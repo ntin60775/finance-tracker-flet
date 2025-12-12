@@ -368,6 +368,218 @@ class TestTransactionsPanel(unittest.TestCase):
         self.assertIsInstance(date_text, ft.Text, "Первый элемент должен быть Text")
         self.assertIsInstance(add_button, ft.IconButton, "Второй элемент должен быть IconButton")
 
+    def test_transaction_tile_with_action_buttons(self):
+        """
+        Тест создания элемента транзакции с кнопками действий.
+        
+        Проверяет:
+        - Создание ListTile с кнопками редактирования и удаления
+        - Правильные атрибуты кнопок (иконки, tooltip, цвета)
+        - Структуру trailing элемента
+        
+        Requirements: 1.1, 1.2, 1.5, 9.2, 9.3
+        """
+        # Arrange - создаем mock callback'и
+        mock_edit_callback = Mock()
+        mock_delete_callback = Mock()
+        
+        # Создаем панель с callback'ами для действий
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=mock_edit_callback,
+            on_delete_transaction=mock_delete_callback
+        )
+        
+        # Создаем тестовую транзакцию
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act - создаем элемент списка для транзакции
+        tile = panel._build_transaction_tile(test_transaction)
+
+        # Assert - проверяем структуру ListTile
+        self.assertIsInstance(tile, ft.ListTile, "Должен быть создан ListTile")
+        self.assertIsNotNone(tile.leading, "Должна быть иконка типа транзакции")
+        self.assertIsNotNone(tile.title, "Должен быть заголовок с категорией")
+        self.assertIsNotNone(tile.trailing, "Должен быть trailing с суммой и кнопками")
+
+        # Проверяем trailing элемент (должен быть Row с суммой и кнопками)
+        trailing = tile.trailing
+        self.assertIsInstance(trailing, ft.Row, "Trailing должен быть Row")
+        
+        # Должно быть 3 элемента: сумма + 2 кнопки
+        self.assertEqual(len(trailing.controls), 3, "Должно быть 3 элемента: сумма + 2 кнопки")
+        
+        # Проверяем первый элемент - сумма
+        amount_text = trailing.controls[0]
+        self.assertIsInstance(amount_text, ft.Text, "Первый элемент должен быть Text с суммой")
+        
+        # Проверяем кнопки действий
+        edit_button = trailing.controls[1]
+        delete_button = trailing.controls[2]
+        
+        self.assertIsInstance(edit_button, ft.IconButton, "Вторая кнопка должна быть IconButton")
+        self.assertIsInstance(delete_button, ft.IconButton, "Третья кнопка должна быть IconButton")
+        
+        # Проверяем атрибуты кнопки редактирования
+        self.assertEqual(edit_button.icon, ft.Icons.EDIT, "Кнопка редактирования должна иметь иконку EDIT")
+        self.assertEqual(edit_button.icon_color, ft.Colors.PRIMARY, "Кнопка редактирования должна быть PRIMARY цвета")
+        self.assertEqual(edit_button.tooltip, "Редактировать", "Кнопка должна иметь tooltip 'Редактировать'")
+        
+        # Проверяем атрибуты кнопки удаления
+        self.assertEqual(delete_button.icon, ft.Icons.DELETE, "Кнопка удаления должна иметь иконку DELETE")
+        self.assertEqual(delete_button.icon_color, ft.Colors.ERROR, "Кнопка удаления должна быть ERROR цвета")
+        self.assertEqual(delete_button.tooltip, "Удалить", "Кнопка должна иметь tooltip 'Удалить'")
+
+    def test_transaction_tile_without_action_callbacks(self):
+        """
+        Тест создания элемента транзакции без callback'ов для действий.
+        
+        Проверяет:
+        - Создание ListTile без кнопок действий
+        - Отображение только суммы в trailing
+        
+        Requirements: 1.1, 1.2
+        """
+        # Arrange - создаем панель без callback'ов для действий
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=None,
+            on_delete_transaction=None
+        )
+        
+        # Создаем тестовую транзакцию
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act - создаем элемент списка для транзакции
+        tile = panel._build_transaction_tile(test_transaction)
+
+        # Assert - проверяем структуру ListTile
+        self.assertIsInstance(tile, ft.ListTile, "Должен быть создан ListTile")
+        
+        # Проверяем trailing элемент (должен быть только Text с суммой)
+        trailing = tile.trailing
+        self.assertIsInstance(trailing, ft.Text, "Trailing должен быть Text без кнопок")
+
+    def test_edit_transaction_button_click(self):
+        """
+        Тест нажатия кнопки редактирования транзакции.
+        
+        Проверяет:
+        - Вызов callback'а при нажатии кнопки редактирования
+        - Передачу правильной транзакции в callback
+        
+        Requirements: 1.2
+        """
+        # Arrange - создаем mock callback
+        mock_edit_callback = Mock()
+        
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=mock_edit_callback,
+            on_delete_transaction=Mock()
+        )
+        
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act - создаем элемент и нажимаем кнопку редактирования
+        tile = panel._build_transaction_tile(test_transaction)
+        edit_button = tile.trailing.controls[1]  # Вторая кнопка - редактирование
+        edit_button.on_click(None)
+
+        # Assert - проверяем вызов callback'а
+        mock_edit_callback.assert_called_once_with(test_transaction)
+
+    def test_delete_transaction_button_click(self):
+        """
+        Тест нажатия кнопки удаления транзакции.
+        
+        Проверяет:
+        - Вызов callback'а при нажатии кнопки удаления
+        - Передачу правильной транзакции в callback
+        
+        Requirements: 1.2
+        """
+        # Arrange - создаем mock callback
+        mock_delete_callback = Mock()
+        
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=Mock(),
+            on_delete_transaction=mock_delete_callback
+        )
+        
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act - создаем элемент и нажимаем кнопку удаления
+        tile = panel._build_transaction_tile(test_transaction)
+        delete_button = tile.trailing.controls[2]  # Третья кнопка - удаление
+        delete_button.on_click(None)
+
+        # Assert - проверяем вызов callback'а
+        mock_delete_callback.assert_called_once_with(test_transaction)
+
+    def test_safe_edit_transaction_with_none_callback(self):
+        """
+        Тест безопасного вызова редактирования с None callback.
+        
+        Проверяет:
+        - Безопасную обработку None callback для редактирования
+        - Отсутствие исключений
+        
+        Requirements: 9.2, 9.3
+        """
+        # Arrange
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=None,
+            on_delete_transaction=None
+        )
+        
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act & Assert - метод не должен вызывать исключений
+        try:
+            panel._safe_edit_transaction(test_transaction)
+        except Exception as e:
+            self.fail(f"_safe_edit_transaction с None callback не должен вызывать исключения: {e}")
+
+    def test_safe_delete_transaction_with_none_callback(self):
+        """
+        Тест безопасного вызова удаления с None callback.
+        
+        Проверяет:
+        - Безопасную обработку None callback для удаления
+        - Отсутствие исключений
+        
+        Requirements: 9.2, 9.3
+        """
+        # Arrange
+        panel = TransactionsPanel(
+            date_obj=self.test_date,
+            transactions=[],
+            on_add_transaction=self.mock_callback,
+            on_edit_transaction=None,
+            on_delete_transaction=None
+        )
+        
+        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        # Act & Assert - метод не должен вызывать исключений
+        try:
+            panel._safe_delete_transaction(test_transaction)
+        except Exception as e:
+            self.fail(f"_safe_delete_transaction с None callback не должен вызывать исключения: {e}")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -36,6 +36,8 @@ class TransactionsPanel(ft.Container):
         on_skip_occurrence: Optional[Callable[[PlannedOccurrence], None]] = None,
         on_execute_pending_payment: Optional[Callable[[PendingPaymentDB], None]] = None,
         on_execute_loan_payment: Optional[Callable[[LoanPaymentDB], None]] = None,
+        on_edit_transaction: Optional[Callable[[TransactionDB], None]] = None,
+        on_delete_transaction: Optional[Callable[[TransactionDB], None]] = None,
     ):
         """
         Инициализация панели транзакций.
@@ -49,6 +51,8 @@ class TransactionsPanel(ft.Container):
             on_skip_occurrence: Callback для пропуска планового вхождения.
             on_execute_pending_payment: Callback для исполнения отложенного платежа.
             on_execute_loan_payment: Callback для исполнения платежа по кредиту.
+            on_edit_transaction: Callback для редактирования транзакции.
+            on_delete_transaction: Callback для удаления транзакции.
         """
         super().__init__()
         self.date = date_obj
@@ -61,6 +65,8 @@ class TransactionsPanel(ft.Container):
         self.on_skip_occurrence = on_skip_occurrence
         self.on_execute_pending_payment = on_execute_pending_payment
         self.on_execute_loan_payment = on_execute_loan_payment
+        self.on_edit_transaction = on_edit_transaction
+        self.on_delete_transaction = on_delete_transaction
         self.forecast_balance: Optional[float] = None
         
         # UI Components to be updated
@@ -331,36 +337,144 @@ class TransactionsPanel(ft.Container):
             )
         else:
             for t in self.transactions:
-                # Пытаемся безопасно получить имя категории
-                category_name = "Без категории"
-                try:
-                    if t.category:
-                        category_name = t.category.name
-                except Exception:
-                     pass
-
-                amount_color = ft.Colors.GREEN if t.type == TransactionType.INCOME else ft.Colors.RED
-                amount_sign = "+" if t.type == TransactionType.INCOME else "-"
-                
-                self.transactions_list.controls.append(
-                    ft.ListTile(
-                        leading=ft.Icon(
-                            ft.Icons.ARROW_CIRCLE_UP if t.type == TransactionType.INCOME else ft.Icons.ARROW_CIRCLE_DOWN,
-                            color=amount_color
-                        ),
-                        title=ft.Text(category_name, weight=ft.FontWeight.BOLD),
-                        subtitle=ft.Text(t.description) if t.description else None,
-                        trailing=ft.Text(
-                            f"{amount_sign}{t.amount:,.2f}",
-                            color=amount_color,
-                            weight=ft.FontWeight.BOLD,
-                            size=16
-                        ),
-                        bgcolor="surfaceVariant",
-                    )
-                )
+                self.transactions_list.controls.append(self._build_transaction_tile(t))
         
         self.update()
+
+    def _build_transaction_tile(self, transaction: TransactionDB) -> ft.ListTile:
+        """
+        Создание элемента списка для транзакции с кнопками действий.
+        
+        Args:
+            transaction: Транзакция для отображения.
+            
+        Returns:
+            ListTile с информацией о транзакции и кнопками редактирования/удаления.
+        """
+        # Пытаемся безопасно получить имя категории
+        category_name = "Без категории"
+        try:
+            if transaction.category:
+                category_name = transaction.category.name
+        except Exception:
+            pass
+
+        amount_color = ft.Colors.GREEN if transaction.type == TransactionType.INCOME else ft.Colors.RED
+        amount_sign = "+" if transaction.type == TransactionType.INCOME else "-"
+        
+        # Создаем кнопки действий
+        action_buttons = []
+        
+        # Кнопка редактирования
+        if self.on_edit_transaction is not None:
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.EDIT,
+                    icon_color=ft.Colors.PRIMARY,
+                    tooltip="Редактировать",
+                    on_click=lambda _, t=transaction: self._safe_edit_transaction(t)
+                )
+            )
+        
+        # Кнопка удаления
+        if self.on_delete_transaction is not None:
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.DELETE,
+                    icon_color=ft.Colors.ERROR,
+                    tooltip="Удалить",
+                    on_click=lambda _, t=transaction: self._safe_delete_transaction(t)
+                )
+            )
+        
+        # Создаем trailing элемент
+        if action_buttons:
+            # Если есть кнопки действий, создаем Row с суммой и кнопками
+            trailing = ft.Row(
+                controls=[
+                    ft.Text(
+                        f"{amount_sign}{transaction.amount:,.2f}",
+                        color=amount_color,
+                        weight=ft.FontWeight.BOLD,
+                        size=16
+                    ),
+                    *action_buttons
+                ],
+                alignment=ft.MainAxisAlignment.END,
+                spacing=5,
+                tight=True
+            )
+        else:
+            # Если нет кнопок действий, показываем только сумму
+            trailing = ft.Text(
+                f"{amount_sign}{transaction.amount:,.2f}",
+                color=amount_color,
+                weight=ft.FontWeight.BOLD,
+                size=16
+            )
+        
+        return ft.ListTile(
+            leading=ft.Icon(
+                ft.Icons.ARROW_CIRCLE_UP if transaction.type == TransactionType.INCOME else ft.Icons.ARROW_CIRCLE_DOWN,
+                color=amount_color
+            ),
+            title=ft.Text(category_name, weight=ft.FontWeight.BOLD),
+            subtitle=ft.Text(transaction.description) if transaction.description else None,
+            trailing=trailing,
+            bgcolor=ft.Colors.SURFACE,
+        )
+
+    def _safe_edit_transaction(self, transaction: TransactionDB):
+        """
+        Безопасный вызов callback для редактирования транзакции.
+        
+        Args:
+            transaction: Транзакция для редактирования.
+        """
+        try:
+            if self.on_edit_transaction is not None:
+                logger.debug(f"Вызов callback для редактирования транзакции {transaction.id}")
+                self.on_edit_transaction(transaction)
+            else:
+                logger.warning("Callback для редактирования транзакции не установлен")
+                self._show_error_message("Функция редактирования транзакции недоступна")
+        except Exception as ex:
+            logger.error(f"Ошибка при вызове callback редактирования транзакции: {ex}", exc_info=True)
+            self._show_error_message("Ошибка при открытии формы редактирования транзакции")
+
+    def _safe_delete_transaction(self, transaction: TransactionDB):
+        """
+        Безопасный вызов callback для удаления транзакции.
+        
+        Args:
+            transaction: Транзакция для удаления.
+        """
+        try:
+            if self.on_delete_transaction is not None:
+                logger.debug(f"Вызов callback для удаления транзакции {transaction.id}")
+                self.on_delete_transaction(transaction)
+            else:
+                logger.warning("Callback для удаления транзакции не установлен")
+                self._show_error_message("Функция удаления транзакции недоступна")
+        except Exception as ex:
+            logger.error(f"Ошибка при вызове callback удаления транзакции: {ex}", exc_info=True)
+            self._show_error_message("Ошибка при удалении транзакции")
+
+    def _show_error_message(self, message: str):
+        """
+        Показывает сообщение об ошибке пользователю.
+        
+        Args:
+            message: Текст сообщения об ошибке.
+        """
+        if hasattr(self, 'page') and self.page:
+            try:
+                self.page.open(ft.SnackBar(
+                    content=ft.Text(message),
+                    bgcolor=ft.Colors.ERROR
+                ))
+            except Exception as snack_error:
+                logger.error(f"Не удалось показать SnackBar с ошибкой: {snack_error}")
 
     def _build_occurrence_tile(self, occurrence: PlannedOccurrence) -> ft.ListTile:
         """Создание элемента списка для планового вхождения."""
