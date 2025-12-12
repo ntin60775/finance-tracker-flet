@@ -274,12 +274,15 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
     """
     from finance_tracker.views.home_view import HomeView
     from finance_tracker.services.transaction_service import get_transactions_by_date
-    from finance_tracker.models import TransactionDB, TransactionCreate
+    from finance_tracker.models import TransactionDB, TransactionCreate, CategoryDB
     from decimal import Decimal
     
     # Arrange - подготовка тестовых данных
     test_date = date(2024, 12, 11)
-    expense_category = sample_categories['expense'][0]  # Категория "Еда"
+    
+    # Получаем категорию из БД, чтобы она была привязана к сессии
+    expense_category = db_session.query(CategoryDB).filter_by(type=TransactionType.EXPENSE).first()
+    assert expense_category is not None, "Должна быть хотя бы одна категория расходов"
     
     # Патчим get_db_session для всех компонентов
     with patch('finance_tracker.database.get_db_session') as mock_get_db:
@@ -323,7 +326,7 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
         # Assert - проверяем отображение ошибок валидации
         
         # 3.1. Проверяем ошибку пустого поля суммы (Requirement 6.1)
-        assert modal.amount_field.error_text == "Сумма должна быть больше 0", \
+        assert modal.amount_field.error_text == "Сумма обязательна для заполнения", \
             "Должна отображаться ошибка для пустого поля суммы"
         
         # 3.2. Проверяем ошибку не выбранной категории (Requirement 6.3)

@@ -1748,7 +1748,13 @@ class TestTransactionModalProperties:
             # Выбираем соответствующую категорию
             selected_category_id = expense_category_id if transaction_type == TransactionType.EXPENSE else income_category_id
             
-            # Заполняем форму валидными данными
+            # Сначала устанавливаем опции категорий для корректной валидации
+            if transaction_type == TransactionType.EXPENSE:
+                modal.category_dropdown.options = [ft.dropdown.Option(key=expense_category_id, text="Test Expense Category")]
+            else:
+                modal.category_dropdown.options = [ft.dropdown.Option(key=income_category_id, text="Test Income Category")]
+            
+            # Затем заполняем форму валидными данными
             modal.amount_field.value = str(amount)
             modal.category_dropdown.value = selected_category_id
             modal.description_field.value = description or ""
@@ -1758,11 +1764,25 @@ class TestTransactionModalProperties:
             # Сбрасываем предыдущие ошибки
             modal.amount_field.error_text = None
             modal.category_dropdown.error_text = None
+            modal._validation_errors.clear()  # Очищаем словарь ошибок валидации
             
             # Сохраняем транзакцию
             modal._save(None)
             
             # Assert - проверяем round-trip: данные → модальное окно → callback → данные
+            
+            # Отладочная информация при ошибке
+            if mock_on_save.call_count == 0:
+                error_info = f"""
+                Callback не был вызван. Отладочная информация:
+                - amount_field.value: {modal.amount_field.value}
+                - amount_field.error_text: {modal.amount_field.error_text}
+                - category_dropdown.value: {modal.category_dropdown.value}
+                - category_dropdown.error_text: {modal.category_dropdown.error_text}
+                - category_dropdown.options: {[opt.key for opt in (modal.category_dropdown.options or [])]}
+                - validation_errors: {getattr(modal, '_validation_errors', {})}
+                """
+                raise AssertionError(error_info)
             
             # 1. Проверяем, что callback был вызван (транзакция "создана")
             mock_on_save.assert_called_once(), \

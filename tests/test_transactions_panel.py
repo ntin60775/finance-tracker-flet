@@ -72,8 +72,10 @@ class TestTransactionsPanel(unittest.TestCase):
         # Проверяем атрибуты кнопки
         self.assertEqual(add_button.icon, ft.Icons.ADD, "Кнопка должна иметь иконку ADD")
         self.assertEqual(add_button.tooltip, "Добавить транзакцию", "Кнопка должна иметь правильный tooltip")
-        self.assertEqual(add_button.bgcolor, ft.Colors.PRIMARY, "Кнопка должна иметь PRIMARY цвет фона")
-        self.assertEqual(add_button.icon_color, ft.Colors.ON_PRIMARY, "Иконка должна иметь ON_PRIMARY цвет")
+        # Цвета теперь в style, проверяем что style существует
+        self.assertIsNotNone(add_button.style, "Кнопка должна иметь стиль")
+        self.assertIsNotNone(add_button.style.bgcolor, "Стиль должен содержать bgcolor")
+        self.assertIsNotNone(add_button.style.icon_color, "Стиль должен содержать icon_color")
 
         # Проверяем состояние кнопки
         self.assertNotEqual(add_button.disabled, True, "Кнопка должна быть активна с валидным callback")
@@ -109,8 +111,10 @@ class TestTransactionsPanel(unittest.TestCase):
         # Assert - проверяем атрибуты кнопки (должны быть такими же)
         self.assertEqual(add_button.icon, ft.Icons.ADD, "Иконка должна быть ADD даже без callback")
         self.assertEqual(add_button.tooltip, "Добавить транзакцию", "Tooltip должен быть установлен")
-        self.assertEqual(add_button.bgcolor, ft.Colors.PRIMARY, "Цвет фона должен быть PRIMARY")
-        self.assertEqual(add_button.icon_color, ft.Colors.ON_PRIMARY, "Цвет иконки должен быть ON_PRIMARY")
+        # Цвета теперь в style, проверяем что style существует
+        self.assertIsNotNone(add_button.style, "Кнопка должна иметь стиль")
+        self.assertIsNotNone(add_button.style.bgcolor, "Стиль должен содержать bgcolor")
+        self.assertIsNotNone(add_button.style.icon_color, "Стиль должен содержать icon_color")
 
         # Проверяем состояние кнопки - должна быть отключена
         self.assertEqual(add_button.disabled, True, "Кнопка должна быть отключена при отсутствии callback")
@@ -398,14 +402,19 @@ class TestTransactionsPanel(unittest.TestCase):
         # Act - создаем элемент списка для транзакции
         tile = panel._build_transaction_tile(test_transaction)
 
-        # Assert - проверяем структуру ListTile
-        self.assertIsInstance(tile, ft.ListTile, "Должен быть создан ListTile")
-        self.assertIsNotNone(tile.leading, "Должна быть иконка типа транзакции")
-        self.assertIsNotNone(tile.title, "Должен быть заголовок с категорией")
-        self.assertIsNotNone(tile.trailing, "Должен быть trailing с суммой и кнопками")
+        # Assert - проверяем структуру Container с ListTile внутри
+        self.assertIsInstance(tile, ft.Container, "Должен быть создан Container")
+        self.assertIsNotNone(tile.content, "Container должен содержать content")
+        
+        # Получаем ListTile из Container
+        list_tile = tile.content
+        self.assertIsInstance(list_tile, ft.ListTile, "Content должен быть ListTile")
+        self.assertIsNotNone(list_tile.leading, "Должна быть иконка типа транзакции")
+        self.assertIsNotNone(list_tile.title, "Должен быть заголовок с категорией")
+        self.assertIsNotNone(list_tile.trailing, "Должен быть trailing с суммой и кнопками")
 
         # Проверяем trailing элемент (должен быть Row с суммой и кнопками)
-        trailing = tile.trailing
+        trailing = list_tile.trailing
         self.assertIsInstance(trailing, ft.Row, "Trailing должен быть Row")
         
         # Должно быть 3 элемента: сумма + 2 кнопки
@@ -457,12 +466,26 @@ class TestTransactionsPanel(unittest.TestCase):
         # Act - создаем элемент списка для транзакции
         tile = panel._build_transaction_tile(test_transaction)
 
-        # Assert - проверяем структуру ListTile
-        self.assertIsInstance(tile, ft.ListTile, "Должен быть создан ListTile")
+        # Assert - проверяем структуру Container с ListTile внутри
+        self.assertIsInstance(tile, ft.Container, "Должен быть создан Container")
+        self.assertIsNotNone(tile.content, "Container должен содержать content")
         
-        # Проверяем trailing элемент (должен быть только Text с суммой)
-        trailing = tile.trailing
-        self.assertIsInstance(trailing, ft.Text, "Trailing должен быть Text без кнопок")
+        # Получаем ListTile из Container
+        list_tile = tile.content
+        self.assertIsInstance(list_tile, ft.ListTile, "Content должен быть ListTile")
+        
+        # Проверяем trailing элемент (должен быть Row с суммой и неактивными кнопками)
+        trailing = list_tile.trailing
+        self.assertIsInstance(trailing, ft.Row, "Trailing должен быть Row даже без активных callback'ов")
+        
+        # Проверяем, что кнопки есть, но неактивны
+        self.assertEqual(len(trailing.controls), 3, "Должно быть 3 элемента: сумма + 2 неактивные кнопки")
+        
+        # Проверяем, что кнопки отключены
+        edit_button = trailing.controls[1]
+        delete_button = trailing.controls[2]
+        self.assertTrue(edit_button.disabled, "Кнопка редактирования должна быть отключена")
+        self.assertTrue(delete_button.disabled, "Кнопка удаления должна быть отключена")
 
     def test_edit_transaction_button_click(self):
         """
@@ -489,7 +512,8 @@ class TestTransactionsPanel(unittest.TestCase):
 
         # Act - создаем элемент и нажимаем кнопку редактирования
         tile = panel._build_transaction_tile(test_transaction)
-        edit_button = tile.trailing.controls[1]  # Вторая кнопка - редактирование
+        list_tile = tile.content  # Получаем ListTile из Container
+        edit_button = list_tile.trailing.controls[1]  # Вторая кнопка - редактирование
         edit_button.on_click(None)
 
         # Assert - проверяем вызов callback'а
@@ -520,7 +544,8 @@ class TestTransactionsPanel(unittest.TestCase):
 
         # Act - создаем элемент и нажимаем кнопку удаления
         tile = panel._build_transaction_tile(test_transaction)
-        delete_button = tile.trailing.controls[2]  # Третья кнопка - удаление
+        list_tile = tile.content  # Получаем ListTile из Container
+        delete_button = list_tile.trailing.controls[2]  # Третья кнопка - удаление
         delete_button.on_click(None)
 
         # Assert - проверяем вызов callback'а

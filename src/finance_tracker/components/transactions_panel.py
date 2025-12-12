@@ -171,9 +171,25 @@ class TransactionsPanel(ft.Container):
                     icon=ft.Icons.ADD,
                     on_click=self._safe_add_transaction,
                     tooltip="Добавить транзакцию",
-                    bgcolor=ft.Colors.PRIMARY,
-                    icon_color=ft.Colors.ON_PRIMARY,
                     disabled=self.on_add_transaction is None,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=10),
+                        padding=ft.padding.all(12),
+                        bgcolor={
+                            ft.ControlState.DEFAULT: ft.Colors.PRIMARY if self.on_add_transaction is not None else ft.Colors.ON_SURFACE_VARIANT,
+                            ft.ControlState.HOVERED: ft.Colors.PRIMARY_CONTAINER if self.on_add_transaction is not None else ft.Colors.ON_SURFACE_VARIANT,
+                            ft.ControlState.PRESSED: ft.Colors.PRIMARY if self.on_add_transaction is not None else ft.Colors.ON_SURFACE_VARIANT,
+                        },
+                        icon_color={
+                            ft.ControlState.DEFAULT: ft.Colors.ON_PRIMARY if self.on_add_transaction is not None else ft.Colors.SURFACE,
+                            ft.ControlState.HOVERED: ft.Colors.ON_PRIMARY_CONTAINER if self.on_add_transaction is not None else ft.Colors.SURFACE,
+                            ft.ControlState.PRESSED: ft.Colors.ON_PRIMARY if self.on_add_transaction is not None else ft.Colors.SURFACE,
+                        },
+                        overlay_color={
+                            ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, ft.Colors.ON_PRIMARY) if self.on_add_transaction is not None else None,
+                            ft.ControlState.PRESSED: ft.Colors.with_opacity(0.2, ft.Colors.ON_PRIMARY) if self.on_add_transaction is not None else None,
+                        }
+                    )
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -372,7 +388,41 @@ class TransactionsPanel(ft.Container):
                     icon=ft.Icons.EDIT,
                     icon_color=ft.Colors.PRIMARY,
                     tooltip="Редактировать",
-                    on_click=lambda _, t=transaction: self._safe_edit_transaction(t)
+                    on_click=lambda _, t=transaction: self._safe_edit_transaction(t),
+                    # Визуальные улучшения для интерактивности
+                    icon_size=20,  # Компактный размер
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.all(8),
+                        overlay_color={
+                            ft.ControlState.HOVERED: ft.Colors.PRIMARY_CONTAINER,
+                            ft.ControlState.PRESSED: ft.Colors.PRIMARY,
+                        },
+                        bgcolor={
+                            ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                            ft.ControlState.HOVERED: ft.Colors.PRIMARY_CONTAINER,
+                        },
+                        icon_color={
+                            ft.ControlState.DEFAULT: ft.Colors.PRIMARY,
+                            ft.ControlState.HOVERED: ft.Colors.ON_PRIMARY_CONTAINER,
+                            ft.ControlState.PRESSED: ft.Colors.ON_PRIMARY,
+                        }
+                    )
+                )
+            )
+        else:
+            # Показываем неактивную кнопку редактирования для визуальной консистентности
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.EDIT,
+                    icon_color=ft.Colors.ON_SURFACE_VARIANT,
+                    tooltip="Редактирование недоступно",
+                    disabled=True,
+                    icon_size=20,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.all(8),
+                    )
                 )
             )
         
@@ -383,7 +433,41 @@ class TransactionsPanel(ft.Container):
                     icon=ft.Icons.DELETE,
                     icon_color=ft.Colors.ERROR,
                     tooltip="Удалить",
-                    on_click=lambda _, t=transaction: self._safe_delete_transaction(t)
+                    on_click=lambda _, t=transaction: self._safe_delete_transaction(t),
+                    # Визуальные улучшения для интерактивности
+                    icon_size=20,  # Компактный размер
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.all(8),
+                        overlay_color={
+                            ft.ControlState.HOVERED: ft.Colors.ERROR_CONTAINER,
+                            ft.ControlState.PRESSED: ft.Colors.ERROR,
+                        },
+                        bgcolor={
+                            ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                            ft.ControlState.HOVERED: ft.Colors.ERROR_CONTAINER,
+                        },
+                        icon_color={
+                            ft.ControlState.DEFAULT: ft.Colors.ERROR,
+                            ft.ControlState.HOVERED: ft.Colors.ON_ERROR_CONTAINER,
+                            ft.ControlState.PRESSED: ft.Colors.ON_ERROR,
+                        }
+                    )
+                )
+            )
+        else:
+            # Показываем неактивную кнопку удаления для визуальной консистентности
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.DELETE,
+                    icon_color=ft.Colors.ON_SURFACE_VARIANT,
+                    tooltip="Удаление недоступно",
+                    disabled=True,
+                    icon_size=20,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.all(8),
+                    )
                 )
             )
         
@@ -413,15 +497,21 @@ class TransactionsPanel(ft.Container):
                 size=16
             )
         
-        return ft.ListTile(
-            leading=ft.Icon(
-                ft.Icons.ARROW_CIRCLE_UP if transaction.type == TransactionType.INCOME else ft.Icons.ARROW_CIRCLE_DOWN,
-                color=amount_color
+        return ft.Container(
+            content=ft.ListTile(
+                leading=ft.Icon(
+                    ft.Icons.ARROW_CIRCLE_UP if transaction.type == TransactionType.INCOME else ft.Icons.ARROW_CIRCLE_DOWN,
+                    color=amount_color
+                ),
+                title=ft.Text(category_name, weight=ft.FontWeight.BOLD),
+                subtitle=ft.Text(transaction.description) if transaction.description else None,
+                trailing=trailing,
             ),
-            title=ft.Text(category_name, weight=ft.FontWeight.BOLD),
-            subtitle=ft.Text(transaction.description) if transaction.description else None,
-            trailing=trailing,
             bgcolor=ft.Colors.SURFACE,
+            border_radius=8,
+            padding=ft.padding.symmetric(horizontal=4, vertical=2),
+            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+            on_hover=self._on_transaction_tile_hover,
         )
 
     def _safe_edit_transaction(self, transaction: TransactionDB):
@@ -476,6 +566,24 @@ class TransactionsPanel(ft.Container):
             except Exception as snack_error:
                 logger.error(f"Не удалось показать SnackBar с ошибкой: {snack_error}")
 
+    def _on_transaction_tile_hover(self, e):
+        """
+        Обработчик hover эффекта для строк транзакций.
+        
+        Args:
+            e: Событие hover от Flet.
+        """
+        try:
+            if e.data == "true":  # Курсор наведен
+                e.control.bgcolor = ft.Colors.PRIMARY_CONTAINER
+                e.control.elevation = 2
+            else:  # Курсор убран
+                e.control.bgcolor = ft.Colors.SURFACE
+                e.control.elevation = 0
+            e.control.update()
+        except Exception as ex:
+            logger.error(f"Ошибка при обработке hover эффекта: {ex}")
+
     def _build_occurrence_tile(self, occurrence: PlannedOccurrence) -> ft.ListTile:
         """Создание элемента списка для планового вхождения."""
         planned_tx = occurrence.planned_transaction
@@ -495,16 +603,50 @@ class TransactionsPanel(ft.Container):
                         icon=ft.Icons.CHECK,
                         icon_color=ft.Colors.GREEN,
                         tooltip="Исполнить",
-                        on_click=lambda _, o=occurrence: self.on_execute_occurrence(o) if self.on_execute_occurrence else None
+                        on_click=lambda _, o=occurrence: self.on_execute_occurrence(o) if self.on_execute_occurrence else None,
+                        disabled=self.on_execute_occurrence is None,
+                        icon_size=20,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                            padding=ft.padding.all(6),
+                            bgcolor={
+                                ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                                ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_occurrence is not None else ft.Colors.TRANSPARENT,
+                            },
+                            icon_color={
+                                ft.ControlState.DEFAULT: ft.Colors.GREEN if self.on_execute_occurrence is not None else ft.Colors.ON_SURFACE_VARIANT,
+                                ft.ControlState.HOVERED: ft.Colors.GREEN if self.on_execute_occurrence is not None else ft.Colors.ON_SURFACE_VARIANT,
+                            },
+                            overlay_color={
+                                ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, ft.Colors.GREEN) if self.on_execute_occurrence is not None else None,
+                            }
+                        )
                     ),
                     ft.IconButton(
                         icon=ft.Icons.CLOSE,
                         icon_color=ft.Colors.RED,
                         tooltip="Пропустить",
-                        on_click=lambda _, o=occurrence: self.on_skip_occurrence(o) if self.on_skip_occurrence else None
+                        on_click=lambda _, o=occurrence: self.on_skip_occurrence(o) if self.on_skip_occurrence else None,
+                        disabled=self.on_skip_occurrence is None,
+                        icon_size=20,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                            padding=ft.padding.all(6),
+                            bgcolor={
+                                ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                                ft.ControlState.HOVERED: ft.Colors.RED_50 if self.on_skip_occurrence is not None else ft.Colors.TRANSPARENT,
+                            },
+                            icon_color={
+                                ft.ControlState.DEFAULT: ft.Colors.RED if self.on_skip_occurrence is not None else ft.Colors.ON_SURFACE_VARIANT,
+                                ft.ControlState.HOVERED: ft.Colors.RED if self.on_skip_occurrence is not None else ft.Colors.ON_SURFACE_VARIANT,
+                            },
+                            overlay_color={
+                                ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, ft.Colors.RED) if self.on_skip_occurrence is not None else None,
+                            }
+                        )
                     )
                 ],
-                spacing=0,
+                spacing=2,
                 main_axis_alignment=ft.MainAxisAlignment.END,
                 width=100
             )
@@ -551,7 +693,24 @@ class TransactionsPanel(ft.Container):
             icon=ft.Icons.CHECK_CIRCLE,
             icon_color=ft.Colors.GREEN,
             tooltip="Исполнить платёж",
-            on_click=lambda _, p=payment: self.on_execute_pending_payment(p) if self.on_execute_pending_payment else None
+            on_click=lambda _, p=payment: self.on_execute_pending_payment(p) if self.on_execute_pending_payment else None,
+            disabled=self.on_execute_pending_payment is None,
+            icon_size=20,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.padding.all(8),
+                bgcolor={
+                    ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                    ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_pending_payment is not None else ft.Colors.TRANSPARENT,
+                },
+                icon_color={
+                    ft.ControlState.DEFAULT: ft.Colors.GREEN if self.on_execute_pending_payment is not None else ft.Colors.ON_SURFACE_VARIANT,
+                    ft.ControlState.HOVERED: ft.Colors.GREEN if self.on_execute_pending_payment is not None else ft.Colors.ON_SURFACE_VARIANT,
+                },
+                overlay_color={
+                    ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, ft.Colors.GREEN) if self.on_execute_pending_payment is not None else None,
+                }
+            )
         )
 
         return ft.ListTile(
@@ -618,7 +777,24 @@ class TransactionsPanel(ft.Container):
                 icon=ft.Icons.CHECK_CIRCLE,
                 icon_color=ft.Colors.GREEN,
                 tooltip="Исполнить платёж",
-                on_click=lambda _, p=payment: self.on_execute_loan_payment(p) if self.on_execute_loan_payment else None
+                on_click=lambda _, p=payment: self.on_execute_loan_payment(p) if self.on_execute_loan_payment else None,
+                disabled=self.on_execute_loan_payment is None,
+                icon_size=20,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=8),
+                    padding=ft.padding.all(8),
+                    bgcolor={
+                        ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
+                        ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_loan_payment is not None else ft.Colors.TRANSPARENT,
+                    },
+                    icon_color={
+                        ft.ControlState.DEFAULT: ft.Colors.GREEN if self.on_execute_loan_payment is not None else ft.Colors.ON_SURFACE_VARIANT,
+                        ft.ControlState.HOVERED: ft.Colors.GREEN if self.on_execute_loan_payment is not None else ft.Colors.ON_SURFACE_VARIANT,
+                    },
+                    overlay_color={
+                        ft.ControlState.HOVERED: ft.Colors.with_opacity(0.1, ft.Colors.GREEN) if self.on_execute_loan_payment is not None else None,
+                    }
+                )
             )
         else:
             # Для исполненных/отменённых платежей показываем только статус

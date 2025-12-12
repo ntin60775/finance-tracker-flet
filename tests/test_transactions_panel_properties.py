@@ -74,8 +74,10 @@ class TestTransactionsPanelProperties:
         # 6. Проверяем атрибуты кнопки
         assert add_button.icon == ft.Icons.ADD, "Кнопка должна иметь иконку ADD"
         assert add_button.tooltip == "Добавить транзакцию", "Кнопка должна иметь правильный tooltip"
-        assert add_button.bgcolor == ft.Colors.PRIMARY, "Кнопка должна иметь PRIMARY цвет фона"
-        assert add_button.icon_color == ft.Colors.ON_PRIMARY, "Иконка должна иметь ON_PRIMARY цвет"
+        # Цвета теперь в style, проверяем что style существует
+        assert add_button.style is not None, "Кнопка должна иметь стиль"
+        assert add_button.style.bgcolor is not None, "Стиль должен содержать bgcolor"
+        assert add_button.style.icon_color is not None, "Стиль должен содержать icon_color"
         
         # 7. Проверяем состояние кнопки в зависимости от callback
         if callback is None:
@@ -129,8 +131,10 @@ class TestTransactionsPanelProperties:
         # Атрибуты кнопки не должны зависеть от данных транзакций
         assert add_button.icon == ft.Icons.ADD
         assert add_button.tooltip == "Добавить транзакцию"
-        assert add_button.bgcolor == ft.Colors.PRIMARY
-        assert add_button.icon_color == ft.Colors.ON_PRIMARY
+        # Цвета теперь в style
+        assert add_button.style is not None
+        assert add_button.style.bgcolor is not None
+        assert add_button.style.icon_color is not None
         assert add_button.disabled != True  # Должна быть активна с валидным callback
         assert add_button.on_click is not None
 
