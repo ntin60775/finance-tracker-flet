@@ -2673,6 +2673,297 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.assertIsNone(self.modal.amount_field.error_text)
         self.assertIsNone(self.modal.category_dropdown.error_text)
 
+    def test_create_mode_title_and_behavior(self):
+        """
+        Тест открытия в режиме создания (существующая функциональность).
+        
+        Проверяет:
+        - Правильный заголовок модального окна в режиме создания
+        - Инициализация в режиме создания по умолчанию
+        - Вызов on_save при сохранении в режиме создания
+        - Сброс формы при открытии в режиме создания
+        
+        Requirements: 10.2 - Тест открытия в режиме создания
+        """
+        # Arrange - подготовка данных для создания
+        test_date = datetime.date(2024, 12, 15)
+        
+        # Act - открываем в режиме создания
+        self.modal.open(self.page, test_date)
+        
+        # Assert - проверяем режим создания
+        self.assertFalse(self.modal.edit_mode, "Должен быть режим создания")
+        self.assertIsNone(self.modal.editing_transaction, "Не должно быть редактируемой транзакции")
+        self.assertEqual(self.modal.dialog_title.value, "Новая транзакция", 
+                        "Заголовок должен указывать на создание новой транзакции")
+        
+        # Проверяем сброс формы
+        self.assertEqual(self.modal.amount_field.value, "", "Поле суммы должно быть пустым")
+        self.assertEqual(self.modal.description_field.value, "", "Поле описания должно быть пустым")
+        self.assertEqual(self.modal.type_radio.value, TransactionType.EXPENSE.value, 
+                        "По умолчанию должен быть выбран тип 'Расход'")
+        
+        # Проверяем установку даты
+        self.assertEqual(self.modal.date_button.text, "15.12.2024", 
+                        "Дата должна быть установлена правильно")
+        
+        # Заполняем форму и сохраняем
+        self.modal.amount_field.value = "100.00"
+        self.modal.category_dropdown.value = self.cat_id_1
+        self.modal.description_field.value = "Test create transaction"
+        
+        # Act - сохраняем в режиме создания
+        self.modal._save(None)
+        
+        # Assert - проверяем вызов on_save
+        self.on_save.assert_called_once()
+        self.on_update.assert_not_called()
+        
+        # Проверяем закрытие модального окна
+        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться после сохранения")
+
+    def test_edit_mode_comprehensive_prefill(self):
+        """
+        Тест открытия в режиме редактирования с предзаполнением.
+        
+        Проверяет:
+        - Полное предзаполнение всех полей формы данными транзакции
+        - Правильную установку типа транзакции и загрузку соответствующих категорий
+        - Корректное отображение даты в формате UI
+        - Обработку различных типов данных (INCOME/EXPENSE)
+        
+        Requirements: 10.2 - Тест открытия в режиме редактирования с предзаполнением
+        """
+        # Arrange - создаем транзакцию для редактирования
+        edit_transaction = Mock(spec=TransactionDB)
+        edit_transaction.id = self.transaction_id
+        edit_transaction.amount = Decimal("350.25")
+        edit_transaction.type = TransactionType.INCOME
+        edit_transaction.category_id = self.cat_id_2
+        edit_transaction.description = "Comprehensive test transaction"
+        edit_transaction.transaction_date = datetime.date(2024, 12, 25)
+        
+        # Act - открываем в режиме редактирования
+        self.modal.open_edit(self.page, edit_transaction)
+        
+        # Assert - проверяем предзаполнение всех полей
+        
+        # 1. Проверяем режим редактирования
+        self.assertTrue(self.modal.edit_mode, "Должен быть установлен режим редактирования")
+        self.assertEqual(self.modal.editing_transaction, edit_transaction, 
+                        "Должна быть сохранена ссылка на редактируемую транзакцию")
+        
+        # 2. Проверяем предзаполнение суммы
+        self.assertEqual(self.modal.amount_field.value, "350.25", 
+                        "Поле суммы должно быть предзаполнено")
+        
+        # 3. Проверяем предзаполнение описания
+        self.assertEqual(self.modal.description_field.value, "Comprehensive test transaction", 
+                        "Поле описания должно быть предзаполнено")
+        
+        # 4. Проверяем установку типа транзакции
+        self.assertEqual(self.modal.type_radio.value, TransactionType.INCOME.value, 
+                        "Тип транзакции должен быть установлен правильно")
+        
+        # 5. Проверяем загрузку категорий для правильного типа
+        self.mock_get_all_categories.assert_called_with(self.session, TransactionType.INCOME)
+        
+        # 6. Проверяем выбор категории
+        self.assertEqual(self.modal.category_dropdown.value, self.cat_id_2, 
+                        "Категория должна быть выбрана правильно")
+        
+        # 7. Проверяем установку даты
+        self.assertEqual(self.modal.date_button.text, "25.12.2024", 
+                        "Дата должна быть отформатирована и установлена правильно")
+        self.assertEqual(self.modal.current_date, datetime.date(2024, 12, 25), 
+                        "Внутренняя дата должна быть установлена правильно")
+        
+        # 8. Проверяем сброс ошибок валидации
+        self.assertIn(self.modal.amount_field.error_text, [None, ""], 
+                     "Ошибки валидации суммы должны быть сброшены")
+        self.assertIn(self.modal.category_dropdown.error_text, [None, ""], 
+                     "Ошибки валидации категории должны быть сброшены")
+        self.assertEqual(self.modal.error_text.value, "", 
+                        "Общие ошибки должны быть сброшены")
+
+    def test_edit_mode_validation_empty_amount(self):
+        """Тест валидации пустой суммы при редактировании."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Устанавливаем пустую сумму
+        self.modal.amount_field.value = ""
+        self.modal.category_dropdown.value = self.cat_id_1
+        
+        # Act - пытаемся сохранить
+        self.modal._save(None)
+        
+        # Assert - проверяем ошибку валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
+        self.on_update.assert_not_called()
+        self.assertTrue(self.modal.dialog.open)
+
+    def test_edit_mode_validation_negative_amount(self):
+        """Тест валидации отрицательной суммы при редактировании."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Устанавливаем отрицательную сумму
+        self.modal.amount_field.value = "-100.50"
+        self.modal.category_dropdown.value = self.cat_id_1
+        
+        # Act - пытаемся сохранить
+        self.modal._save(None)
+        
+        # Assert - проверяем ошибку валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0")
+        self.on_update.assert_not_called()
+        self.assertTrue(self.modal.dialog.open)
+
+    def test_edit_mode_validation_missing_category(self):
+        """Тест валидации отсутствующей категории при редактировании."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Устанавливаем валидную сумму, но не выбираем категорию
+        self.modal.amount_field.value = "100.50"
+        self.modal.category_dropdown.value = None
+        
+        # Act - пытаемся сохранить
+        self.modal._save(None)
+        
+        # Assert - проверяем ошибку валидации
+        self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
+        self.on_update.assert_not_called()
+        self.assertTrue(self.modal.dialog.open)
+
+    def test_edit_mode_validation_multiple_errors(self):
+        """Тест множественных ошибок валидации при редактировании."""
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Устанавливаем невалидные данные для нескольких полей
+        self.modal.amount_field.value = ""  # Пустая сумма
+        self.modal.category_dropdown.value = None  # Не выбрана категория
+        
+        # Act - пытаемся сохранить
+        self.modal._save(None)
+        
+        # Assert - проверяем обе ошибки валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
+        self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
+        self.on_update.assert_not_called()
+        self.assertTrue(self.modal.dialog.open)
+
+    def test_on_update_callback_invocation(self):
+        """
+        Тест вызова on_update при сохранении в режиме редактирования.
+        
+        Проверяет:
+        - Правильный вызов callback on_update с корректными параметрами
+        - Передачу ID транзакции и объекта TransactionUpdate
+        - Корректность данных в объекте TransactionUpdate
+        - Отсутствие вызова on_save в режиме редактирования
+        
+        Requirements: 10.2 - Тест вызова on_update при сохранении в режиме редактирования
+        """
+        # Arrange - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Изменяем данные транзакции
+        new_amount = "275.80"
+        new_description = "Updated test transaction"
+        new_date = datetime.date(2024, 12, 20)
+        
+        self.modal.amount_field.value = new_amount
+        self.modal.description_field.value = new_description
+        self.modal.current_date = new_date
+        self.modal.date_button.text = new_date.strftime("%d.%m.%Y")
+        
+        # Оставляем тот же тип (EXPENSE) и категорию для простоты теста
+        # Проверим изменение типа в отдельном тесте
+        self.modal.category_dropdown.value = self.cat_id_1  # Убеждаемся, что категория выбрана
+        
+        # Act - сохраняем изменения
+        self.modal._save(None)
+        
+        # Assert - проверяем вызов on_update
+        self.on_update.assert_called_once()
+        
+        # Проверяем параметры вызова
+        call_args = self.on_update.call_args[0]
+        transaction_id, transaction_update = call_args
+        
+        # 1. Проверяем ID транзакции
+        self.assertEqual(transaction_id, self.transaction_id, 
+                        "ID транзакции должен быть передан правильно")
+        
+        # 2. Проверяем тип объекта обновления
+        self.assertIsInstance(transaction_update, TransactionUpdate, 
+                            "Должен быть передан объект TransactionUpdate")
+        
+        # 3. Проверяем данные обновления
+        self.assertEqual(transaction_update.amount, Decimal("275.80"), 
+                        "Сумма должна быть обновлена правильно")
+        self.assertEqual(transaction_update.description, new_description, 
+                        "Описание должно быть обновлено правильно")
+        self.assertEqual(transaction_update.type, TransactionType.EXPENSE, 
+                        "Тип транзакции должен остаться EXPENSE")
+        self.assertEqual(transaction_update.category_id, self.cat_id_1, 
+                        "ID категории должен быть правильным")
+        self.assertEqual(transaction_update.transaction_date, new_date, 
+                        "Дата транзакции должна быть обновлена правильно")
+        
+        # 4. Проверяем, что on_save НЕ был вызван
+        self.on_save.assert_not_called()
+        
+        # 5. Проверяем закрытие модального окна
+        self.assertFalse(self.modal.dialog.open, 
+                        "Модальное окно должно закрыться после успешного сохранения")
+
+    def test_modal_title_based_on_mode(self):
+        """
+        Тест правильного заголовка в зависимости от режима.
+        
+        Проверяет:
+        - Заголовок "Новая транзакция" в режиме создания
+        - Заголовок "Редактировать транзакцию" в режиме редактирования
+        - Изменение заголовка при переключении между режимами
+        
+        Requirements: 10.2 - Тест правильного заголовка в зависимости от режима
+        """
+        # Test 1: Режим создания
+        # Act - открываем в режиме создания
+        self.modal.open(self.page, datetime.date(2024, 12, 15))
+        
+        # Assert - проверяем заголовок режима создания
+        self.assertEqual(self.modal.dialog_title.value, "Новая транзакция", 
+                        "В режиме создания заголовок должен быть 'Новая транзакция'")
+        self.assertFalse(self.modal.edit_mode, "Должен быть режим создания")
+        
+        # Закрываем модальное окно
+        self.modal.close()
+        
+        # Test 2: Режим редактирования
+        # Act - открываем в режиме редактирования
+        self.modal.open_edit(self.page, self.test_transaction)
+        
+        # Assert - проверяем заголовок режима редактирования
+        self.assertEqual(self.modal.dialog_title.value, "Редактировать транзакцию", 
+                        "В режиме редактирования заголовок должен быть 'Редактировать транзакцию'")
+        self.assertTrue(self.modal.edit_mode, "Должен быть режим редактирования")
+        
+        # Test 3: Переключение обратно в режим создания
+        # Act - снова открываем в режиме создания
+        self.modal.open(self.page, datetime.date(2024, 12, 16))
+        
+        # Assert - проверяем возврат к заголовку создания
+        self.assertEqual(self.modal.dialog_title.value, "Новая транзакция", 
+                        "При повторном открытии в режиме создания заголовок должен вернуться к 'Новая транзакция'")
+        self.assertFalse(self.modal.edit_mode, "Должен быть сброшен режим редактирования")
+        self.assertIsNone(self.modal.editing_transaction, 
+                         "Ссылка на редактируемую транзакцию должна быть сброшена")
+
 
 if __name__ == '__main__':
     unittest.main()
