@@ -343,3 +343,105 @@ class ViewTestBase(unittest.TestCase):
             0,
             f"View должен содержать контролы, но их количество: {count}"
         )
+    
+    def assert_button_click_calls_callback(self, button, callback_mock: Mock):
+        """
+        Проверяет, что нажатие кнопки вызывает callback.
+        
+        Args:
+            button: Кнопка для тестирования
+            callback_mock: Мок callback функции
+            
+        Raises:
+            AssertionError: Если callback не был вызван
+            
+        Example:
+            self.assert_button_click_calls_callback(add_button, mock_callback)
+        """
+        # Симулируем нажатие кнопки
+        if hasattr(button, 'on_click') and button.on_click:
+            button.on_click(None)
+            callback_mock.assert_called_once()
+        else:
+            self.fail("Кнопка не имеет обработчика on_click")
+    
+    def assert_form_field_has_value(self, field, expected_value: Any, field_name: str = "field"):
+        """
+        Проверяет значение поля формы.
+        
+        Args:
+            field: Поле формы для проверки
+            expected_value: Ожидаемое значение
+            field_name: Название поля для сообщения об ошибке
+            
+        Raises:
+            AssertionError: Если значение не соответствует ожидаемому
+            
+        Example:
+            self.assert_form_field_has_value(modal.amount_field, "100.50", "amount")
+        """
+        actual_value = getattr(field, 'value', None)
+        self.assertEqual(
+            actual_value,
+            expected_value,
+            f"Поле {field_name}: ожидалось '{expected_value}', получено '{actual_value}'"
+        )
+    
+    def assert_button_enabled(self, button, expected_enabled: bool = True, button_name: str = "button"):
+        """
+        Проверяет состояние кнопки (активна/неактивна).
+        
+        Args:
+            button: Кнопка для проверки
+            expected_enabled: Ожидаемое состояние (True = активна)
+            button_name: Название кнопки для сообщения об ошибке
+            
+        Raises:
+            AssertionError: Если состояние не соответствует ожидаемому
+            
+        Example:
+            self.assert_button_enabled(modal.save_button, False, "save")
+        """
+        is_disabled = getattr(button, 'disabled', False)
+        actual_enabled = not is_disabled
+        self.assertEqual(
+            actual_enabled,
+            expected_enabled,
+            f"Кнопка {button_name}: ожидалось enabled={expected_enabled}, получено {actual_enabled}"
+        )
+    
+    def simulate_form_input(self, field, value: Any):
+        """
+        Симулирует ввод данных в поле формы.
+        
+        Args:
+            field: Поле формы
+            value: Вводимое значение
+            
+        Example:
+            self.simulate_form_input(modal.amount_field, "150.75")
+        """
+        field.value = value
+        # Симулируем событие изменения, если есть обработчик
+        if hasattr(field, 'on_change') and field.on_change:
+            field.on_change(None)
+    
+    def get_modal_from_page_open_calls(self, page_mock: MagicMock):
+        """
+        Извлекает модальное окно из вызовов page.open().
+        
+        Args:
+            page_mock: Мок объекта page
+            
+        Returns:
+            Модальное окно или None если не найдено
+            
+        Example:
+            modal = self.get_modal_from_page_open_calls(self.page)
+            self.assertIsNotNone(modal)
+        """
+        if page_mock.open.called:
+            call_args = page_mock.open.call_args
+            if call_args and call_args[0]:
+                return call_args[0][0]
+        return None
