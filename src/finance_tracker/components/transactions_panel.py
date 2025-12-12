@@ -194,7 +194,7 @@ class TransactionsPanel(ft.Container):
                 if hasattr(self, 'page') and self.page:
                     self.page.open(ft.SnackBar(
                         content=ft.Text("Функция добавления транзакции недоступна"),
-                        bgcolor=ft.Colors.WARNING
+                        bgcolor=ft.Colors.ORANGE
                     ))
         except Exception as ex:
             logger.error(f"Ошибка при вызове callback добавления транзакции: {ex}", exc_info=True)
