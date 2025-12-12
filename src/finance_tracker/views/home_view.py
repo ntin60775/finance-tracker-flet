@@ -4,7 +4,7 @@ from typing import List, Any, Tuple, Dict
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.models import TransactionCreate, PlannedOccurrence
+from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.components.transactions_panel import TransactionsPanel
 from finance_tracker.components.calendar_legend import CalendarLegend
@@ -62,7 +62,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_execute_occurrence=self.on_execute_occurrence,
             on_skip_occurrence=self.on_skip_occurrence,
             on_execute_pending_payment=self.on_execute_payment,
-            on_execute_loan_payment=self.on_execute_loan_payment
+            on_execute_loan_payment=self.on_execute_loan_payment,
+            on_edit_transaction=self.on_edit_transaction,
+            on_delete_transaction=self.on_delete_transaction
         )
         
         self.legend = CalendarLegend()
@@ -85,7 +87,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         # Modals
         self.transaction_modal = TransactionModal(
             session=self.session,
-            on_save=self.on_transaction_saved
+            on_save=self.on_transaction_saved,
+            on_update=self.on_transaction_updated
         )
 
         self.execute_occurrence_modal = ExecuteOccurrenceModal(
@@ -250,6 +253,115 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_transaction_saved(self, data: TransactionCreate):
         """Обработка сохранения новой транзакции - делегирует в Presenter."""
         self.presenter.create_transaction(data)
+
+    def on_edit_transaction(self, transaction: TransactionDB):
+        """Открытие модального окна редактирования транзакции."""
+        try:
+            logger.debug(f"Открытие модального окна редактирования для транзакции: {transaction.id}")
+            
+            if not self.page:
+                logger.error("Page не инициализирована для открытия модального окна редактирования")
+                return
+                
+            if not self.transaction_modal:
+                logger.error("TransactionModal не инициализирован")
+                return
+                
+            self.transaction_modal.open_edit(self.page, transaction)
+            logger.info("Модальное окно редактирования транзакции успешно открыто")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии модального окна редактирования транзакции: {e}", exc_info=True)
+            if self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Не удалось открыть форму редактирования транзакции"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
+
+    def on_delete_transaction(self, transaction: TransactionDB):
+        """Показ диалога подтверждения удаления транзакции."""
+        try:
+            logger.debug(f"Запрос на удаление транзакции: {transaction.id}")
+            
+            # Получаем имя категории для отображения
+            category_name = "Без категории"
+            try:
+                if transaction.category:
+                    category_name = transaction.category.name
+            except Exception:
+                pass
+
+            def confirm_delete(e):
+                dialog.open = False
+                self.page.update()
+                # Делегируем в Presenter
+                self.presenter.delete_transaction(transaction.id)
+
+            def cancel_delete(e):
+                dialog.open = False
+                self.page.update()
+
+            dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Удалить транзакцию?"),
+                content=ft.Column(
+                    controls=[
+                        ft.Text(f"Категория: {category_name}"),
+                        ft.Text(f"Сумма: {transaction.amount:.2f} ₽"),
+                        ft.Text(f"Описание: {transaction.description or 'Не указано'}"),
+                        ft.Text(f"Дата: {transaction.transaction_date.strftime('%d.%m.%Y')}"),
+                        ft.Divider(),
+                        ft.Text("Это действие нельзя отменить!", color=ft.Colors.ERROR, weight=ft.FontWeight.BOLD),
+                    ],
+                    tight=True,
+                    spacing=10,
+                ),
+                actions=[
+                    ft.TextButton("Отмена", on_click=cancel_delete),
+                    ft.ElevatedButton(
+                        "Удалить", 
+                        on_click=confirm_delete, 
+                        bgcolor=ft.Colors.ERROR,
+                        color=ft.Colors.ON_ERROR
+                    ),
+                ],
+            )
+
+            self.page.dialog = dialog
+            dialog.open = True
+            self.page.update()
+            
+            logger.info("Диалог подтверждения удаления транзакции показан")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при показе диалога удаления транзакции: {e}", exc_info=True)
+            if self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Ошибка при открытии диалога удаления"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
+
+    def on_transaction_updated(self, transaction_id: str, data: TransactionUpdate):
+        """Обработка сохранения изменений транзакции - делегирует в Presenter."""
+        try:
+            logger.debug(f"Обработка обновления транзакции: {transaction_id}")
+            self.presenter.update_transaction(transaction_id, data)
+        except Exception as e:
+            logger.error(f"Ошибка при обработке обновления транзакции: {e}", exc_info=True)
+            if self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Ошибка при сохранении изменений транзакции"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
 
     def on_execute_occurrence(self, occurrence: PlannedOccurrence):
         """Открытие модального окна для исполнения планового вхождения."""

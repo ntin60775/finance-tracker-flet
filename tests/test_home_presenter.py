@@ -205,6 +205,105 @@ class TestHomePresenter(unittest.TestCase):
         self.callbacks.show_message.assert_called_once_with("Транзакция успешно создана")
         self.callbacks.show_error.assert_not_called()
 
+    def test_update_transaction_success(self):
+        """Тест успешного обновления транзакции."""
+        from finance_tracker.models.models import TransactionUpdate, TransactionDB
+        
+        transaction_id = str(uuid.uuid4())
+        transaction_data = TransactionUpdate(
+            amount=Decimal('150.75'),
+            description="Updated transaction"
+        )
+        
+        # Мокируем успешное обновление
+        mock_updated_transaction = Mock(spec=TransactionDB)
+        mock_updated_transaction.id = transaction_id
+        self.mock_transaction_service.update_transaction.return_value = mock_updated_transaction
+        
+        self.presenter.update_transaction(transaction_id, transaction_data)
+        
+        # Проверяем вызов сервиса
+        self.mock_transaction_service.update_transaction.assert_called_once_with(
+            self.session, transaction_id, transaction_data
+        )
+        
+        # Проверяем commit и отсутствие rollback
+        self.session.commit.assert_called_once()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем success callback
+        self.callbacks.show_message.assert_called_once_with("Транзакция успешно обновлена")
+        self.callbacks.show_error.assert_not_called()
+
+    def test_update_transaction_not_found(self):
+        """Тест обновления несуществующей транзакции."""
+        from finance_tracker.models.models import TransactionUpdate
+        
+        transaction_id = str(uuid.uuid4())
+        transaction_data = TransactionUpdate(amount=Decimal('150.75'))
+        
+        # Мокируем случай, когда транзакция не найдена
+        self.mock_transaction_service.update_transaction.return_value = None
+        
+        self.presenter.update_transaction(transaction_id, transaction_data)
+        
+        # Проверяем вызов сервиса
+        self.mock_transaction_service.update_transaction.assert_called_once_with(
+            self.session, transaction_id, transaction_data
+        )
+        
+        # Проверяем, что commit не вызывался
+        self.session.commit.assert_not_called()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once_with("Транзакция не найдена")
+        self.callbacks.show_message.assert_not_called()
+
+    def test_delete_transaction_success(self):
+        """Тест успешного удаления транзакции."""
+        transaction_id = str(uuid.uuid4())
+        
+        # Мокируем успешное удаление
+        self.mock_transaction_service.delete_transaction.return_value = True
+        
+        self.presenter.delete_transaction(transaction_id)
+        
+        # Проверяем вызов сервиса
+        self.mock_transaction_service.delete_transaction.assert_called_once_with(
+            self.session, transaction_id
+        )
+        
+        # Проверяем commit и отсутствие rollback
+        self.session.commit.assert_called_once()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем success callback
+        self.callbacks.show_message.assert_called_once_with("Транзакция успешно удалена")
+        self.callbacks.show_error.assert_not_called()
+
+    def test_delete_transaction_not_found(self):
+        """Тест удаления несуществующей транзакции."""
+        transaction_id = str(uuid.uuid4())
+        
+        # Мокируем случай, когда транзакция не найдена
+        self.mock_transaction_service.delete_transaction.return_value = False
+        
+        self.presenter.delete_transaction(transaction_id)
+        
+        # Проверяем вызов сервиса
+        self.mock_transaction_service.delete_transaction.assert_called_once_with(
+            self.session, transaction_id
+        )
+        
+        # Проверяем, что commit не вызывался
+        self.session.commit.assert_not_called()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once_with("Транзакция не найдена")
+        self.callbacks.show_message.assert_not_called()
+
     def test_execute_occurrence_success(self):
         """Тест успешного исполнения планового вхождения."""
         mock_occurrence = Mock(id="occurrence-id")
@@ -379,6 +478,64 @@ class TestHomePresenter(unittest.TestCase):
         self.callbacks.show_error.assert_called_once()
         error_message = self.callbacks.show_error.call_args[0][0]
         self.assertIn("Ошибка создания транзакции", error_message)
+        
+        # Проверяем, что success callback не вызван
+        self.callbacks.show_message.assert_not_called()
+
+    def test_update_transaction_error_handling(self):
+        """Тест обработки ошибки при обновлении транзакции."""
+        from finance_tracker.models.models import TransactionUpdate
+        
+        transaction_id = str(uuid.uuid4())
+        transaction_data = TransactionUpdate(
+            amount=Decimal('150.75'),
+            description="Updated transaction"
+        )
+        
+        # Настраиваем исключение
+        test_error = SQLAlchemyError("Database error")
+        self.mock_transaction_service.update_transaction.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger') as mock_logger:
+            self.presenter.update_transaction(transaction_id, transaction_data)
+        
+        # Проверяем rollback
+        self.session.rollback.assert_called_once()
+        self.session.commit.assert_not_called()
+        
+        # Проверяем логирование (вызывается дважды: в методе и в _handle_error)
+        self.assertEqual(mock_logger.error.call_count, 2)
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка обновления транзакции", error_message)
+        
+        # Проверяем, что success callback не вызван
+        self.callbacks.show_message.assert_not_called()
+
+    def test_delete_transaction_error_handling(self):
+        """Тест обработки ошибки при удалении транзакции."""
+        transaction_id = str(uuid.uuid4())
+        
+        # Настраиваем исключение
+        test_error = SQLAlchemyError("Database error")
+        self.mock_transaction_service.delete_transaction.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger') as mock_logger:
+            self.presenter.delete_transaction(transaction_id)
+        
+        # Проверяем rollback
+        self.session.rollback.assert_called_once()
+        self.session.commit.assert_not_called()
+        
+        # Проверяем логирование (вызывается дважды: в методе и в _handle_error)
+        self.assertEqual(mock_logger.error.call_count, 2)
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка удаления транзакции", error_message)
         
         # Проверяем, что success callback не вызван
         self.callbacks.show_message.assert_not_called()

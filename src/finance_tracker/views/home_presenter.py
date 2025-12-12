@@ -18,6 +18,7 @@ from finance_tracker.utils.logger import get_logger
 logger = get_logger(__name__)
 from finance_tracker.models.models import (
     TransactionCreate, # for create_transaction
+    TransactionUpdate, # for update_transaction
     PendingPaymentExecute, # for execute_pending_payment
     PendingPaymentCancel, # for cancel_pending_payment
 )
@@ -102,6 +103,59 @@ class HomePresenter:
         except Exception as e:
             self.session.rollback()
             self._handle_error("Ошибка создания транзакции", e)
+    
+    def update_transaction(self, transaction_id: str, transaction_data: TransactionUpdate) -> None:
+        """Обновить существующую транзакцию."""
+        try:
+            logger.debug(f"Обновление транзакции ID: {transaction_id} с данными: {transaction_data}")
+            
+            updated_transaction = transaction_service.update_transaction(
+                self.session, 
+                transaction_id, 
+                transaction_data
+            )
+            
+            if updated_transaction is None:
+                self.callbacks.show_error("Транзакция не найдена")
+                return
+            
+            self.session.commit()
+            logger.info(f"Транзакция {transaction_id} успешно обновлена")
+            self._refresh_data()
+            self.callbacks.show_message("Транзакция успешно обновлена")
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Ошибка обновления транзакции {transaction_id}: {e}", extra={
+                "transaction_id": transaction_id,
+                "transaction_data": transaction_data.model_dump() if transaction_data else None,
+                "selected_date": self.selected_date
+            })
+            self._handle_error("Ошибка обновления транзакции", e)
+    
+    def delete_transaction(self, transaction_id: str) -> None:
+        """Удалить транзакцию."""
+        try:
+            logger.debug(f"Удаление транзакции ID: {transaction_id}")
+            
+            deleted = transaction_service.delete_transaction(self.session, transaction_id)
+            
+            if not deleted:
+                self.callbacks.show_error("Транзакция не найдена")
+                return
+            
+            self.session.commit()
+            logger.info(f"Транзакция {transaction_id} успешно удалена")
+            self._refresh_data()
+            self.callbacks.show_message("Транзакция успешно удалена")
+            
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Ошибка удаления транзакции {transaction_id}: {e}", extra={
+                "transaction_id": transaction_id,
+                "selected_date": self.selected_date
+            })
+            self._handle_error("Ошибка удаления транзакции", e)
     
     # Planned Occurrence Operations
     def execute_occurrence(self, occurrence: Any, execution_date: date, amount: Decimal) -> None: # amount should be Decimal

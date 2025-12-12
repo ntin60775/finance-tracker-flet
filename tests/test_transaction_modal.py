@@ -84,6 +84,9 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.category_dropdown.value = self.cat_id_1
         self.modal.description_field.value = "Test Description"
         
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
+        
         self.modal._save(None)
 
         expected_data = TransactionCreate(
@@ -114,7 +117,7 @@ class TestTransactionModal(unittest.TestCase):
 
         self.modal._save(None)
 
-        self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0")
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
         self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
         self.on_save.assert_not_called()
         self.assertTrue(self.modal.dialog.open)
@@ -148,6 +151,9 @@ class TestTransactionModal(unittest.TestCase):
         # Проверяем, что модальное окно открыто перед сохранением
         self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто перед сохранением")
         
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
+        
         # Act - выполняем сохранение
         self.modal._save(None)
         
@@ -178,9 +184,9 @@ class TestTransactionModal(unittest.TestCase):
                         "Модальное окно должно автоматически закрыться после успешного сохранения")
         
         # 3. Проверяем, что не было ошибок валидации
-        self.assertIsNone(self.modal.amount_field.error_text, 
+        self.assertTrue(self.modal.amount_field.error_text == "" or self.modal.amount_field.error_text is None, 
                          "Не должно быть ошибок валидации для поля суммы")
-        self.assertIsNone(self.modal.category_dropdown.error_text, 
+        self.assertTrue(self.modal.category_dropdown.error_text == "" or self.modal.category_dropdown.error_text is None, 
                          "Не должно быть ошибок валидации для поля категории")
         
         # 4. Проверяем, что page.update() был вызван (для обновления UI)
@@ -233,6 +239,9 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.category_dropdown.value = self.cat_id_2  # Используем категорию дохода "Salary"
         self.modal.description_field.value = test_description
         
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
+        
         # Act - сохраняем транзакцию
         self.modal._save(None)
         
@@ -273,6 +282,9 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.amount_field.value = str(test_amount)
         self.modal.category_dropdown.value = self.cat_id_1
         # description_field оставляем пустым (необязательное поле)
+        
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
         
         # Act - сохраняем транзакцию
         self.modal._save(None)
@@ -391,7 +403,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal._save(None)
         
         # Assert - проверяем ошибку валидации
-        self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0", 
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения", 
                         "Должна отображаться ошибка для пустого поля суммы")
         
         # Проверяем, что callback не был вызван
@@ -418,6 +430,9 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.amount_field.value = "-100.50"  # Отрицательная сумма
         self.modal.category_dropdown.value = self.cat_id_1  # Валидная категория
         self.modal.description_field.value = "Test description"
+        
+        # Принудительно вызываем валидацию суммы (так как input filter может блокировать ввод)
+        self.modal._validate_amount()
         
         # Act - пытаемся сохранить
         self.modal._save(None)
@@ -449,6 +464,9 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.amount_field.value = "0"  # Нулевая сумма
         self.modal.category_dropdown.value = self.cat_id_1  # Валидная категория
         self.modal.description_field.value = "Test description"
+        
+        # Принудительно вызываем валидацию суммы
+        self.modal._validate_amount()
         
         # Act - пытаемся сохранить
         self.modal._save(None)
@@ -588,7 +606,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal._save(None)
         
         # Assert - проверяем все ошибки валидации
-        self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0", 
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения", 
                         "Должна отображаться ошибка для пустой суммы")
         self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию", 
                         "Должна отображаться ошибка для не выбранной категории")
@@ -642,14 +660,290 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.category_dropdown.value = self.cat_id_1  # Выбираем категорию
         
         # Сбрасываем ошибки (имитируем поведение _clear_error)
-        self.modal.amount_field.error_text = None
-        self.modal.category_dropdown.error_text = None
+        self.modal.amount_field.error_text = ""
+        self.modal.category_dropdown.error_text = ""
+        
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
         
         # Повторная попытка сохранения
         self.modal._save(None)
         
         # Теперь сохранение должно пройти успешно
         self.on_save.assert_called_once()
+
+    def test_enhanced_validation_system(self):
+        """
+        Тест улучшенной системы валидации.
+        
+        Проверяет:
+        - Автоматическую валидацию при изменении полей
+        - Обновление состояния кнопки сохранения
+        - Очистку ошибок при исправлении
+        
+        Requirements: 5.4, 5.5
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Act & Assert - тестируем валидацию суммы
+        
+        # 1. Устанавливаем пустую сумму
+        self.modal.amount_field.value = ""
+        self.modal._on_amount_change(None)
+        
+        # Проверяем ошибку валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
+        self.assertIn('amount', self.modal._validation_errors)
+        
+        # 2. Исправляем сумму
+        self.modal.amount_field.value = "100.50"
+        self.modal._on_amount_change(None)
+        
+        # Проверяем, что ошибка исчезла
+        self.assertEqual(self.modal.amount_field.error_text, "")
+        self.assertNotIn('amount', self.modal._validation_errors)
+        
+        # 3. Тестируем валидацию категории
+        self.modal.category_dropdown.value = None
+        self.modal._on_category_change(None)
+        
+        # Проверяем ошибку валидации
+        self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
+        self.assertIn('category', self.modal._validation_errors)
+        
+        # 4. Исправляем категорию
+        self.modal.category_dropdown.value = self.cat_id_1
+        self.modal._on_category_change(None)
+        
+        # Проверяем, что ошибка исчезла
+        self.assertEqual(self.modal.category_dropdown.error_text, "")
+        self.assertNotIn('category', self.modal._validation_errors)
+
+    def test_save_button_state_management(self):
+        """
+        Тест управления состоянием кнопки сохранения.
+        
+        Проверяет:
+        - Изменение стиля кнопки при наличии ошибок
+        - Восстановление стиля при исправлении ошибок
+        
+        Requirements: 5.3
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Act & Assert - тестируем состояние кнопки
+        
+        # 1. Создаем ошибку валидации
+        self.modal.amount_field.value = ""
+        self.modal._on_amount_change(None)
+        
+        # Проверяем, что кнопка изменила стиль (неактивна)
+        self.assertEqual(self.modal.save_button.bgcolor, ft.Colors.GREY_400)
+        self.assertEqual(self.modal.save_button.color, ft.Colors.GREY_600)
+        
+        # 2. Исправляем ошибку
+        self.modal.amount_field.value = "100.50"
+        self.modal.category_dropdown.value = self.cat_id_1
+        self.modal._on_amount_change(None)
+        self.modal._on_category_change(None)
+        
+        # Проверяем, что кнопка восстановила стандартный стиль
+        self.assertIsNone(self.modal.save_button.bgcolor)
+        self.assertIsNone(self.modal.save_button.color)
+
+    def test_maximum_amount_validation(self):
+        """
+        Тест валидации максимальной суммы.
+        
+        Проверяет:
+        - Отображение ошибки при превышении максимальной суммы
+        - Блокировка сохранения при ошибке валидации
+        
+        Requirements: 5.1
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Устанавливаем слишком большую сумму
+        self.modal.amount_field.value = "1000000.00"  # Превышает максимум 999,999.99
+        self.modal.category_dropdown.value = self.cat_id_1
+        
+        # Act - вызываем валидацию
+        self.modal._validate_amount()
+        
+        # Assert - проверяем ошибку валидации
+        self.assertEqual(self.modal.amount_field.error_text, "Сумма не может превышать 999,999.99")
+        self.assertIn('amount', self.modal._validation_errors)
+        
+        # Проверяем, что сохранение блокируется
+        self.modal._save(None)
+        self.on_save.assert_not_called()
+
+    def test_description_length_validation(self):
+        """
+        Тест валидации длины описания.
+        
+        Проверяет:
+        - Отображение ошибки при превышении максимальной длины описания
+        - Успешная валидация для описания в пределах лимита
+        
+        Requirements: 5.1
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Тестируем слишком длинное описание
+        long_description = "a" * 501  # Превышает максимум 500 символов
+        self.modal.description_field.value = long_description
+        
+        # Act - вызываем валидацию
+        self.modal._validate_description()
+        
+        # Assert - проверяем ошибку валидации
+        self.assertEqual(self.modal.description_field.error_text, "Описание не может превышать 500 символов")
+        self.assertIn('description', self.modal._validation_errors)
+        
+        # Тестируем валидное описание
+        valid_description = "a" * 500  # Ровно максимум
+        self.modal.description_field.value = valid_description
+        
+        # Act - вызываем валидацию
+        self.modal._validate_description()
+        
+        # Assert - проверяем отсутствие ошибки
+        self.assertEqual(self.modal.description_field.error_text, "")
+        self.assertNotIn('description', self.modal._validation_errors)
+
+    def test_date_range_validation(self):
+        """
+        Тест валидации диапазона дат.
+        
+        Проверяет:
+        - Отображение ошибки при дате вне допустимого диапазона
+        - Успешная валидация для дат в пределах диапазона
+        
+        Requirements: 5.3
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Тестируем дату слишком далеко в прошлом
+        self.modal.current_date = datetime.date(2019, 12, 31)  # До минимальной даты 2020-01-01
+        
+        # Act - вызываем валидацию
+        result = self.modal._validate_date()
+        
+        # Assert - проверяем ошибку валидации
+        self.assertFalse(result)
+        self.assertIn("Дата должна быть между", self.modal.error_text.value)
+        self.assertIn('date', self.modal._validation_errors)
+        
+        # Тестируем дату слишком далеко в будущем
+        self.modal.current_date = datetime.date(2031, 1, 1)  # После максимальной даты 2030-12-31
+        
+        # Act - вызываем валидацию
+        result = self.modal._validate_date()
+        
+        # Assert - проверяем ошибку валидации
+        self.assertFalse(result)
+        self.assertIn("Дата должна быть между", self.modal.error_text.value)
+        self.assertIn('date', self.modal._validation_errors)
+        
+        # Тестируем валидную дату
+        self.modal.current_date = datetime.date(2025, 6, 15)  # В пределах диапазона
+        
+        # Act - вызываем валидацию
+        result = self.modal._validate_date()
+        
+        # Assert - проверяем успешную валидацию
+        self.assertTrue(result)
+        self.assertNotIn('date', self.modal._validation_errors)
+
+    def test_category_availability_validation(self):
+        """
+        Тест валидации доступности категории.
+        
+        Проверяет:
+        - Отображение ошибки при выборе недоступной категории
+        - Успешная валидация для доступной категории
+        
+        Requirements: 5.2
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Тестируем недоступную категорию
+        self.modal.category_dropdown.value = "non-existent-category-id"
+        
+        # Act - вызываем валидацию
+        result = self.modal._validate_category()
+        
+        # Assert - проверяем ошибку валидации
+        self.assertFalse(result)
+        self.assertEqual(self.modal.category_dropdown.error_text, "Выбранная категория недоступна")
+        self.assertIn('category', self.modal._validation_errors)
+        
+        # Тестируем доступную категорию
+        self.modal.category_dropdown.value = self.cat_id_1
+        
+        # Act - вызываем валидацию
+        result = self.modal._validate_category()
+        
+        # Assert - проверяем успешную валидацию
+        self.assertTrue(result)
+        self.assertEqual(self.modal.category_dropdown.error_text, "")
+        self.assertNotIn('category', self.modal._validation_errors)
+
+    def test_error_handling_in_save_method(self):
+        """
+        Тест обработки ошибок в методе сохранения.
+        
+        Проверяет:
+        - Обработку различных типов ошибок
+        - Отображение понятных сообщений пользователю
+        - Сохранение открытого состояния модального окна при ошибках
+        
+        Requirements: 5.5
+        """
+        # Arrange - открываем модальное окно
+        self.modal.open(self.page)
+        
+        # Заполняем валидные данные
+        self.modal.amount_field.value = "100.50"
+        self.modal.category_dropdown.value = self.cat_id_1
+        self.modal.description_field.value = "Test description"
+        
+        # Убеждаемся, что валидация проходит
+        self.modal._validate_all_fields()
+        self.assertEqual(len(self.modal._validation_errors), 0, "Все поля должны быть валидны")
+        
+        # Тестируем обработку ошибки сети
+        def network_error_callback(data):
+            raise ConnectionError("Network connection failed")
+        
+        self.modal.on_save = network_error_callback
+        
+        # Act - пытаемся сохранить (safe_handler обрабатывает ошибки)
+        self.modal._save(None)
+        
+        # Assert - проверяем отображение ошибки пользователю
+        self.assertIn("Ошибка сети", self.modal.error_text.value)
+        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке")
+        
+        # Тестируем обработку ошибки базы данных
+        def database_error_callback(data):
+            raise Exception("SQLite database is locked")
+        
+        self.modal.on_save = database_error_callback
+        
+        # Act - пытаемся сохранить (safe_handler обрабатывает ошибки)
+        self.modal._save(None)
+        
+        # Assert - проверяем отображение ошибки пользователю
+        self.assertIn("Ошибка базы данных", self.modal.error_text.value)
+        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке")
 
     def test_date_validation_edge_cases(self):
         """
@@ -690,8 +984,11 @@ class TestTransactionModal(unittest.TestCase):
                 self.modal.description_field.value = "Test description"
                 
                 # Сбрасываем ошибки
-                self.modal.amount_field.error_text = None
-                self.modal.category_dropdown.error_text = None
+                self.modal.amount_field.error_text = ""
+                self.modal.category_dropdown.error_text = ""
+                
+                # Убеждаемся, что валидация проходит
+                self.modal._validate_all_fields()
                 
                 # Act - пытаемся сохранить
                 self.modal._save(None)
@@ -1325,8 +1622,8 @@ class TestTransactionModalProperties:
                 except (ValueError, TypeError, InvalidOperation):
                     amount_valid = False
             
-            # Проверяем валидность категории (UI уровень)
-            category_valid = category_value is not None and category_value != ""
+            # Проверяем валидность категории (должна быть в списке доступных)
+            category_valid = category_value == test_category_id
             
             # Общая валидность формы на UI уровне
             form_valid = amount_valid and category_valid

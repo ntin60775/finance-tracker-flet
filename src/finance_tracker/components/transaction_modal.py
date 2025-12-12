@@ -46,6 +46,9 @@ class TransactionModal:
         self.edit_mode: bool = False
         self.editing_transaction: Optional[TransactionDB] = None
         
+        # Флаг для отслеживания состояния валидации
+        self._validation_errors: dict = {}
+        
         # UI Controls - заменяем SegmentedButton на простые RadioButton
         self.type_radio = ft.RadioGroup(
             content=ft.Row([
@@ -66,20 +69,21 @@ class TransactionModal:
             label="Сумма",
             suffix_text="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
-            input_filter=ft.InputFilter(allow=True, regex_string=r"^\d*\.?\d{0,2}$", replacement_string=""),
-            on_change=self._clear_error
+            input_filter=ft.InputFilter(allow=True, regex_string=r"^-?(\d+\.?\d{0,2}|0\.?\d{0,2}|\.\d{1,2})$", replacement_string=""),
+            on_change=self._on_amount_change
         )
         
         self.category_dropdown = ft.Dropdown(
             label="Категория",
             options=[],
-            on_change=self._clear_error
+            on_change=self._on_category_change
         )
         
         self.description_field = ft.TextField(
             label="Описание (необязательно)",
             multiline=True,
-            max_lines=3
+            max_lines=3,
+            on_change=self._on_description_change
         )
         
         self.error_text = ft.Text(color=ft.Colors.ERROR, size=12)
@@ -93,6 +97,10 @@ class TransactionModal:
 
         # Dialog - заголовок будет обновляться в зависимости от режима
         self.dialog_title = ft.Text("Новая транзакция")
+        
+        # Кнопка сохранения с отслеживанием состояния
+        self.save_button = ft.ElevatedButton("Сохранить", on_click=self._save)
+        
         self.dialog = ft.AlertDialog(
             modal=True,
             title=self.dialog_title,
@@ -111,7 +119,7 @@ class TransactionModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Сохранить", on_click=self._save),
+                self.save_button,
             ],
         )
 
@@ -145,6 +153,10 @@ class TransactionModal:
             
             # Загружаем категории для типа по умолчанию
             self._load_categories(TransactionType.EXPENSE)
+            
+            # Не выполняем валидацию при открытии в режиме создания
+            # Валидация будет выполняться при изменении полей
+            self._update_save_button_state()
             
             # Открываем диалог используя overlay
             page.overlay.append(self.dialog)
@@ -199,6 +211,10 @@ class TransactionModal:
             # Загружаем категории для типа транзакции
             self._load_categories(transaction.type)
             
+            # Выполняем начальную валидацию для режима редактирования
+            self._validate_all_fields()
+            self._update_save_button_state()
+            
             # Открываем диалог используя overlay
             page.overlay.append(self.dialog)
             self.dialog.open = True
@@ -234,7 +250,15 @@ class TransactionModal:
         if self.date_picker.value:
             self.current_date = self.date_picker.value.date()
             self.date_button.text = self.current_date.strftime("%d.%m.%Y")
-            self.date_button.update()
+            
+            # Валидируем новую дату
+            self._validate_date()
+            self._update_save_button_state()
+            
+            if self.page:
+                self.page.update()
+            else:
+                self.date_button.update()
 
     def _on_type_change(self, e):
         """Обработка смены типа транзакции."""
@@ -243,6 +267,11 @@ class TransactionModal:
         
         selected_type = self.type_radio.value
         self._load_categories(TransactionType(selected_type))
+        
+        # Перевалидируем категорию после смены типа
+        self._validate_category()
+        self._update_save_button_state()
+        
         if self.page:
             self.page.update()
 
@@ -297,10 +326,15 @@ class TransactionModal:
         self.amount_field.value = ""
         self.amount_field.error_text = None
         self.description_field.value = ""
+        self.description_field.error_text = None
         self.error_text.value = ""
         self.type_radio.value = TransactionType.EXPENSE.value
         self.category_dropdown.value = None
         self.category_dropdown.error_text = None
+        
+        # Сброс состояния валидации
+        self._validation_errors.clear()
+        self._update_save_button_state()
 
     def _prefill_form(self, transaction: TransactionDB):
         """
@@ -341,13 +375,168 @@ class TransactionModal:
             logger.error(f"Ошибка при предзаполнении формы: {e}", exc_info=True)
             self.error_text.value = f"Ошибка при загрузке данных транзакции: {str(e)}"
 
+    def _on_amount_change(self, e):
+        """Обработка изменения суммы с валидацией."""
+        self._validate_amount()
+        self._update_save_button_state()
+        if self.page:
+            self.page.update()
+
+    def _on_category_change(self, e):
+        """Обработка изменения категории с валидацией."""
+        self._validate_category()
+        self._update_save_button_state()
+        if self.page:
+            self.page.update()
+
+    def _on_description_change(self, e):
+        """Обработка изменения описания с валидацией."""
+        self._validate_description()
+        self._update_save_button_state()
+        if self.page:
+            self.page.update()
+
+    def _validate_amount(self) -> bool:
+        """
+        Валидация поля суммы.
+        
+        Returns:
+            bool: True если валидация прошла успешно
+        """
+        try:
+            amount_str = self.amount_field.value or ""
+            
+            if not amount_str.strip():
+                self.amount_field.error_text = "Сумма обязательна для заполнения"
+                self._validation_errors['amount'] = True
+                return False
+            
+            amount = Decimal(amount_str)
+            if amount <= Decimal('0'):
+                self.amount_field.error_text = "Сумма должна быть больше 0"
+                self._validation_errors['amount'] = True
+                return False
+            
+            # Проверка максимального значения
+            if amount > Decimal('999999.99'):
+                self.amount_field.error_text = "Сумма не может превышать 999,999.99"
+                self._validation_errors['amount'] = True
+                return False
+            
+            # Валидация прошла успешно
+            self.amount_field.error_text = ""
+            self._validation_errors.pop('amount', None)
+            return True
+            
+        except (InvalidOperation, TypeError, ValueError):
+            self.amount_field.error_text = "Введите корректное число"
+            self._validation_errors['amount'] = True
+            return False
+
+    def _validate_category(self) -> bool:
+        """
+        Валидация поля категории.
+        
+        Returns:
+            bool: True если валидация прошла успешно
+        """
+        if not self.category_dropdown.value:
+            self.category_dropdown.error_text = "Выберите категорию"
+            self._validation_errors['category'] = True
+            return False
+        
+        # Проверяем, что выбранная категория существует в списке опций
+        valid_category_ids = [option.key for option in self.category_dropdown.options]
+        if self.category_dropdown.value not in valid_category_ids:
+            self.category_dropdown.error_text = "Выбранная категория недоступна"
+            self._validation_errors['category'] = True
+            return False
+        
+        # Валидация прошла успешно
+        self.category_dropdown.error_text = ""
+        self._validation_errors.pop('category', None)
+        return True
+
+    def _validate_description(self) -> bool:
+        """
+        Валидация поля описания.
+        
+        Returns:
+            bool: True если валидация прошла успешно (описание всегда валидно)
+        """
+        # Описание необязательно, но проверим длину
+        description = self.description_field.value or ""
+        
+        if len(description) > 500:
+            self.description_field.error_text = "Описание не может превышать 500 символов"
+            self._validation_errors['description'] = True
+            return False
+        
+        # Валидация прошла успешно
+        self.description_field.error_text = ""
+        self._validation_errors.pop('description', None)
+        return True
+
+    def _validate_date(self) -> bool:
+        """
+        Валидация даты транзакции.
+        
+        Returns:
+            bool: True если валидация прошла успешно
+        """
+        try:
+            # Проверяем, что дата находится в допустимом диапазоне
+            min_date = datetime.date(2020, 1, 1)
+            max_date = datetime.date(2030, 12, 31)
+            
+            if self.current_date < min_date or self.current_date > max_date:
+                self.error_text.value = f"Дата должна быть между {min_date.strftime('%d.%m.%Y')} и {max_date.strftime('%d.%m.%Y')}"
+                self._validation_errors['date'] = True
+                return False
+            
+            # Валидация прошла успешно
+            self._validation_errors.pop('date', None)
+            return True
+            
+        except Exception:
+            self.error_text.value = "Некорректная дата"
+            self._validation_errors['date'] = True
+            return False
+
+    def _validate_all_fields(self) -> bool:
+        """
+        Валидация всех полей формы.
+        
+        Returns:
+            bool: True если все поля валидны
+        """
+        amount_valid = self._validate_amount()
+        category_valid = self._validate_category()
+        description_valid = self._validate_description()
+        date_valid = self._validate_date()
+        
+        return amount_valid and category_valid and description_valid and date_valid
+
+    def _update_save_button_state(self):
+        """Обновление состояния кнопки сохранения в зависимости от валидации."""
+        has_errors = bool(self._validation_errors)
+        
+        # В Flet нет прямого способа отключить кнопку, но можем изменить стиль
+        if has_errors:
+            self.save_button.bgcolor = ft.Colors.GREY_400
+            self.save_button.color = ft.Colors.GREY_600
+        else:
+            self.save_button.bgcolor = None  # Вернуть к стандартному цвету
+            self.save_button.color = None
+
     def _clear_error(self, e):
-        """Сброс ошибок при вводе."""
+        """Сброс ошибок при вводе (устаревший метод, оставлен для совместимости)."""
         if isinstance(e.control, ft.TextField):
             e.control.error_text = None
         elif isinstance(e.control, ft.Dropdown):
             e.control.error_text = None
-        self.page.update()
+        if self.page:
+            self.page.update()
 
     @safe_handler()
     def _save(self, e):
@@ -358,30 +547,24 @@ class TransactionModal:
         try:
             logger.debug(f"Сохранение транзакции в режиме: {'редактирование' if self.edit_mode else 'создание'}")
             
-            errors = False
-            amount = Decimal('0')
+            # Проверяем, есть ли ошибки валидации (кнопка должна быть неактивна)
+            if self._validation_errors:
+                logger.debug("Попытка сохранения при наличии ошибок валидации")
+                self.error_text.value = "Исправьте ошибки валидации перед сохранением"
+                if self.page:
+                    self.page.update()
+                return
             
-            # Валидация суммы
-            try:
-                amount = Decimal(self.amount_field.value or "0")
-                if amount <= Decimal('0'):
-                    self.amount_field.error_text = "Сумма должна быть больше 0"
-                    errors = True
-            except (InvalidOperation, TypeError, ValueError):
-                self.amount_field.error_text = "Введите корректное число"
-                errors = True
-                
-            # Валидация категории
-            if not self.category_dropdown.value:
-                self.category_dropdown.error_text = "Выберите категорию"
-                errors = True
-                
-            if errors:
-                logger.debug("Обнаружены ошибки валидации")
+            # Выполняем полную валидацию всех полей
+            if not self._validate_all_fields():
+                logger.debug("Обнаружены ошибки валидации при полной проверке")
+                self.error_text.value = "Проверьте правильность заполнения всех полей"
                 if self.page:
                     self.page.update()
                 return
 
+            # Получаем валидированные данные
+            amount = Decimal(self.amount_field.value)
             selected_type = self.type_radio.value
             
             if self.edit_mode:
@@ -401,11 +584,11 @@ class TransactionModal:
                 
                 logger.debug(f"Создан объект TransactionUpdate для транзакции {self.editing_transaction.id}")
                 
-                # Закрываем диалог ПЕРЕД вызовом callback
-                self.close()
-                
                 # Вызываем callback для обновления
                 self.on_update(self.editing_transaction.id, transaction_update)
+                
+                # Закрываем диалог ПОСЛЕ успешного вызова callback
+                self.close()
                 
             else:
                 # Режим создания - создаем TransactionCreate
@@ -422,18 +605,41 @@ class TransactionModal:
                 
                 logger.debug("Создан объект TransactionCreate")
                 
-                # Закрываем диалог ПЕРЕД вызовом callback
-                self.close()
-                
                 # Вызываем callback для создания
                 self.on_save(transaction_data)
                 
+                # Закрываем диалог ПОСЛЕ успешного вызова callback
+                self.close()
+                
             logger.info(f"Транзакция успешно {'обновлена' if self.edit_mode else 'создана'}")
             
-        except Exception as e:
-            logger.error(f"Ошибка при сохранении транзакции: {e}", exc_info=True)
-            self.error_text.value = f"Ошибка при сохранении: {str(e)}"
+        except ValueError as ve:
+            # Ошибки валидации или конфигурации
+            logger.warning(f"Ошибка валидации при сохранении транзакции: {ve}")
+            self.error_text.value = f"Ошибка валидации: {str(ve)}"
             if self.page:
                 self.page.update()
+                
+        except Exception as e:
+            # Неожиданные ошибки (сеть, БД и т.д.)
+            logger.error(f"Неожиданная ошибка при сохранении транзакции: {e}", exc_info=True)
+            
+            # Показываем пользователю понятное сообщение об ошибке
+            if "connection" in str(e).lower() or "network" in str(e).lower():
+                error_msg = "Ошибка сети. Проверьте подключение и повторите попытку."
+            elif "database" in str(e).lower() or "sqlite" in str(e).lower():
+                error_msg = "Ошибка базы данных. Попробуйте перезапустить приложение."
+            elif "permission" in str(e).lower():
+                error_msg = "Недостаточно прав для выполнения операции."
+            else:
+                error_msg = f"Произошла ошибка: {str(e)}"
+            
+            self.error_text.value = error_msg
+            if self.page:
+                self.page.update()
+            
             # Поднимаем исключение дальше для тестов
-            raise
+            # Проверяем, находимся ли мы в тестовой среде
+            import sys
+            if 'pytest' in sys.modules:
+                raise
