@@ -295,14 +295,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 pass
 
             def confirm_delete(e):
-                dialog.open = False
-                self.page.update()
+                self.page.close(dialog)
                 # Делегируем в Presenter
                 self.presenter.delete_transaction(transaction.id)
 
             def cancel_delete(e):
-                dialog.open = False
-                self.page.update()
+                self.page.close(dialog)
 
             dialog = ft.AlertDialog(
                 modal=True,
@@ -330,9 +328,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 ],
             )
 
-            self.page.dialog = dialog
-            dialog.open = True
-            self.page.update()
+            # Используем page.open() вместо page.dialog
+            self.page.open(dialog)
             
             logger.info("Диалог подтверждения удаления транзакции показан")
             
@@ -400,10 +397,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         def confirm_cancel(e):
             reason = reason_field.value or None
-            dialog.open = False
-            self.page.update()
+            self.page.close(dialog)
             # Делегируем в Presenter
             self.presenter.cancel_pending_payment(payment.id, reason)
+
+        def cancel_dialog(e):
+            self.page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
@@ -419,36 +418,34 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 spacing=10,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: setattr(dialog, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=cancel_dialog),
                 ft.ElevatedButton("Отменить платёж", on_click=confirm_cancel),
             ],
         )
 
-        self.page.dialog = dialog
-        dialog.open = True
-        self.page.update()
+        self.page.open(dialog)
 
     def on_delete_payment(self, payment_id: int):
         """Удаление отложенного платежа."""
         def confirm_delete(e):
-            dialog.open = False
-            self.page.update()
+            self.page.close(dialog)
             # Делегируем в Presenter
             self.presenter.delete_pending_payment(payment_id)
+
+        def cancel_delete(e):
+            self.page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Удалить платёж?"),
             content=ft.Text("Это действие нельзя отменить!"),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: setattr(dialog, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=cancel_delete),
                 ft.ElevatedButton("Удалить", on_click=confirm_delete, bgcolor=ft.Colors.ERROR),
             ],
         )
 
-        self.page.dialog = dialog
-        dialog.open = True
-        self.page.update()
+        self.page.open(dialog)
 
     def on_payment_executed_confirm(self, payment_id: int, executed_amount: float, executed_date: datetime.date):
         """Подтверждение исполнения отложенного платежа - делегирует в Presenter."""
@@ -493,8 +490,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 self.page.open(ft.SnackBar(content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)")))
                 return
 
-            dialog.open = False
-            self.page.update()
+            self.page.close(dialog)
             # Делегируем в Presenter
             self.presenter.execute_loan_payment(payment, amount, exec_date)
 
@@ -502,6 +498,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             loan_name = payment.loan.name if payment.loan else "Неизвестный кредит"
         except Exception:
             loan_name = "Неизвестный кредит"
+
+        def cancel_execute(e):
+            self.page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
@@ -519,11 +518,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 width=400,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: setattr(dialog, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=cancel_execute),
                 ft.ElevatedButton("Исполнить", on_click=confirm_execute, bgcolor=ft.Colors.PRIMARY),
             ],
         )
 
-        self.page.dialog = dialog
-        dialog.open = True
-        self.page.update()
+        self.page.open(dialog)

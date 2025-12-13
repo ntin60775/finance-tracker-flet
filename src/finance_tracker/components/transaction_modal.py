@@ -240,6 +240,14 @@ class TransactionModal:
         if self.dialog and self.page:
             self.dialog.open = False
             self.page.update()
+        
+        # Сбрасываем режим редактирования при закрытии
+        self._reset_edit_mode()
+
+    def _reset_edit_mode(self):
+        """Сброс режима редактирования."""
+        self.edit_mode = False
+        self.editing_transaction = None
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""

@@ -98,11 +98,11 @@
   - **Property 9: Удаление вызывает delete_transaction**
   - _Requirements: 10.4_
 
-- [ ] 11. Написать integration тесты
+- [x] 11. Написать integration тесты
   - Полный сценарий редактирования транзакции (UI -> Presenter -> Service -> DB -> UI)
   - Полный сценарий удаления транзакции
   - Проверка обновления календаря после изменений
   - _Requirements: 10.5_
 
-- [ ] 12. Checkpoint - Убедиться что все тесты проходят
+- [x] 12. Checkpoint - Убедиться что все тесты проходят
   - Ensure all tests pass, ask the user if questions arise.
