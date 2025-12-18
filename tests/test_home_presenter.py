@@ -625,18 +625,153 @@ class TestHomePresenter(unittest.TestCase):
         self.callbacks.show_error.assert_called_once()
 
     # Тесты приватных методов
-    def test_refresh_data(self):
-        """Тест обновления всех данных."""
+    def test_refresh_data_calendar_update(self):
+        """Тест обновления данных календаря в _refresh_data."""
         test_date = date(2024, 10, 15)
         self.presenter.selected_date = test_date
         
+        # Подготавливаем тестовые данные
+        mock_transactions = [Mock(id="txn1"), Mock(id="txn2")]
+        mock_occurrences = [Mock(id="occ1")]
+        
+        self.mock_transaction_service.get_by_date_range.return_value = mock_transactions
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.return_value = mock_occurrences
+        
+        # Вызываем _refresh_data
         self.presenter._refresh_data()
         
-        # Проверяем, что вызваны все методы загрузки данных
-        self.mock_transaction_service.get_by_date_range.assert_called()
+        # Проверяем вызов сервиса для календаря
+        expected_first_day = date(2024, 10, 1)
+        expected_last_day = date(2024, 10, 31)
+        self.mock_transaction_service.get_by_date_range.assert_called_with(
+            self.session, expected_first_day, expected_last_day
+        )
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.assert_called_with(
+            self.session, expected_first_day, expected_last_day
+        )
+        
+        # Проверяем вызов callback для обновления календаря
+        self.callbacks.update_calendar_data.assert_called_with(mock_transactions, mock_occurrences)
+
+    def test_refresh_data_selected_date_transactions_update(self):
+        """Тест обновления транзакций для выбранной даты в _refresh_data."""
+        test_date = date(2024, 10, 15)
+        self.presenter.selected_date = test_date
+        
+        # Подготавливаем тестовые данные
+        mock_transactions = [Mock(id="txn1", amount=Decimal('100.50'))]
+        mock_occurrences = [Mock(id="occ1", amount=Decimal('200.00'))]
+        
+        self.mock_transaction_service.get_transactions_by_date.return_value = mock_transactions
+        self.mock_planned_transaction_service.get_occurrences_by_date.return_value = mock_occurrences
+        
+        # Вызываем _refresh_data
+        self.presenter._refresh_data()
+        
+        # Проверяем вызов сервисов для выбранной даты
         self.mock_transaction_service.get_transactions_by_date.assert_called_with(self.session, test_date)
-        self.mock_planned_transaction_service.get_pending_occurrences.assert_called()
-        self.mock_pending_payment_service.get_all_pending_payments.assert_called()
+        self.mock_planned_transaction_service.get_occurrences_by_date.assert_called_with(self.session, test_date)
+        
+        # Проверяем вызов callback для обновления транзакций
+        self.callbacks.update_transactions.assert_called_with(test_date, mock_transactions, mock_occurrences)
+
+    def test_refresh_data_planned_occurrences_update(self):
+        """Тест обновления плановых операций в _refresh_data."""
+        test_date = date(2024, 10, 15)
+        self.presenter.selected_date = test_date
+        
+        # Подготавливаем тестовые данные
+        mock_occurrences = [Mock(id="occ1"), Mock(id="occ2"), Mock(id="occ3")]
+        self.mock_planned_transaction_service.get_pending_occurrences.return_value = mock_occurrences
+        
+        # Вызываем _refresh_data
+        self.presenter._refresh_data()
+        
+        # Проверяем вызов сервиса для плановых операций
+        self.mock_planned_transaction_service.get_pending_occurrences.assert_called_with(self.session)
+        
+        # Проверяем вызов callback для обновления плановых операций
+        self.callbacks.update_planned_occurrences.assert_called_once()
+        call_args = self.callbacks.update_planned_occurrences.call_args[0][0]
+        
+        # Проверяем формат данных (список кортежей после форматирования)
+        self.assertIsInstance(call_args, list)
+        self.assertEqual(len(call_args), 3)  # Три occurrence
+        for item in call_args:
+            self.assertIsInstance(item, tuple)
+            self.assertEqual(len(item), 3)  # (occurrence, color, text_color)
+
+    def test_refresh_data_pending_payments_update(self):
+        """Тест обновления отложенных платежей в _refresh_data."""
+        test_date = date(2024, 10, 15)
+        self.presenter.selected_date = test_date
+        
+        # Подготавливаем тестовые данные
+        mock_payments = [Mock(id="payment1"), Mock(id="payment2")]
+        mock_statistics = {"total_active": 2, "total_amount": Decimal('1500.75')}
+        
+        self.mock_pending_payment_service.get_all_pending_payments.return_value = mock_payments
+        self.mock_pending_payment_service.get_pending_payments_statistics.return_value = mock_statistics
+        
+        # Вызываем _refresh_data
+        self.presenter._refresh_data()
+        
+        # Проверяем вызов сервисов для отложенных платежей
+        self.mock_pending_payment_service.get_all_pending_payments.assert_called_with(self.session)
+        self.mock_pending_payment_service.get_pending_payments_statistics.assert_called_with(self.session)
+        
+        # Проверяем вызов callback для обновления отложенных платежей
+        self.callbacks.update_pending_payments.assert_called_with(mock_payments, mock_statistics)
+
+    def test_refresh_data_all_components_updated(self):
+        """Тест полного обновления всех компонентов в _refresh_data."""
+        test_date = date(2024, 10, 15)
+        self.presenter.selected_date = test_date
+        
+        # Подготавливаем тестовые данные для всех компонентов
+        mock_calendar_transactions = [Mock(id="cal_txn1")]
+        mock_calendar_occurrences = [Mock(id="cal_occ1")]
+        mock_date_transactions = [Mock(id="date_txn1")]
+        mock_date_occurrences = [Mock(id="date_occ1")]
+        mock_planned_occurrences = [Mock(id="planned_occ1")]
+        mock_payments = [Mock(id="payment1")]
+        mock_statistics = {"total_active": 1, "total_amount": Decimal('500.00')}
+        
+        # Настраиваем возвращаемые значения
+        self.mock_transaction_service.get_by_date_range.return_value = mock_calendar_transactions
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.return_value = mock_calendar_occurrences
+        self.mock_transaction_service.get_transactions_by_date.return_value = mock_date_transactions
+        self.mock_planned_transaction_service.get_occurrences_by_date.return_value = mock_date_occurrences
+        self.mock_planned_transaction_service.get_pending_occurrences.return_value = mock_planned_occurrences
+        self.mock_pending_payment_service.get_all_pending_payments.return_value = mock_payments
+        self.mock_pending_payment_service.get_pending_payments_statistics.return_value = mock_statistics
+        
+        # Вызываем _refresh_data
+        self.presenter._refresh_data()
+        
+        # Проверяем, что все callbacks были вызваны с правильными данными
+        self.callbacks.update_calendar_data.assert_called_once_with(mock_calendar_transactions, mock_calendar_occurrences)
+        self.callbacks.update_transactions.assert_called_once_with(test_date, mock_date_transactions, mock_date_occurrences)
+        self.callbacks.update_planned_occurrences.assert_called_once()
+        self.callbacks.update_pending_payments.assert_called_once_with(mock_payments, mock_statistics)
+        
+        # Проверяем, что ошибки не показаны
+        self.callbacks.show_error.assert_not_called()
+
+    def test_refresh_data_preserves_selected_date(self):
+        """Тест сохранения выбранной даты при обновлении данных."""
+        original_date = date(2024, 5, 20)
+        self.presenter.selected_date = original_date
+        
+        # Вызываем _refresh_data
+        self.presenter._refresh_data()
+        
+        # Проверяем, что выбранная дата не изменилась
+        self.assertEqual(self.presenter.selected_date, original_date)
+        
+        # Проверяем, что данные загружены для правильной даты
+        self.mock_transaction_service.get_transactions_by_date.assert_called_with(self.session, original_date)
+        self.mock_planned_transaction_service.get_occurrences_by_date.assert_called_with(self.session, original_date)
 
     def test_handle_error_logging_and_callback(self):
         """Тест обработки ошибки с логированием и callback."""

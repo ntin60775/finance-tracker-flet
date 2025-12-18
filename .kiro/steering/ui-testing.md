@@ -793,6 +793,503 @@ class TestNewModal(unittest.TestCase):
         self.assertTrue(self.modal.save_button.disabled)
 ```
 
+## Delete Operations Testing
+
+### Delete Button Testing Patterns
+
+**Специализированные паттерны для тестирования кнопок удаления:**
+
+```python
+def test_delete_button_attributes(self):
+    """Тест атрибутов кнопки удаления транзакции."""
+    transaction = Mock(id="test-id", description="Test transaction")
+    panel = TransactionsPanel(
+        date_obj=date.today(),
+        transactions=[transaction],
+        on_delete_transaction=Mock()
+    )
+    
+    # Получаем строку транзакции
+    transaction_row = panel._build_transaction_row(transaction)
+    delete_button = transaction_row.controls[-1]  # Последняя кнопка в строке
+    
+    # Проверяем атрибуты кнопки удаления
+    self.assertEqual(delete_button.icon, ft.Icons.DELETE)
+    self.assertEqual(delete_button.tooltip, "Удалить транзакцию")
+    self.assertEqual(delete_button.bgcolor, ft.Colors.ERROR)
+    self.assertIsNotNone(delete_button.on_click)
+
+def test_delete_button_click_callback(self):
+    """Тест вызова callback при нажатии кнопки удаления."""
+    mock_delete_callback = Mock()
+    transaction = Mock(id="test-id", description="Test transaction")
+    
+    panel = TransactionsPanel(
+        date_obj=date.today(),
+        transactions=[transaction],
+        on_delete_transaction=mock_delete_callback
+    )
+    
+    # Симулируем нажатие кнопки удаления
+    transaction_row = panel._build_transaction_row(transaction)
+    delete_button = transaction_row.controls[-1]
+    delete_button.on_click(None)
+    
+    # Проверяем вызов callback с правильным ID транзакции
+    mock_delete_callback.assert_called_once_with(transaction.id)
+
+@given(st.booleans())
+def test_delete_button_state_property(has_delete_permission):
+    """Property: Кнопка удаления должна корректно отражать права доступа."""
+    transaction = Mock(id="test-id", description="Test transaction")
+    callback = Mock() if has_delete_permission else None
+    
+    panel = TransactionsPanel(
+        date_obj=date.today(),
+        transactions=[transaction],
+        on_delete_transaction=callback
+    )
+    
+    transaction_row = panel._build_transaction_row(transaction)
+    delete_button = transaction_row.controls[-1]
+    
+    if has_delete_permission:
+        assert delete_button.disabled != True  # Кнопка активна
+        assert delete_button.on_click is not None
+    else:
+        # При отсутствии прав кнопка должна быть неактивна или скрыта
+        assert delete_button.disabled == True or delete_button.visible == False
+```
+
+### Confirmation Dialog Testing
+
+**Паттерны для тестирования диалогов подтверждения удаления:**
+
+```python
+class TestDeleteConfirmationDialog(unittest.TestCase):
+    def setUp(self):
+        self.mock_page = create_mock_page()
+        self.mock_session = create_mock_session()
+        self.mock_delete_callback = Mock()
+        self.home_view = HomeView(self.mock_page, self.mock_session)
+
+    def test_delete_confirmation_dialog_creation(self):
+        """Тест создания диалога подтверждения удаления."""
+        transaction = Mock(id="test-id", description="Test transaction", amount=Decimal('100.50'))
+        
+        # Вызываем показ диалога подтверждения
+        self.home_view._show_delete_confirmation_dialog(transaction)
+        
+        # Проверяем создание диалога
+        self.assertIsNotNone(self.home_view.delete_confirmation_dialog)
+        
+        # Проверяем содержимое диалога
+        dialog = self.home_view.delete_confirmation_dialog
+        self.assertIn("Удалить транзакцию", dialog.title.value)
+        self.assertIn(transaction.description, dialog.content.value)
+        self.assertIn(str(transaction.amount), dialog.content.value)
+        
+        # Проверяем наличие кнопок
+        actions = dialog.actions
+        self.assertEqual(len(actions), 2)  # Отмена и Удалить
+        
+        cancel_button = actions[0]
+        delete_button = actions[1]
+        
+        self.assertEqual(cancel_button.text, "Отмена")
+        self.assertEqual(delete_button.text, "Удалить")
+        self.assertEqual(delete_button.bgcolor, ft.Colors.ERROR)
+
+    def test_delete_confirmation_dialog_display(self):
+        """Тест отображения диалога подтверждения."""
+        transaction = Mock(id="test-id", description="Test transaction")
+        
+        self.home_view._show_delete_confirmation_dialog(transaction)
+        
+        # Проверяем вызов page.open() для отображения диалога
+        self.mock_page.open.assert_called_once()
+        
+        # Проверяем, что диалог передан в page.open()
+        call_args = self.mock_page.open.call_args[0]
+        self.assertEqual(call_args[0], self.home_view.delete_confirmation_dialog)
+
+    def test_delete_confirmation_cancel_action(self):
+        """Тест отмены удаления в диалоге подтверждения."""
+        transaction = Mock(id="test-id", description="Test transaction")
+        
+        self.home_view._show_delete_confirmation_dialog(transaction)
+        dialog = self.home_view.delete_confirmation_dialog
+        
+        # Симулируем нажатие кнопки "Отмена"
+        cancel_button = dialog.actions[0]
+        cancel_button.on_click(None)
+        
+        # Проверяем закрытие диалога
+        self.assertFalse(dialog.open)
+        
+        # Проверяем, что удаление НЕ было вызвано
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.assert_not_called()
+
+    def test_delete_confirmation_confirm_action(self):
+        """Тест подтверждения удаления в диалоге."""
+        transaction = Mock(id="test-id", description="Test transaction")
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.return_value = True
+            
+            self.home_view._show_delete_confirmation_dialog(transaction)
+            dialog = self.home_view.delete_confirmation_dialog
+            
+            # Симулируем нажатие кнопки "Удалить"
+            delete_button = dialog.actions[1]
+            delete_button.on_click(None)
+            
+            # Проверяем вызов сервиса удаления
+            mock_delete.assert_called_once_with(self.mock_session, transaction.id)
+            
+            # Проверяем закрытие диалога
+            self.assertFalse(dialog.open)
+
+    @given(st.text(min_size=1, max_size=100))
+    def test_delete_dialog_content_property(self, transaction_description):
+        """Property: Диалог удаления должен отображать информацию о любой транзакции."""
+        transaction = Mock(
+            id="test-id", 
+            description=transaction_description,
+            amount=Decimal('100.50')
+        )
+        
+        self.home_view._show_delete_confirmation_dialog(transaction)
+        dialog = self.home_view.delete_confirmation_dialog
+        
+        # Диалог должен содержать описание транзакции
+        assert transaction_description in dialog.content.value
+        assert str(transaction.amount) in dialog.content.value
+        assert dialog.title.value is not None
+        assert len(dialog.actions) == 2
+```
+
+### Cascade Updates Testing
+
+**Паттерны для тестирования каскадных обновлений после удаления:**
+
+```python
+class TestDeleteCascadeUpdates(unittest.TestCase):
+    def setUp(self):
+        self.mock_page = create_mock_page()
+        self.mock_session = create_mock_session()
+        self.home_view = HomeView(self.mock_page, self.mock_session)
+
+    def test_delete_transaction_updates_transactions_panel(self):
+        """Тест обновления панели транзакций после удаления."""
+        # Подготовка: создаем транзакции
+        transactions = [
+            Mock(id="trans1", description="Transaction 1", amount=Decimal('100')),
+            Mock(id="trans2", description="Transaction 2", amount=Decimal('200'))
+        ]
+        
+        self.home_view.transactions_panel.transactions = transactions
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            with patch.object(self.home_view, '_refresh_data') as mock_refresh:
+                mock_delete.return_value = True
+                
+                # Выполняем удаление
+                self.home_view.delete_transaction("trans1")
+                
+                # Проверяем вызов обновления данных
+                mock_refresh.assert_called_once()
+
+    def test_delete_transaction_updates_calendar_widget(self):
+        """Тест обновления календаря после удаления транзакции."""
+        transaction_id = "test-trans-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            with patch.object(self.home_view.calendar_widget, 'update_data') as mock_calendar_update:
+                mock_delete.return_value = True
+                
+                # Выполняем удаление
+                self.home_view.delete_transaction(transaction_id)
+                
+                # Проверяем обновление календаря
+                mock_calendar_update.assert_called_once()
+
+    def test_delete_transaction_updates_balance_forecast(self):
+        """Тест обновления прогноза баланса после удаления."""
+        transaction_id = "test-trans-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            with patch('finance_tracker.services.balance_forecast_service.get_balance_forecast') as mock_forecast:
+                mock_delete.return_value = True
+                mock_forecast.return_value = []
+                
+                # Выполняем удаление
+                self.home_view.delete_transaction(transaction_id)
+                
+                # Проверяем пересчет прогноза баланса
+                mock_forecast.assert_called()
+
+    def test_delete_transaction_updates_category_statistics(self):
+        """Тест обновления статистики категорий после удаления."""
+        transaction_id = "test-trans-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            with patch('finance_tracker.services.category_service.get_category_statistics') as mock_stats:
+                mock_delete.return_value = True
+                mock_stats.return_value = {}
+                
+                # Выполняем удаление
+                self.home_view.delete_transaction(transaction_id)
+                
+                # Проверяем пересчет статистики категорий
+                mock_stats.assert_called()
+
+    @given(st.lists(st.text(min_size=1), min_size=1, max_size=10))
+    def test_cascade_updates_property(self, transaction_ids):
+        """Property: Удаление любой транзакции должно вызывать каскадные обновления."""
+        for transaction_id in transaction_ids:
+            with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+                with patch.object(self.home_view, '_refresh_data') as mock_refresh:
+                    mock_delete.return_value = True
+                    
+                    # Выполняем удаление
+                    self.home_view.delete_transaction(transaction_id)
+                    
+                    # Проверяем, что обновление данных было вызвано
+                    assert mock_refresh.called
+                    assert mock_delete.called
+```
+
+### Delete Error Handling Testing
+
+**Паттерны для тестирования обработки ошибок при удалении:**
+
+```python
+class TestDeleteErrorHandling(unittest.TestCase):
+    def setUp(self):
+        self.mock_page = create_mock_page()
+        self.mock_session = create_mock_session()
+        self.home_view = HomeView(self.mock_page, self.mock_session)
+
+    def test_delete_nonexistent_transaction_error(self):
+        """Тест обработки ошибки при удалении несуществующей транзакции."""
+        nonexistent_id = "nonexistent-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.return_value = False  # Транзакция не найдена
+            
+            # Выполняем удаление
+            result = self.home_view.delete_transaction(nonexistent_id)
+            
+            # Проверяем обработку ошибки
+            self.assertFalse(result)
+            
+            # Проверяем отображение сообщения об ошибке
+            self.mock_page.show_snack_bar.assert_called()
+            snack_bar_call = self.mock_page.show_snack_bar.call_args[0][0]
+            self.assertIn("не найдена", snack_bar_call.content.value.lower())
+
+    def test_delete_database_error_handling(self):
+        """Тест обработки ошибки базы данных при удалении."""
+        transaction_id = "test-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.side_effect = SQLAlchemyError("Database error")
+            
+            # Выполняем удаление
+            result = self.home_view.delete_transaction(transaction_id)
+            
+            # Проверяем обработку ошибки
+            self.assertFalse(result)
+            
+            # Проверяем отображение сообщения об ошибке
+            self.mock_page.show_snack_bar.assert_called()
+            snack_bar_call = self.mock_page.show_snack_bar.call_args[0][0]
+            self.assertIn("ошибка", snack_bar_call.content.value.lower())
+
+    def test_delete_rollback_on_error(self):
+        """Тест отката изменений при ошибке удаления."""
+        transaction_id = "test-id"
+        
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.side_effect = SQLAlchemyError("Database error")
+            
+            # Сохраняем исходное состояние
+            original_transactions = self.home_view.transactions_panel.transactions.copy()
+            
+            # Выполняем удаление (должно завершиться ошибкой)
+            self.home_view.delete_transaction(transaction_id)
+            
+            # Проверяем, что состояние не изменилось
+            self.assertEqual(
+                self.home_view.transactions_panel.transactions,
+                original_transactions
+            )
+
+    @given(st.text(min_size=1))
+    def test_delete_error_handling_property(self, transaction_id):
+        """Property: Любая ошибка при удалении должна обрабатываться корректно."""
+        with patch('finance_tracker.services.transaction_service.delete_transaction') as mock_delete:
+            mock_delete.side_effect = Exception("Unexpected error")
+            
+            # Удаление не должно вызывать необработанных исключений
+            try:
+                result = self.home_view.delete_transaction(transaction_id)
+                # Результат должен быть False при ошибке
+                assert result == False
+            except Exception as e:
+                pytest.fail(f"Delete operation raised unhandled exception: {e}")
+```
+
+### Integration Testing for Delete Operations
+
+**Интеграционные тесты для операций удаления:**
+
+```python
+def test_complete_delete_transaction_flow(self):
+    """Интеграционный тест: полный сценарий удаления транзакции."""
+    # Arrange - подготовка реальных компонентов
+    with get_db() as session:
+        # Создаем реальную транзакцию в БД
+        category = CategoryDB(
+            id=str(uuid4()),
+            name="Тестовая категория",
+            type=TransactionType.EXPENSE
+        )
+        session.add(category)
+        
+        transaction = TransactionDB(
+            id=str(uuid4()),
+            amount=Decimal('150.75'),
+            description="Транзакция для удаления",
+            date=date.today(),
+            category_id=str(category.id),
+            type=TransactionType.EXPENSE
+        )
+        session.add(transaction)
+        session.commit()
+        
+        # Создаем реальные UI компоненты
+        mock_page = create_mock_page()
+        home_view = HomeView(mock_page, session)
+        
+        # Act - выполнение полного сценария удаления
+        # 1. Нажатие кнопки удаления
+        home_view._show_delete_confirmation_dialog(transaction)
+        
+        # 2. Подтверждение удаления
+        dialog = home_view.delete_confirmation_dialog
+        delete_button = dialog.actions[1]  # Кнопка "Удалить"
+        delete_button.on_click(None)
+        
+        # Assert - проверка результатов
+        # Проверяем удаление транзакции из БД
+        deleted_transaction = session.query(TransactionDB).filter_by(id=transaction.id).first()
+        self.assertIsNone(deleted_transaction)
+        
+        # Проверяем закрытие диалога
+        self.assertFalse(dialog.open)
+        
+        # Проверяем обновление UI
+        mock_page.update.assert_called()
+
+def test_delete_with_cascade_effects_integration(self):
+    """Интеграционный тест: удаление с каскадными эффектами."""
+    with get_db() as session:
+        # Создаем транзакцию с связанными данными
+        category = CategoryDB(id=str(uuid4()), name="Категория", type=TransactionType.EXPENSE)
+        session.add(category)
+        
+        transaction = TransactionDB(
+            id=str(uuid4()),
+            amount=Decimal('100.00'),
+            description="Транзакция с каскадными эффектами",
+            date=date.today(),
+            category_id=str(category.id),
+            type=TransactionType.EXPENSE
+        )
+        session.add(transaction)
+        session.commit()
+        
+        # Получаем исходные данные для сравнения
+        initial_balance = get_balance_for_date(session, date.today())
+        initial_category_stats = get_category_statistics(session, category.id)
+        
+        # Выполняем удаление
+        mock_page = create_mock_page()
+        home_view = HomeView(mock_page, session)
+        result = home_view.delete_transaction(transaction.id)
+        
+        # Проверяем успешность удаления
+        self.assertTrue(result)
+        
+        # Проверяем каскадные обновления
+        final_balance = get_balance_for_date(session, date.today())
+        final_category_stats = get_category_statistics(session, category.id)
+        
+        # Баланс должен увеличиться на сумму удаленного расхода
+        self.assertEqual(final_balance, initial_balance + transaction.amount)
+        
+        # Статистика категории должна обновиться
+        self.assertNotEqual(initial_category_stats, final_category_stats)
+```
+
+### Delete Operations Checklist
+
+**Специализированный checklist для тестирования операций удаления:**
+
+#### Перед тестированием delete операций:
+- [ ] Определены все UI компоненты с кнопками удаления
+- [ ] Изучены диалоги подтверждения удаления
+- [ ] Выявлены все каскадные обновления после удаления
+- [ ] Определены возможные ошибки при удалении
+
+#### Тестирование кнопок удаления:
+- [ ] Проверены атрибуты кнопки (icon, tooltip, color)
+- [ ] Протестирован вызов callback при нажатии
+- [ ] Проверено состояние кнопки в зависимости от прав доступа
+- [ ] Протестирована безопасность при null callback
+
+#### Тестирование диалогов подтверждения:
+- [ ] Проверено создание диалога с правильным содержимым
+- [ ] Протестировано отображение диалога через page.open()
+- [ ] Проверена функциональность кнопки "Отмена"
+- [ ] Протестирована функциональность кнопки "Удалить"
+- [ ] Проверено закрытие диалога после действий
+
+#### Тестирование каскадных обновлений:
+- [ ] Протестировано обновление списка транзакций
+- [ ] Проверено обновление календаря
+- [ ] Протестировано обновление прогноза баланса
+- [ ] Проверено обновление статистики категорий
+- [ ] Протестированы другие связанные компоненты
+
+#### Тестирование обработки ошибок:
+- [ ] Протестировано удаление несуществующей записи
+- [ ] Проверена обработка ошибок базы данных
+- [ ] Протестирован rollback при ошибках
+- [ ] Проверено отображение сообщений об ошибках пользователю
+- [ ] Протестирована стабильность UI при ошибках
+
+#### Property-based тесты для удаления:
+- [ ] Написаны свойства для консистентности данных
+- [ ] Протестированы инварианты после удаления
+- [ ] Проверены свойства UI состояния
+- [ ] Протестированы граничные случаи
+
+#### Интеграционные тесты:
+- [ ] Протестирован полный цикл удаления через UI
+- [ ] Проверены каскадные эффекты в реальной БД
+- [ ] Протестированы сценарии с множественными удалениями
+- [ ] Проверена производительность при больших объемах данных
+
+#### Регрессионные тесты:
+- [ ] Протестированы исправления известных проблем
+- [ ] Проверено использование правильного Flet API
+- [ ] Протестирована совместимость с другими операциями
+- [ ] Проверена стабильность после изменений
+
 ## Best Practices Summary
 
 ### DO's ✅
@@ -805,6 +1302,8 @@ class TestNewModal(unittest.TestCase):
 6. **Используйте property-based тесты** - для проверки универсальных свойств
 7. **Группируйте связанные тесты** - используйте классы для организации тестов
 8. **Пишите понятные имена тестов** - имя должно объяснять, что тестируется
+9. **Тестируйте диалоги подтверждения** - убедитесь, что пользователь может отменить удаление
+10. **Проверяйте каскадные обновления** - все связанные данные должны обновляться
 
 ### DON'Ts ❌
 
@@ -816,3 +1315,5 @@ class TestNewModal(unittest.TestCase):
 6. **Не дублируйте логику** - используйте вспомогательные функции для общего кода
 7. **Не пишите слишком сложные тесты** - простые тесты легче понимать и поддерживать
 8. **Не забывайте про cleanup** - освобождайте ресурсы после тестов
+9. **Не пропускайте тестирование отмены** - пользователь должен иметь возможность отменить удаление
+10. **Не игнорируйте каскадные эффекты** - удаление влияет на множество компонентов

@@ -362,3 +362,59 @@ def get_month_stats(session: Session, year: int, month: int) -> Dict[int, Tuple[
     except Exception as e:
         logger.error(f"Неожиданная ошибка при получении статистики: {e}")
         raise
+
+
+def get_category_statistics(session: Session) -> Dict[str, Dict[str, Decimal]]:
+    """
+    Получает статистику по категориям (суммы доходов и расходов).
+    
+    Для каждой категории вычисляет общую сумму транзакций.
+    Используется для анализа трат по категориям.
+    
+    Args:
+        session: Активная сессия БД
+        
+    Returns:
+        Словарь {category_id: {"total": сумма, "name": название, "type": тип}}, где:
+        - category_id: ID категории
+        - total: общая сумма транзакций в этой категории
+        - name: название категории
+        - type: тип категории (INCOME/EXPENSE)
+        
+    Raises:
+        SQLAlchemyError: При ошибках работы с базой данных
+    """
+    try:
+        logger.debug("Получение статистики по категориям")
+        
+        # Получаем все транзакции с категориями
+        from finance_tracker.models import CategoryDB
+        
+        transactions = session.query(TransactionDB).join(CategoryDB).all()
+        
+        # Группируем по категориям
+        stats: Dict[str, Dict[str, Decimal]] = {}
+        
+        for transaction in transactions:
+            category_id = transaction.category_id
+            
+            # Инициализируем категорию, если её ещё нет
+            if category_id not in stats:
+                stats[category_id] = {
+                    "total": Decimal('0.0'),
+                    "name": transaction.category.name,
+                    "type": transaction.category.type.value
+                }
+            
+            # Добавляем сумму транзакции
+            stats[category_id]["total"] += transaction.amount
+        
+        logger.info(f"Статистика по категориям: {len(stats)} категорий с транзакциями")
+        return stats
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Ошибка при получении статистики по категориям: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при получении статистики по категориям: {e}")
+        raise
