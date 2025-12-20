@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Pytest Manual Run",
+  "description": "Ручной запуск pytest tests/ -v --tb=short для тестирования с подробным выводом",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Запусти команду `pytest tests/ -v --tb=short` и проанализируй результаты тестирования. Если есть ошибки, предложи способы их исправления."
+  }
+}

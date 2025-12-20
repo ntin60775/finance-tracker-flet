@@ -5,18 +5,26 @@
 ```
 finance-tracker-flet/
 ├── src/finance_tracker/        # Main application package
-├── tests/                      # Test suite
+├── tests/                      # Test suite (65+ property-based, 110+ unit tests)
 ├── assets/                     # Static resources (icons, prompts)
-├── .kiro/                      # Kiro AI specifications
+├── concepts/                   # Future improvement concepts and roadmap
+├── .kiro/                      # Kiro AI specifications and steering rules
 ├── .finance_tracker_data/      # User data (created at runtime)
 ├── build/                      # PyInstaller build artifacts
 ├── dist/                       # Distribution files (.exe)
-├── htmlcov/                    # Coverage reports
+├── htmlcov/                    # Coverage reports (82%+ coverage)
 ├── .hypothesis/                # Hypothesis test data
+├── .pytest_cache/              # Pytest cache
+├── .ruff_cache/                # Ruff linter cache
+├── .git/                       # Git repository
+├── .gitignore                  # Git ignore rules
+├── .gitmodules                 # Git submodule configuration
+├── LICENSE                     # AGPL-3.0 license
 ├── main.py                     # Development launcher
 ├── pyproject.toml              # Project configuration
 ├── finance_tracker.spec        # PyInstaller spec
-└── README.md                   # Documentation
+├── README.md                   # Documentation
+└── nul                         # System file (Windows)
 ```
 
 ## Source Code Organization
@@ -106,6 +114,8 @@ def service_function(session: Session, param1: Type1, param2: Type2) -> ReturnTy
 **Key Views:**
 - `main_window.py` - Main application window with navigation
 - `home_view.py` - Dashboard with balance and statistics
+- `home_presenter.py` - Home view presenter (MVP pattern)
+- `interfaces.py` - View interfaces and contracts
 - `categories_view.py` - Category management
 - `loans_view.py` - Loan list
 - `loan_details_view.py` - Detailed loan view
@@ -127,6 +137,10 @@ def service_function(session: Session, param1: Type1, param2: Type2) -> ReturnTy
 - `loan_modal.py` - Loan create/edit modal
 - `lender_modal.py` - Lender modal
 - `pending_payment_modal.py` - Pending payment modal
+- `early_repayment_modal.py` - Early loan repayment modal
+- `execute_occurrence_modal.py` - Execute planned occurrence modal
+- `execute_pending_payment_modal.py` - Execute pending payment modal
+- `occurrence_details_modal.py` - Planned occurrence details modal
 - `calendar_widget.py` - Calendar visualization
 - `calendar_legend.py` - Calendar legend
 - `pending_payments_widget.py` - Pending payments widget
@@ -141,6 +155,7 @@ def service_function(session: Session, param1: Type1, param2: Type2) -> ReturnTy
 - `error_handler.py` - Error handling utilities
 - `cache.py` - Caching utilities
 - `exceptions.py` - Custom exceptions
+- `validation.py` - Validation utilities
 
 ### Mobile (`mobile/`)
 
