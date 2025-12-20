@@ -67,7 +67,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_delete_transaction=self.on_delete_transaction
         )
         
-        self.legend = CalendarLegend()
+        # Вычисляем ширину календаря для адаптивности легенды
+        # Центральная колонка занимает 3/7 от общей ширины страницы
+        # Вычитаем отступы и разделители для более точного расчета
+        calendar_width = self._calculate_calendar_width()
+        self.legend = CalendarLegend(calendar_width=calendar_width)
 
         self.planned_widget = PlannedTransactionsWidget(
             session=self.session,
@@ -155,10 +159,79 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         logger.info("HomeView инициализирован")
 
+    def _calculate_calendar_width(self) -> int:
+        """
+        Вычисляет ширину календаря на основе размеров страницы и layout.
+        
+        Returns:
+            Приблизительная ширина календаря в пикселях
+        """
+        try:
+            # Получаем ширину страницы
+            if hasattr(self.page, 'width') and self.page.width:
+                page_width = self.page.width
+            else:
+                # Fallback к стандартной ширине
+                page_width = 1200
+            
+            # Центральная колонка занимает 3/7 от общей ширины
+            # Левая колонка: expand=2, Центральная: expand=3, Правая: expand=2
+            # Общий expand = 2 + 3 + 2 = 7
+            center_column_ratio = 3 / 7
+            
+            # Вычитаем отступы и разделители
+            # spacing между колонками: 20px * 2 = 40px
+            # VerticalDivider: width=1 * 2 = 2px
+            # padding контейнера: примерно 20px с каждой стороны = 40px
+            total_spacing = 40 + 2 + 40  # 82px
+            
+            # Вычисляем доступную ширину для колонок
+            available_width = page_width - total_spacing
+            
+            # Ширина центральной колонки
+            center_column_width = int(available_width * center_column_ratio)
+            
+            # Календарь занимает почти всю ширину центральной колонки
+            # Вычитаем внутренние отступы колонки (примерно 20px)
+            calendar_width = center_column_width - 20
+            
+            logger.debug(f"Вычислена ширина календаря: {calendar_width}px "
+                        f"(страница: {page_width}px, центральная колонка: {center_column_width}px)")
+            
+            return max(calendar_width, 300)  # Минимальная ширина 300px
+            
+        except Exception as e:
+            logger.error(f"Ошибка при вычислении ширины календаря: {e}")
+            return 500  # Fallback к безопасному значению
+
+    def update_calendar_width(self):
+        """
+        Обновляет ширину календаря в легенде при изменении размеров окна.
+        
+        Этот метод может быть вызван при изменении размеров окна
+        для обновления адаптивности легенды.
+        """
+        try:
+            new_width = self._calculate_calendar_width()
+            if hasattr(self, 'legend') and self.legend:
+                self.legend.update_calendar_width(new_width)
+                logger.debug(f"Ширина календаря в легенде обновлена до {new_width}px")
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении ширины календаря в легенде: {e}")
+
     def will_unmount(self):
         """Вызывается при удалении со страницы."""
         # Session НЕ закрывается - это ответственность создателя View
         logger.debug("HomeView размонтирован")
+
+    def did_mount(self):
+        """Вызывается после монтирования на страницу."""
+        try:
+            # Обновляем ширину календаря после монтирования, когда page.width доступен
+            self.update_calendar_width()
+            logger.debug("HomeView смонтирован, ширина календаря обновлена")
+        except Exception as e:
+            logger.error(f"Ошибка при монтировании HomeView: {e}")
 
     # ========== IHomeViewCallbacks Implementation ==========
 

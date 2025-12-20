@@ -37,20 +37,30 @@ class CalendarLegend(ft.Container):
         """
         super().__init__()
         
-        # Настройки компонента
-        self.calendar_width = calendar_width
-        self.display_mode = DisplayMode.AUTO
-        
-        # Получаем все доступные индикаторы из конфигурации
-        self.all_indicators = self._get_all_indicators()
-        
-        # Создаём менеджер модального окна
-        self.modal_manager = ModalManager()
-        
-        # Инициализируем UI
-        self._initialize_ui()
-        
-        logger.debug(f"CalendarLegend инициализирован с шириной {calendar_width}")
+        try:
+            # Настройки компонента
+            self.calendar_width = calendar_width
+            self.display_mode = DisplayMode.AUTO
+            
+            # Получаем все доступные индикаторы из конфигурации
+            self.all_indicators = self._get_all_indicators()
+            
+            # Создаём менеджер модального окна
+            self.modal_manager = ModalManager()
+            
+            # Инициализируем UI
+            self._initialize_ui()
+            
+            logger.debug(f"CalendarLegend инициализирован с шириной {calendar_width}")
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка при инициализации CalendarLegend: {e}")
+            # Инициализируем fallback состояние
+            self.calendar_width = calendar_width
+            self.display_mode = DisplayMode.AUTO
+            self.all_indicators = []
+            self.modal_manager = ModalManager()
+            self._build_fallback_ui()
 
     def _get_all_indicators(self) -> List[LegendIndicator]:
         """
@@ -481,7 +491,7 @@ class CalendarLegend(ft.Container):
             
             # Создаём текстовую метку с консистентным стилем
             text_label = ft.Text(
-                text, 
+                text or "Элемент",  # Fallback для пустого текста
                 size=12,
                 color=ft.Colors.ON_SURFACE,  # Используем стандартный цвет текста
                 weight=ft.FontWeight.NORMAL
@@ -504,7 +514,7 @@ class CalendarLegend(ft.Container):
         except Exception as e:
             logger.error(f"Ошибка при создании элемента легенды '{text}': {e}")
             # Fallback элемент с безопасными значениями
-            return self._create_fallback_legend_item(text)
+            return self._create_fallback_legend_item(text or "Элемент")
 
     def _create_fallback_legend_item(self, text: str) -> ft.Row:
         """
@@ -539,12 +549,17 @@ class CalendarLegend(ft.Container):
             
         except Exception as e:
             logger.error(f"Критическая ошибка при создании fallback элемента: {e}")
-            # Минимальный fallback
-            return ft.Row(
-                controls=[ft.Text("•", size=12), ft.Text(text or "?", size=12)],
-                spacing=5,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER
-            )
+            # Минимальный fallback - создаём простейший Row с текстом
+            try:
+                return ft.Row(
+                    controls=[ft.Text("•", size=12), ft.Text(text or "?", size=12)],
+                    spacing=5,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER
+                )
+            except Exception as critical_error:
+                logger.error(f"Критическая ошибка даже в минимальном fallback: {critical_error}")
+                # Последний fallback - возвращаем хотя бы Text
+                return ft.Text(f"• {text or '?'}", size=12)
 
     def _open_modal_safe(self, e):
         """
@@ -568,7 +583,8 @@ class CalendarLegend(ft.Container):
                 logger.warning("Не удалось открыть модальное окно")
                 
         except Exception as ex:
-            logger.error(f"Ошибка при открытии модального окна: {ex}")
+            logger.error(f"Ошибка при открытии модального окна: {ex}, "
+                        f"событие: {type(e).__name__ if e else 'None'}")
 
     def _safe_get_page(self, event_or_control) -> Optional[ft.Page]:
         """
@@ -581,15 +597,22 @@ class CalendarLegend(ft.Container):
             Page объект или None если не удалось получить
         """
         try:
+            if event_or_control is None:
+                return None
+                
             if hasattr(event_or_control, 'control') and event_or_control.control:
-                return event_or_control.control.page
+                if hasattr(event_or_control.control, 'page'):
+                    return event_or_control.control.page
             elif hasattr(event_or_control, 'page'):
                 return event_or_control.page
             elif hasattr(self, 'page') and self.page:
                 return self.page
             return None
-        except AttributeError:
-            logger.warning("Не удалось получить page объект для модального окна")
+        except (AttributeError, TypeError) as e:
+            logger.warning(f"Не удалось получить page объект для модального окна: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при получении page объекта: {e}")
             return None
 
     def update_calendar_width(self, new_width: Optional[int]):
@@ -614,7 +637,11 @@ class CalendarLegend(ft.Container):
                 logger.debug(f"Режим отображения не изменился: {new_mode}")
                 
         except Exception as e:
-            logger.error(f"Ошибка при обновлении ширины календаря: {e}")
+            logger.error(f"Ошибка при обновлении ширины календаря: {e}, "
+                        f"старая ширина: {getattr(self, 'calendar_width', None)}, "
+                        f"новая ширина: {new_width}")
+            # Fallback - устанавливаем новую ширину без перестройки UI
+            self.calendar_width = new_width
 
     def _rebuild_ui(self):
         """
@@ -641,7 +668,13 @@ class CalendarLegend(ft.Container):
         except Exception as e:
             logger.error(f"Ошибка при перестройке UI: {e}")
             # Fallback к безопасному состоянию
-            self._build_fallback_ui()
+            try:
+                self._build_fallback_ui()
+                logger.info("Использован fallback UI после ошибки перестройки")
+            except Exception as fallback_error:
+                logger.error(f"Критическая ошибка даже в fallback UI: {fallback_error}")
+                # Минимальный fallback
+                self.content = ft.Text("Легенда недоступна", size=12, color=ft.Colors.ERROR)
 
     # Методы для обратной совместимости с существующим кодом
     def _build_full_legend_content(self):
@@ -666,5 +699,9 @@ class CalendarLegend(ft.Container):
             page = self._safe_get_page(e)
             if page:
                 self.modal_manager.close_modal(page)
+                logger.debug("Диалог закрыт через метод обратной совместимости")
+            else:
+                logger.warning("Не удалось закрыть диалог: page недоступен")
         except Exception as ex:
-            logger.error(f"Ошибка при закрытии диалога: {ex}")
+            logger.error(f"Ошибка при закрытии диалога: {ex}, "
+                        f"событие: {type(e).__name__ if e else 'None'}")
