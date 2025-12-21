@@ -42,6 +42,9 @@ class TestModalManagerProperties:
         mock_legend_component = Mock()
         modal_manager = ModalManager(mock_legend_component)
         mock_page = MagicMock(spec=ft.Page)
+        # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+        mock_page.open = MagicMock()
+        mock_page.close = MagicMock()
         
         # Act & Assert - создание модального окна
         dialog = modal_manager.create_modal(indicators)
@@ -421,6 +424,9 @@ class TestModalManagerProperties:
         if has_cached_page:
             # Настраиваем кэшированный page для показа уведомления
             mock_page = MagicMock(spec=ft.Page)
+            # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+            mock_page.open = MagicMock()
+            mock_page.close = MagicMock()
             modal_manager.page_manager.cached_page = mock_page
         else:
             modal_manager.page_manager.cached_page = None
@@ -459,6 +465,9 @@ class TestModalManagerProperties:
         
         # Настраиваем кэшированный page
         mock_page = MagicMock(spec=ft.Page)
+        # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+        mock_page.open = MagicMock()
+        mock_page.close = MagicMock()
         modal_manager.page_manager.cached_page = mock_page
         
         # Act & Assert - тестируем альтернативное закрытие

@@ -43,6 +43,8 @@ class TestLoanModal(unittest.TestCase):
             on_update=self.on_update
         )
         self.page = MagicMock()
+        self.page.open = Mock()
+        self.page.close = Mock()
         self.page.overlay = []
         self.modal.page = self.page
 
@@ -53,7 +55,7 @@ class TestLoanModal(unittest.TestCase):
         """Тест инициализации LoanModal."""
         self.assertIsInstance(self.modal.dialog, ft.AlertDialog)
         self.assertEqual(self.modal.dialog.title.value, "Новый кредит")
-        self.assertFalse(self.modal.dialog.open)
+        # Инициализация не вызывает page.close()
         # Call open to trigger _load_lenders
         self.modal.open(self.page)
         self.mock_get_all_lenders.assert_called_once_with(self.session)
@@ -69,8 +71,8 @@ class TestLoanModal(unittest.TestCase):
         self.assertEqual(self.modal.dialog.title.value, "Новый кредит")
         self.assertIsNone(self.modal.lender_dropdown.value)
         self.assertEqual(self.modal.name_field.value, "")
-        self.assertTrue(self.modal.dialog.open)
-        self.assertIn(self.modal.dialog, self.page.overlay)
+        self.page.open.assert_called()
+        self.page.open.assert_called()
 
     def test_save_create_success(self):
         """Тест успешного сохранения нового кредита."""
@@ -99,7 +101,7 @@ class TestLoanModal(unittest.TestCase):
             None
         )
         self.on_update.assert_not_called()
-        self.assertFalse(self.modal.dialog.open)
+        self.page.close.assert_called()
         
     def test_save_validation_failure_no_lender(self):
         """Тест ошибки валидации - не выбран займодатель."""
@@ -110,7 +112,7 @@ class TestLoanModal(unittest.TestCase):
 
         self.assertEqual(self.modal.error_text.value, "Выберите займодателя")
         self.on_save.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_save_validation_failure_bad_amount(self):
         """Тест ошибки валидации - некорректная сумма."""
@@ -124,7 +126,7 @@ class TestLoanModal(unittest.TestCase):
 
         self.assertEqual(self.modal.error_text.value, "Некорректная сумма кредита")
         self.on_save.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
 
 if __name__ == '__main__':

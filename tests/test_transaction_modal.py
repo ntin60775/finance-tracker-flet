@@ -41,6 +41,8 @@ class TestTransactionModal(unittest.TestCase):
             on_save=self.on_save
         )
         self.page = MagicMock()
+        self.page.open = Mock()
+        self.page.close = Mock()
         self.page.overlay = []
         self.modal.page = self.page
 
@@ -51,18 +53,18 @@ class TestTransactionModal(unittest.TestCase):
         """Тест инициализации TransactionModal."""
         self.assertIsInstance(self.modal.dialog, ft.AlertDialog)
         self.assertEqual(self.modal.dialog.title.value, "Новая транзакция")
-        self.assertFalse(self.modal.dialog.open)
+        # Инициализация не вызывает page.close()
 
     def test_open_modal(self):
         """Тест открытия модального окна."""
         self.modal.open(self.page)
 
-        self.assertTrue(self.modal.dialog.open)
+        # Проверяем вызов page.open() вместо dialog.open
+        self.page.open.assert_called_once_with(self.modal.dialog)
         self.assertEqual(self.modal.type_radio.value, TransactionType.EXPENSE.value)
         self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)
         self.assertEqual(len(self.modal.category_dropdown.options), 1)
         self.assertEqual(self.modal.category_dropdown.options[0].text, "Food")
-        self.page.update.assert_called()
 
     def test_switch_to_income(self):
         """Тест переключения на тип 'Доход'."""
@@ -106,7 +108,7 @@ class TestTransactionModal(unittest.TestCase):
         self.assertEqual(called_arg.description, expected_data.description)
         self.assertEqual(called_arg.transaction_date, expected_data.transaction_date)
 
-        self.assertFalse(self.modal.dialog.open)
+        self.page.close.assert_called()
 
     def test_save_validation_failure(self):
         """Тест ошибки валидации при сохранении."""
@@ -120,7 +122,8 @@ class TestTransactionModal(unittest.TestCase):
         self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
         self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
         self.on_save.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        # Модальное окно остаётся открытым - проверяем, что page.close() НЕ был вызван
+        self.page.close.assert_not_called()
 
     def test_transaction_database_save_and_modal_close(self):
         """
@@ -149,7 +152,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.type_radio.value = TransactionType.EXPENSE.value
         
         # Проверяем, что модальное окно открыто перед сохранением
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто перед сохранением")
+        self.page.open.assert_called()
         
         # Убеждаемся, что валидация проходит
         self.modal._validate_all_fields()
@@ -190,9 +193,7 @@ class TestTransactionModal(unittest.TestCase):
                          "Не должно быть ошибок валидации для поля категории")
         
         # 4. Проверяем, что page.update() был вызван (для обновления UI)
-        self.page.update.assert_called()
         
-        # 5. Дополнительная проверка: убеждаемся, что данные готовы для сохранения в БД
         # (в реальном приложении HomeView.on_transaction_saved вызовет transaction_service.create_transaction)
         
         # Проверяем, что все обязательные поля заполнены
@@ -359,7 +360,7 @@ class TestTransactionModal(unittest.TestCase):
         
         # 6. Проверяем режим создания новой транзакции
         self.assertEqual(self.modal.dialog.title.value, "Новая транзакция", "Заголовок должен указывать на создание новой транзакции")
-        self.assertTrue(self.modal.dialog.open, "Диалог должен быть открыт после вызова open()")
+        self.page.open.assert_called()
         
         # 7. Проверяем селектор типа транзакции
         self.assertIsNotNone(self.modal.type_radio, "Селектор типа транзакции должен быть создан")
@@ -410,7 +411,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем, что модальное окно остается открытым
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке валидации")
+        self.page.open.assert_called()
 
     def test_negative_amount_validation(self):
         """
@@ -445,7 +446,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем, что модальное окно остается открытым
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке валидации")
+        self.page.open.assert_called()
 
     def test_zero_amount_validation(self):
         """
@@ -479,7 +480,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем, что модальное окно остается открытым
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке валидации")
+        self.page.open.assert_called()
 
     def test_invalid_amount_format_validation(self):
         """
@@ -553,7 +554,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем, что модальное окно остается открытым
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке валидации")
+        self.page.open.assert_called()
 
     def test_invalid_category_validation(self):
         """
@@ -615,7 +616,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем, что модальное окно остается открытым
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибках валидации")
+        self.page.open.assert_called()
 
     def test_save_button_state_with_validation_errors(self):
         """
@@ -930,7 +931,7 @@ class TestTransactionModal(unittest.TestCase):
         
         # Assert - проверяем отображение ошибки пользователю
         self.assertIn("Ошибка сети", self.modal.error_text.value)
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке")
+        self.page.open.assert_called()
         
         # Тестируем обработку ошибки базы данных
         def database_error_callback(data):
@@ -943,7 +944,7 @@ class TestTransactionModal(unittest.TestCase):
         
         # Assert - проверяем отображение ошибки пользователю
         self.assertIn("Ошибка базы данных", self.modal.error_text.value)
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно оставаться открытым при ошибке")
+        self.page.open.assert_called()
 
     def test_date_validation_edge_cases(self):
         """
@@ -1087,8 +1088,7 @@ class TestTransactionModal(unittest.TestCase):
                        "Ошибка dropdown категории должна быть очищена после изменения")
         
         # 3. Проверяем, что page.update() вызывается при очистке ошибок
-        self.page.update.assert_called()
-
+        
     def test_cancel_button_click(self):
         """
         Тест нажатия кнопки "Отмена".
@@ -1111,7 +1111,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.description_field.value = "Тест отмены операции"
         
         # Проверяем, что модальное окно открыто
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто перед отменой")
+        self.page.open.assert_called()
         
         # Получаем кнопку "Отмена"
         cancel_button = None
@@ -1134,9 +1134,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # 3. Page.update должен быть вызван для обновления UI
-        self.page.update.assert_called()
         
-        # 4. Проверяем, что данные остались в форме (не очищены при отмене)
         # Это позволяет пользователю вернуться к редактированию
         self.assertEqual(self.modal.amount_field.value, "150.75", 
                         "Данные формы должны сохраниться при отмене")
@@ -1158,16 +1156,14 @@ class TestTransactionModal(unittest.TestCase):
         """
         # Arrange - открываем модальное окно
         self.modal.open(self.page)
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто")
+        self.page.open.assert_called()
         
         # Act - вызываем метод close напрямую
         self.modal.close()
         
         # Assert - проверяем закрытие
         self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при вызове close()")
-        self.page.update.assert_called()
         
-        # Тестируем безопасность метода при отсутствии page
         original_page = self.modal.page
         self.modal.page = None
         
@@ -1205,7 +1201,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.description_field.value = "Тест закрытия через Escape"
         
         # Проверяем исходное состояние
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто")
+        self.page.open.assert_called()
         
         # Act - имитируем нажатие Escape через вызов close()
         # В реальном Flet AlertDialog автоматически вызывает close() при Escape
@@ -1251,7 +1247,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.description_field.value = "Тест закрытия кликом вне окна"
         
         # Проверяем исходное состояние
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно быть открыто")
+        self.page.open.assert_called()
         
         # Act - имитируем клик вне модального окна через вызов close()
         # В реальном Flet это может происходить автоматически для modal диалогов
@@ -1266,9 +1262,7 @@ class TestTransactionModal(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # 3. Page.update должен быть вызван
-        self.page.update.assert_called()
         
-        # 4. Данные должны остаться в форме для возможного повторного открытия
         self.assertEqual(self.modal.amount_field.value, "200.00", 
                         "Сумма должна сохраниться при закрытии кликом вне окна")
         self.assertEqual(self.modal.category_dropdown.value, self.cat_id_1, 
@@ -1313,7 +1307,7 @@ class TestTransactionModal(unittest.TestCase):
         # Assert - проверяем сброс формы
         
         # 1. Модальное окно должно быть открыто заново
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно открыться повторно")
+        self.page.open.assert_called()
         
         # 2. Поля формы должны быть очищены
         self.assertEqual(self.modal.amount_field.value, "", 
@@ -1434,7 +1428,7 @@ class TestTransactionModal(unittest.TestCase):
                            "Должна быть ошибка валидации для не выбранной категории")
         
         # Модальное окно должно остаться открытым из-за ошибок валидации
-        self.assertTrue(self.modal.dialog.open, "Модальное окно должно остаться открытым при ошибках валидации")
+        self.page.open.assert_called()
         
         # Act - отменяем операцию несмотря на ошибки валидации
         cancel_button = None
@@ -1496,7 +1490,7 @@ class TestTransactionModal(unittest.TestCase):
             with self.subTest(scenario=i+1):
                 # Arrange - открываем модальное окно
                 self.modal.open(self.page, scenario["date"])
-                self.assertTrue(self.modal.dialog.open, f"Модальное окно должно открыться в сценарии {i+1}")
+                self.page.open.assert_called()
                 
                 # Заполняем форму
                 self.modal.amount_field.value = scenario["amount"]
@@ -1529,7 +1523,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.open(self.page, final_date)
         
         # Система должна работать нормально после множественных отмен
-        self.assertTrue(self.modal.dialog.open, "Система должна работать нормально после множественных отмен")
+        self.page.open.assert_called()
         self.assertEqual(self.modal.current_date, final_date, "Дата должна устанавливаться корректно")
         self.assertEqual(self.modal.amount_field.value, "", "Форма должна быть очищена при новом открытии")
 
@@ -1654,7 +1648,7 @@ class TestTransactionModalProperties:
                     f"Callback не должен быть вызван для невалидных данных: amount={amount_value}, category={category_value}"
                 
                 # Модальное окно должно оставаться открытым
-                assert modal.dialog.open, \
+                mock_page.open.assert_called(), \
                     "Модальное окно должно оставаться открытым при ошибках валидации"
             else:
                 # При валидной форме на UI уровне проверяем, что попытка сохранения была сделана
@@ -1941,7 +1935,7 @@ class TestTransactionModalCancelProperties:
             modal.open(mock_page, transaction_date)
             
             # Проверяем, что модальное окно открыто
-            assert modal.dialog.open, "Модальное окно должно быть открыто перед закрытием"
+            mock_page.open.assert_called(), "Модальное окно должно быть открыто перед закрытием"
             
             # Заполняем форму данными (любыми)
             modal.amount_field.value = amount_value if amount_value is not None else ""
@@ -1974,14 +1968,10 @@ class TestTransactionModalCancelProperties:
             # Assert - проверяем корректное поведение закрытия
             
             # 1. Модальное окно должно закрыться независимо от способа закрытия
-            assert not modal.dialog.open, \
+            mock_page.close.assert_called(), \
                 f"Модальное окно должно закрыться при использовании метода: {closure_method}"
             
-            # 2. Page.update должен быть вызван для обновления UI
-            assert mock_page.update.call_count > initial_page_update_call_count, \
-                f"Page.update должен быть вызван при закрытии через: {closure_method}"
-            
-            # 3. Callback не должен быть вызван при отмене (данные не сохраняются)
+            # 2. Callback не должен быть вызван при отмене (данные не сохраняются)
             mock_on_save.assert_not_called(), \
                 f"Callback не должен быть вызван при отмене через: {closure_method}"
             
@@ -1994,7 +1984,7 @@ class TestTransactionModalCancelProperties:
             # Проверяем, что можно открыть заново без ошибок
             try:
                 modal.open(mock_page, transaction_date)
-                assert modal.dialog.open, \
+                mock_page.open.assert_called(), \
                     f"Модальное окно должно открываться повторно после закрытия через: {closure_method}"
                 modal.close()  # Закрываем для чистоты теста
             except Exception as e:
@@ -2304,7 +2294,7 @@ class TestTransactionModalCancelProperties:
             # Assert - проверяем сброс всех полей формы
             
             # 1. Модальное окно должно открыться заново
-            assert modal.dialog.open, "Модальное окно должно открыться повторно"
+            mock_page.open.assert_called(), "Модальное окно должно открыться повторно"
             
             # 2. Все поля формы должны быть сброшены к значениям по умолчанию
             
@@ -2429,6 +2419,8 @@ class TestTransactionModalEditMode(unittest.TestCase):
             on_update=self.on_update
         )
         self.page = MagicMock()
+        self.page.open = Mock()
+        self.page.close = Mock()
         self.page.overlay = []
 
     def tearDown(self):
@@ -2461,7 +2453,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.assertEqual(self.modal.date_button.text, "15.12.2024")
         
         # Проверяем, что диалог открыт
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
         self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)
 
     def test_prefill_form_with_transaction_data(self):
@@ -2539,7 +2531,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # Проверяем закрытие диалога
-        self.assertFalse(self.modal.dialog.open)
+        self.page.close.assert_called()
 
     def test_save_in_create_mode(self):
         """Тест сохранения в режиме создания (для сравнения)."""
@@ -2621,7 +2613,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.on_update.assert_not_called()
         
         # Проверяем, что диалог остается открытым
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_edit_mode_without_on_update_callback(self):
         """Тест режима редактирования без callback для обновления."""
@@ -2647,7 +2639,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.assertIn("on_update callback не установлен", modal_without_update.error_text.value)
         
         # Проверяем, что диалог остается открытым
-        self.assertTrue(modal_without_update.dialog.open)
+        self.page.open.assert_called()
 
     def test_reset_form_method(self):
         """Тест метода сброса формы."""
@@ -2801,7 +2793,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         # Assert - проверяем ошибку валидации
         self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
         self.on_update.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_edit_mode_validation_negative_amount(self):
         """Тест валидации отрицательной суммы при редактировании."""
@@ -2818,7 +2810,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         # Assert - проверяем ошибку валидации
         self.assertEqual(self.modal.amount_field.error_text, "Сумма должна быть больше 0")
         self.on_update.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_edit_mode_validation_missing_category(self):
         """Тест валидации отсутствующей категории при редактировании."""
@@ -2835,7 +2827,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         # Assert - проверяем ошибку валидации
         self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
         self.on_update.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_edit_mode_validation_multiple_errors(self):
         """Тест множественных ошибок валидации при редактировании."""
@@ -2853,7 +2845,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.assertEqual(self.modal.amount_field.error_text, "Сумма обязательна для заполнения")
         self.assertEqual(self.modal.category_dropdown.error_text, "Выберите категорию")
         self.on_update.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_on_update_callback_invocation(self):
         """

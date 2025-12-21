@@ -135,15 +135,17 @@ class TestCalendarLegendUI(unittest.TestCase):
         self.assertEqual(len(modal.actions), 1)
         close_button = modal.actions[0]
         self.assertEqual(close_button.text, "Закрыть")
+        
+        # Проверяем, что кнопка закрытия имеет callback
+        self.assertIsNotNone(close_button.on_click)
 
     def test_modal_close_button_functionality(self):
         """Тест функциональности кнопки закрытия модального окна."""
         legend = CalendarLegend()
         modal = legend.modal_manager.create_modal(legend.all_indicators)
         
-        # Открываем модальное окно
-        self.mock_page.dialog = modal
-        modal.open = True
+        # Открываем модальное окно через современный API
+        self.mock_page.open(modal)
         
         # Симулируем клик на кнопку "Закрыть"
         close_button = modal.actions[0]  # Первая кнопка - "Закрыть"

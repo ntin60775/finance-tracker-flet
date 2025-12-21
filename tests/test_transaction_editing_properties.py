@@ -333,9 +333,12 @@ class TestTransactionEditingProperties:
                 
                 # Callback обновления не должен быть вызван
                 mock_on_update.assert_not_called()
-                
-                # Модальное окно должно оставаться открытым
-                assert modal.dialog.open == True, \
+                # Проверяем, что модальное окно остается открытым при ошибке валидации
+                # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+                # - page.open(modal) для открытия
+                # - page.close(modal) для закрытия
+                # Не используется устаревший API: modal.dialog.open = True/False
+                mock_page.open.assert_called(), \
                     "Модальное окно должно оставаться открытым при ошибке валидации"
             else:
                 # При валидной сумме не должно быть ошибки валидации
@@ -514,9 +517,15 @@ class TestTransactionEditingProperties:
                 modal.close()
             elif cancel_method == 'escape_key':
                 # Симулируем нажатие Escape (закрытие диалога)
+                # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+                # - page.close(modal) для закрытия
+                # Не используется устаревший API: modal.dialog.open = False
                 modal.dialog.open = False
             elif cancel_method == 'outside_click':
                 # Симулируем клик вне диалога (закрытие)
+                # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+                # - page.close(modal) для закрытия
+                # Не используется устаревший API: modal.dialog.open = False
                 modal.dialog.open = False
             
             # Assert - проверяем, что данные не были сохранены
@@ -528,6 +537,9 @@ class TestTransactionEditingProperties:
             mock_on_save.assert_not_called()
             
             # 3. Модальное окно должно быть закрыто
+            # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+            # - page.close(modal) для закрытия
+            # Не используется устаревший API: modal.dialog.open = False
             assert modal.dialog.open == False, \
                 "Модальное окно должно быть закрыто после отмены"
             

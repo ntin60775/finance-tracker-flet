@@ -66,11 +66,16 @@ class TestInitializationOrder(ViewTestBase):
         """
         Создание мока Page с отслеживанием lifecycle событий.
         
+        Использует СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0):
+        - page.open(dialog) - для открытия диалогов
+        - page.close(dialog) - для закрытия диалогов
+        
         Returns:
             MagicMock: Мок Page с отслеживанием состояния lifecycle
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
+        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
         page.dialog = None
         page.controls = []
         
@@ -105,6 +110,7 @@ class TestInitializationOrder(ViewTestBase):
         
         # Остальные методы
         page.update = MagicMock()
+        # Современный Flet API для работы с диалогами
         page.open = MagicMock()
         page.close = MagicMock()
         page.show_snack_bar = MagicMock()
@@ -654,6 +660,9 @@ def test_property_6_component_lifecycle_consistency(view_names, lifecycle_operat
     """
     # Создаем mock объекты
     mock_page = MagicMock(spec=ft.Page)
+    # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+    mock_page.open = MagicMock()
+    mock_page.close = MagicMock()
     mock_session = Mock()
     
     # Отслеживание lifecycle событий

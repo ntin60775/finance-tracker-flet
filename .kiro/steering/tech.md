@@ -158,39 +158,262 @@ with get_db_session() as session:
 
 **Правило:** Если код использует Flet API и падает с `AttributeError` или `TypeError` - первым делом проверь, не изменился ли API в новой версии.
 
-### Dialog Management (ОБЯЗАТЕЛЬНЫЙ СТАНДАРТ)
+### Dialog Management Standard (ОБЯЗАТЕЛЬНЫЙ СТАНДАРТ)
 
-**КРИТИЧЕСКИ ВАЖНО:** В проекте используется ТОЛЬКО современный способ работы с диалогами через `page.open()` и `page.close()`.
+**КРИТИЧЕСКИ ВАЖНО:** В проекте используется ТОЛЬКО современный способ работы с диалогами через `page.open()` и `page.close()`. Это обязательное требование для всего кода (production и тесты).
 
-**✅ ПРАВИЛЬНО (используй ТОЛЬКО этот способ):**
+#### Почему это критически важно
+
+Flet постоянно развивается, и старый API (`page.dialog =`, `dialog.open = True`) является deprecated. Использование современного API:
+- Гарантирует совместимость с новыми версиями Flet
+- Упрощает код и делает его более читаемым
+- Предотвращает ошибки и неожиданное поведение
+- Соответствует best practices Flet
+
+#### Правильное использование (✅ ТОЛЬКО ЭТО)
+
+**Открытие диалога:**
 ```python
 def open_dialog(e):
-    page.open(dialog)  # Открываем диалог
-
-def close_dialog(e):
-    page.close(dialog)  # Закрываем диалог
+    page.open(dialog)  # Открываем диалог через page.open()
 ```
 
-**❌ НЕПРАВИЛЬНО (НЕ используй устаревший способ):**
+**Закрытие диалога:**
+```python
+def close_dialog(e):
+    page.close(dialog)  # Закрываем диалог через page.close()
+```
+
+**Полный пример с модальным окном:**
+```python
+class TransactionModal(ft.UserControl):
+    def __init__(self, session, on_save_callback):
+        super().__init__()
+        self.session = session
+        self.on_save_callback = on_save_callback
+        self.dialog = ft.AlertDialog(
+            title=ft.Text("Новая транзакция"),
+            content=ft.Column([...]),
+            actions=[
+                ft.TextButton("Отмена", on_click=self.close_dialog),
+                ft.TextButton("Сохранить", on_click=self.save_dialog),
+            ]
+        )
+    
+    def open(self, page):
+        """Открыть модальное окно."""
+        page.open(self.dialog)  # ✅ ПРАВИЛЬНО
+    
+    def close_dialog(self, e):
+        """Закрыть модальное окно."""
+        self.page.close(self.dialog)  # ✅ ПРАВИЛЬНО
+    
+    def save_dialog(self, e):
+        """Сохранить и закрыть."""
+        # ... логика сохранения ...
+        self.page.close(self.dialog)  # ✅ ПРАВИЛЬНО
+```
+
+#### Неправильное использование (❌ ЗАПРЕЩЕНО)
+
+**❌ НЕПРАВИЛЬНО - Устаревший API:**
 ```python
 # ЗАПРЕЩЕНО в этом проекте!
 def open_dialog(e):
-    page.dialog = dialog
-    dialog.open = True
-    page.update()
+    page.dialog = dialog          # ❌ Устаревший способ
+    dialog.open = True            # ❌ Устаревший способ
+    page.update()                 # ❌ Избыточный вызов
 ```
 
-**Причины выбора `page.open()`:**
-- Более лаконичный и современный API
-- Меньше кода для написания
-- Автоматическое управление состоянием
-- Рекомендуется официальной документацией Flet
+**❌ НЕПРАВИЛЬНО - Смешивание API:**
+```python
+# ЗАПРЕЩЕНО - не смешивай старый и новый API!
+page.open(dialog)                 # ✅ Новый API
+dialog.open = False               # ❌ Старый API - КОНФЛИКТ!
+```
 
-**Применяется к:**
-- `ft.AlertDialog`
-- `ft.BottomSheet`
-- `ft.SnackBar`
+**❌ НЕПРАВИЛЬНО - Забыл закрыть:**
+```python
+# ЗАПРЕЩЕНО - диалог останется открытым!
+def close_dialog(e):
+    pass  # ❌ Диалог не закрывается
+```
+
+#### Применяется к
+
+**Все overlay компоненты должны использовать `page.open()` и `page.close()`:**
+- `ft.AlertDialog` - диалоги подтверждения
+- `ft.BottomSheet` - нижние панели
+- `ft.SnackBar` - уведомления
 - Любые другие overlay компоненты
+
+#### В тестах
+
+**Mock объекты ДОЛЖНЫ иметь методы `page.open()` и `page.close()`:**
+```python
+def create_mock_page():
+    """Создает mock Page с методами для диалогов."""
+    mock_page = MagicMock()
+    mock_page.open = Mock()   # ✅ Обязательно
+    mock_page.close = Mock()  # ✅ Обязательно
+    return mock_page
+```
+
+**Проверки в тестах:**
+```python
+def test_modal_opening(self):
+    """Тест открытия модального окна."""
+    modal = TransactionModal(self.mock_session, self.mock_callback)
+    
+    modal.open(self.mock_page)
+    
+    # ✅ ПРАВИЛЬНО - проверяем вызов page.open()
+    self.mock_page.open.assert_called_once()
+    
+    # ❌ НЕПРАВИЛЬНО - не проверяем старый API
+    # self.assertIsNotNone(self.mock_page.dialog)  # ❌ Не делай так!
+    # self.assertTrue(modal.dialog.open)           # ❌ Не делай так!
+```
+
+**Что НЕ проверять:**
+- ❌ `page.dialog` атрибут
+- ❌ `dialog.open` атрибут
+- ❌ `page.update()` вызовы после диалогов
+
+#### Checklist для Dialog Management
+
+**Перед написанием UI кода:**
+- [ ] Проверена актуальная версия Flet API в `pyproject.toml`
+- [ ] Mock объекты имеют методы `page.open()` и `page.close()`
+- [ ] Код не использует deprecated методы (`page.dialog =`, `dialog.open = True`)
+- [ ] **Используется ТОЛЬКО `page.open()` и `page.close()` для диалогов**
+- [ ] При сомнениях - проверена документация Flet
+
+**При работе с диалогами:**
+- [ ] Диалог открывается через `page.open(dialog)`
+- [ ] Диалог закрывается через `page.close(dialog)`
+- [ ] Не используется `page.dialog =` присваивание
+- [ ] Не используется `dialog.open = True/False`
+- [ ] Не используется `page.update()` после работы с диалогами
+- [ ] Mock проверяет вызов `page.open.assert_called()`
+- [ ] Mock проверяет вызов `page.close.assert_called()`
+
+**Для SnackBar:**
+- [ ] SnackBar открывается через `page.open(snack_bar)`
+- [ ] SnackBar закрывается через `page.close(snack_bar)`
+- [ ] Не используется `snack_bar.open = True`
+
+**Для BottomSheet:**
+- [ ] BottomSheet открывается через `page.open(bottom_sheet)`
+- [ ] BottomSheet закрывается через `page.close(bottom_sheet)`
+- [ ] Не используется `bottom_sheet.open = True`
+
+#### Типичные ошибки и как их избежать
+
+**Ошибка 1: Использование старого API**
+```python
+# ❌ НЕПРАВИЛЬНО
+page.dialog = my_dialog
+my_dialog.open = True
+page.update()
+
+# ✅ ПРАВИЛЬНО
+page.open(my_dialog)
+```
+**Как избежать:** Всегда используй `page.open()` для открытия и `page.close()` для закрытия.
+
+**Ошибка 2: Забыл закрыть диалог**
+```python
+# ❌ НЕПРАВИЛЬНО
+def on_button_click(e):
+    page.open(dialog)  # Открыли, но не закрыли!
+
+# ✅ ПРАВИЛЬНО
+def on_cancel_click(e):
+    page.close(dialog)  # Закрыли диалог
+
+def on_save_click(e):
+    # ... логика сохранения ...
+    page.close(dialog)  # Закрыли диалог
+```
+**Как избежать:** Убедись, что у каждого диалога есть кнопка закрытия, которая вызывает `page.close()`.
+
+**Ошибка 3: Смешивание старого и нового API**
+```python
+# ❌ НЕПРАВИЛЬНО
+page.open(dialog)      # Новый API
+dialog.open = False    # Старый API - КОНФЛИКТ!
+
+# ✅ ПРАВИЛЬНО
+page.open(dialog)      # Открыли
+page.close(dialog)     # Закрыли - только новый API
+```
+**Как избежать:** Используй ТОЛЬКО `page.open()` и `page.close()`, никогда не смешивай с `dialog.open`.
+
+**Ошибка 4: Неправильный mock в тестах**
+```python
+# ❌ НЕПРАВИЛЬНО
+mock_page = MagicMock()
+# Забыли настроить методы!
+modal.open(mock_page)
+# Тест упадет с AttributeError
+
+# ✅ ПРАВИЛЬНО
+mock_page = MagicMock()
+mock_page.open = Mock()   # Настроили метод
+mock_page.close = Mock()  # Настроили метод
+modal.open(mock_page)
+mock_page.open.assert_called_once()
+```
+**Как избежать:** Используй helper функцию `create_mock_page()` из `conftest.py`.
+
+**Ошибка 5: Проверка старого API в тестах**
+```python
+# ❌ НЕПРАВИЛЬНО
+def test_modal_opening(self):
+    modal.open(self.mock_page)
+    
+    # Проверяем старый API - НЕПРАВИЛЬНО!
+    self.assertIsNotNone(self.mock_page.dialog)
+    self.assertTrue(modal.dialog.open)
+
+# ✅ ПРАВИЛЬНО
+def test_modal_opening(self):
+    modal.open(self.mock_page)
+    
+    # Проверяем новый API - ПРАВИЛЬНО!
+    self.mock_page.open.assert_called_once()
+```
+**Как избежать:** Проверяй только вызовы `page.open()` и `page.close()`, не проверяй атрибуты диалога.
+
+#### Миграция старого кода
+
+Если ты находишь старый код, использующий `page.dialog =` и `dialog.open = True`:
+
+1. **Замени на новый API:**
+   ```python
+   # Было
+   page.dialog = dialog
+   dialog.open = True
+   page.update()
+   
+   # Стало
+   page.open(dialog)
+   ```
+
+2. **Обнови тесты:**
+   ```python
+   # Было
+   self.assertIsNotNone(mock_page.dialog)
+   
+   # Стало
+   mock_page.open.assert_called_once()
+   ```
+
+3. **Проверь, что все работает:**
+   ```bash
+   pytest tests/ -v
+   ```
 
 ### Color Usage
 

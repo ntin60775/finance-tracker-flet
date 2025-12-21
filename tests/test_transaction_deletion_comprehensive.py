@@ -1441,7 +1441,10 @@ class TestDialogDisplayProperties:
                         f"Транзакция: amount={transaction_amount}, type={transaction_type}"
                     )
                     
-                    # Проверяем, что диалог закрылся (dialog.open = False)
+                    # Проверяем, что диалог закрылся
+                    # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+                    # - page.close(modal) для закрытия
+                    # Не используется устаревший API: dialog.open = False
                     assert dialog.open == False, "Диалог должен закрыться после подтверждения удаления"
                     
                 else:  # user_action == 'cancel'
@@ -1467,7 +1470,10 @@ class TestDialogDisplayProperties:
                         f"Транзакция: amount={transaction_amount}, type={transaction_type}"
                     )
                     
-                    # Проверяем, что диалог закрылся (dialog.open = False)
+                    # Проверяем, что диалог закрылся
+                    # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+                    # - page.close(modal) для закрытия
+                    # Не используется устаревший API: dialog.open = False
                     assert dialog.open == False, "Диалог должен закрыться после отмены"
                     
                     # Проверяем, что транзакция осталась в БД (без использования mock)

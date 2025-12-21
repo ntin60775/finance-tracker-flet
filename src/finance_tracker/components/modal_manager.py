@@ -406,9 +406,7 @@ class ModalManager:
                         content=ft.Text("Не удалось открыть детали легенды. Попробуйте позже."),
                         action="OK"
                     )
-                    self.page_manager.cached_page.snack_bar = snack_bar
-                    snack_bar.open = True
-                    self.page_manager.cached_page.update()
+                    self.page_manager.cached_page.open(snack_bar)
                     logger.debug(
                         f"✓ Fallback уведомление показано пользователю: "
                         f"snack_bar='Не удалось открыть детали легенды'"

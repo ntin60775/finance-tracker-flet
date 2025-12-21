@@ -301,8 +301,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Закрытие BottomSheet."""
         try:
             if hasattr(self, 'bottom_sheet'):
-                self.bottom_sheet.open = False
-                self.page.update()
+                self.page.close(self.bottom_sheet)
                 logger.info("BottomSheet закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии BottomSheet: {e}")

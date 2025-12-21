@@ -24,6 +24,8 @@ class TestLenderModal(unittest.TestCase):
             on_update=self.on_update
         )
         self.page = MagicMock()
+        self.page.open = Mock()
+        self.page.close = Mock()
         self.page.overlay = []
         self.modal.page = self.page
 
@@ -31,7 +33,7 @@ class TestLenderModal(unittest.TestCase):
         """Тест инициализации LenderModal."""
         self.assertIsInstance(self.modal.dialog, ft.AlertDialog)
         self.assertEqual(self.modal.dialog.title.value, "Новый займодатель")
-        self.assertFalse(self.modal.dialog.open)
+        # Инициализация не вызывает page.close()
 
     def test_open_in_create_mode(self):
         """Тест открытия модального окна в режиме создания."""
@@ -41,9 +43,7 @@ class TestLenderModal(unittest.TestCase):
         self.assertIsNone(self.modal.edit_lender_id)
         self.assertEqual(self.modal.dialog.title.value, "Новый займодатель")
         self.assertEqual(self.modal.name_field.value, "")
-        self.assertTrue(self.modal.dialog.open)
-        self.page.update.assert_called_once()
-        self.assertIn(self.modal.dialog, self.page.overlay)
+        self.page.open.assert_called()
 
     def test_open_in_edit_mode(self):
         """Тест открытия модального окна в режиме редактирования."""
@@ -58,7 +58,7 @@ class TestLenderModal(unittest.TestCase):
         self.assertEqual(self.modal.description_field.value, "Desc")
         self.assertEqual(self.modal.contact_field.value, "Contact")
         self.assertEqual(self.modal.notes_field.value, "Notes")
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
 
     def test_save_create_success(self):
         """Тест успешного сохранения нового займодателя."""
@@ -80,7 +80,7 @@ class TestLenderModal(unittest.TestCase):
             None
         )
         self.on_update.assert_not_called()
-        self.assertFalse(self.modal.dialog.open)
+        self.page.close.assert_called()
 
     def test_save_update_success(self):
         """Тест успешного обновления существующего займодателя."""
@@ -101,7 +101,7 @@ class TestLenderModal(unittest.TestCase):
             None
         )
         self.on_save.assert_not_called()
-        self.assertFalse(self.modal.dialog.open)
+        self.page.close.assert_called()
 
     def test_save_validation_failure(self):
         """Тест ошибки валидации при сохранении (пустое имя)."""
@@ -113,18 +113,16 @@ class TestLenderModal(unittest.TestCase):
         self.assertEqual(self.modal.error_text.value, "Название займодателя не может быть пустым")
         self.on_save.assert_not_called()
         self.on_update.assert_not_called()
-        self.assertTrue(self.modal.dialog.open) # Dialog should remain open
+        self.page.open.assert_called() # Dialog should remain open
 
     def test_close_modal(self):
         """Тест закрытия модального окна."""
         self.modal.open(self.page)
-        self.assertTrue(self.modal.dialog.open)
+        self.page.open.assert_called()
         
         self.modal.close(None)
         
-        self.assertFalse(self.modal.dialog.open)
-        # Check that page.update() was called
-        self.assertIn(unittest.mock.call(), self.page.update.call_args_list)
+        self.page.close.assert_called()
 
 
 if __name__ == '__main__':

@@ -158,10 +158,8 @@ class TransactionModal:
             # Валидация будет выполняться при изменении полей
             self._update_save_button_state()
             
-            # Открываем диалог используя overlay
-            page.overlay.append(self.dialog)
-            self.dialog.open = True
-            page.update()
+            # Открываем диалог используя современный Flet API
+            page.open(self.dialog)
             
             logger.info("TransactionModal успешно открыт в режиме создания")
             
@@ -215,10 +213,8 @@ class TransactionModal:
             self._validate_all_fields()
             self._update_save_button_state()
             
-            # Открываем диалог используя overlay
-            page.overlay.append(self.dialog)
-            self.dialog.open = True
-            page.update()
+            # Открываем диалог используя современный Flet API
+            page.open(self.dialog)
             
             logger.info("TransactionModal успешно открыт в режиме редактирования")
             
@@ -238,8 +234,7 @@ class TransactionModal:
     def close(self, e=None):
         """Закрытие модального окна."""
         if self.dialog and self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
         
         # Сбрасываем режим редактирования при закрытии
         self._reset_edit_mode()

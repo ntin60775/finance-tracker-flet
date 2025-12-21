@@ -78,76 +78,134 @@
 
 **ОБЯЗАТЕЛЬНО:** Все UI тесты и UI код должны использовать СОВРЕМЕННУЮ версию Flet API (>= 0.25.0).
 
-### Почему это критически важно
-
-Flet активно развивается, и API часто меняется между версиями:
-- Методы переименовываются или удаляются
-- Сигнатуры функций изменяются
-- Появляются новые способы работы с компонентами
-- Deprecated функционал удаляется
-
 ### Обязательные действия перед написанием UI кода/тестов
 
 1. **Проверь версию Flet** в `pyproject.toml`
-2. **Сверься с актуальной документацией** через Context7 (`mcp_Context7_get_library_docs` с `/nicegui/flet`)
+2. **Сверься с актуальной документацией** на официальном сайте https://flet.dev/docs/
 3. **Не копируй старые примеры** из интернета без проверки
 4. **При ошибках AttributeError/TypeError** - первым делом проверь актуальность API
-
-### Типичные изменения в Flet API
-
-**Диалоги и модальные окна:**
-- Старый API: `page.dialog = dialog; dialog.open = True`
-- Новый API: `page.open(dialog)` / `page.close(dialog)`
-
-**Работа с Page:**
-- Изменения в методах `add()`, `remove()`, `update()`
-- Новые способы управления overlay компонентами
-
-**Компоненты:**
-- Переименование атрибутов
-- Изменение типов параметров
-- Новые обязательные параметры
 
 ### Dialog Management Standard (ОБЯЗАТЕЛЬНО)
 
 **КРИТИЧЕСКИ ВАЖНО:** В проекте используется ТОЛЬКО современный способ работы с диалогами через `page.open()` и `page.close()`.
 
-**✅ ПРАВИЛЬНО (используй ТОЛЬКО этот способ):**
+#### Правильное использование
+
+**Открытие диалога:**
 ```python
 def open_dialog(e):
-    page.open(dialog)  # Открываем диалог
+    page.open(dialog)  # Открываем диалог через page.open()
+```
 
+**Закрытие диалога:**
+```python
 def close_dialog(e):
-    page.close(dialog)  # Закрываем диалог
+    page.close(dialog)  # Закрываем диалог через page.close()
 ```
 
-**❌ НЕПРАВИЛЬНО (НЕ используй устаревший способ):**
+**Полный пример с модальным окном:**
 ```python
-# ЗАПРЕЩЕНО в этом проекте!
-def open_dialog(e):
-    page.dialog = dialog
-    dialog.open = True
-    page.update()
+class TransactionModal(ft.UserControl):
+    def __init__(self, session, on_save_callback):
+        super().__init__()
+        self.session = session
+        self.on_save_callback = on_save_callback
+        self.dialog = ft.AlertDialog(
+            title=ft.Text("Новая транзакция"),
+            content=ft.Column([...]),
+            actions=[
+                ft.TextButton("Отмена", on_click=self.close_dialog),
+                ft.TextButton("Сохранить", on_click=self.save_dialog),
+            ]
+        )
+    
+    def open(self, page):
+        """Открыть модальное окно."""
+        page.open(self.dialog)
+    
+    def close_dialog(self, e):
+        """Закрыть модальное окно."""
+        self.page.close(self.dialog)
+    
+    def save_dialog(self, e):
+        """Сохранить и закрыть."""
+        # ... логика сохранения ...
+        self.page.close(self.dialog)
 ```
 
-**Применяется к:**
-- `ft.AlertDialog`
-- `ft.BottomSheet`
-- `ft.SnackBar`
+#### Применяется к
+
+**Все overlay компоненты должны использовать `page.open()` и `page.close()`:**
+- `ft.AlertDialog` - диалоги подтверждения
+- `ft.BottomSheet` - нижние панели
+- `ft.SnackBar` - уведомления
 - Любые другие overlay компоненты
 
-**В тестах:**
-- Mock объекты ДОЛЖНЫ иметь методы `page.open()` и `page.close()`
-- Проверки ДОЛЖНЫ использовать `page.open.assert_called()` и `page.close.assert_called()`
-- НЕ проверять `page.dialog` или `dialog.open` атрибуты
+#### В тестах
+
+**Mock объекты ДОЛЖНЫ иметь методы `page.open()` и `page.close()`:**
+```python
+def create_mock_page():
+    """Создает mock Page с методами для диалогов."""
+    mock_page = MagicMock()
+    mock_page.open = Mock()
+    mock_page.close = Mock()
+    return mock_page
+```
+
+**Проверки в тестах:**
+```python
+def test_modal_opening(self):
+    """Тест открытия модального окна."""
+    modal = TransactionModal(self.mock_session, self.mock_callback)
+    
+    modal.open(self.mock_page)
+    
+    # Проверяем вызов page.open()
+    self.mock_page.open.assert_called_once()
+```
 
 ### Checklist для UI тестов
 
-- [ ] Проверена актуальная версия Flet API
-- [ ] Mock объекты соответствуют современной структуре Flet
-- [ ] Тест не использует deprecated методы
+**Перед написанием UI теста:**
+- [ ] Проверена актуальная версия Flet API в `pyproject.toml`
+- [ ] Mock объекты имеют методы `page.open()` и `page.close()`
+- [ ] Тест не использует deprecated методы (`page.dialog =`, `dialog.open = True`)
 - [ ] **Используется ТОЛЬКО `page.open()` и `page.close()` для диалогов**
-- [ ] При сомнениях - проверена документация через Context7
+- [ ] При сомнениях - проверена документация Flet
+
+**При работе с диалогами:**
+- [ ] Диалог открывается через `page.open(dialog)`
+- [ ] Диалог закрывается через `page.close(dialog)`
+- [ ] Не используется `page.dialog =` присваивание
+- [ ] Не используется `dialog.open = True/False`
+- [ ] Не используется `page.update()` после работы с диалогами
+- [ ] Mock проверяет вызов `page.open.assert_called()`
+- [ ] Mock проверяет вызов `page.close.assert_called()`
+
+**Для SnackBar:**
+- [ ] SnackBar открывается через `page.open(snack_bar)`
+- [ ] SnackBar закрывается через `page.close(snack_bar)`
+- [ ] Не используется `snack_bar.open = True`
+
+**Для BottomSheet:**
+- [ ] BottomSheet открывается через `page.open(bottom_sheet)`
+- [ ] BottomSheet закрывается через `page.close(bottom_sheet)`
+- [ ] Не используется `bottom_sheet.open = True`
+
+### Миграция старого кода
+
+Если ты находишь старый код, использующий `page.dialog =` и `dialog.open = True`:
+
+1. **Замени на новый API:**
+2. **Обнови тесты:**
+3. **Проверь, что все работает:**
+
+### Ресурсы
+
+- **Официальная документация Flet:** https://flet.dev/docs/controls/alertdialog
+- **Примеры в проекте:** `src/finance_tracker/components/transaction_modal.py`
+- **Тесты:** `tests/test_transaction_modal.py`
 
 ## Test Structure Patterns
 
@@ -1440,16 +1498,3 @@ def test_delete_with_cascade_effects_integration(self):
 8. **Пишите понятные имена тестов** - имя должно объяснять, что тестируется
 9. **Тестируйте диалоги подтверждения** - убедитесь, что пользователь может отменить удаление
 10. **Проверяйте каскадные обновления** - все связанные данные должны обновляться
-
-### DON'Ts ❌
-
-1. **Не тестируйте implementation details** - не проверяйте внутреннюю структуру компонентов
-2. **Не делайте тесты зависимыми** - каждый тест должен работать независимо
-3. **Не используйте реальную БД** - используйте in-memory базу или mock объекты
-4. **Не игнорируйте медленные тесты** - помечайте их и запускайте отдельно
-5. **Не тестируйте Flet framework** - тестируйте только свой код
-6. **Не дублируйте логику** - используйте вспомогательные функции для общего кода
-7. **Не пишите слишком сложные тесты** - простые тесты легче понимать и поддерживать
-8. **Не забывайте про cleanup** - освобождайте ресурсы после тестов
-9. **Не пропускайте тестирование отмены** - пользователь должен иметь возможность отменить удаление
-10. **Не игнорируйте каскадные эффекты** - удаление влияет на множество компонентов

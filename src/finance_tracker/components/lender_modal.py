@@ -151,16 +151,13 @@ class LenderModal:
         # Очищаем ошибку
         self.error_text.value = ""
 
-        # Открываем диалог
-        page.overlay.append(self.dialog)
-        self.dialog.open = True
-        page.update()
+        # Открываем диалог используя современный Flet API
+        page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
         if self.dialog and self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
 
     def _clear_error(self, e=None):
         """Очищает сообщение об ошибке при изменении поля."""

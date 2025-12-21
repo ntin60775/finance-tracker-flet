@@ -53,11 +53,16 @@ class TestOffstageControlPrevention(ViewTestBase):
         - Отслеживает, добавлены ли контролы на страницу
         - Выбрасывает ошибку при попытке открыть диалог до инициализации
         
+        Использует СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0):
+        - page.open(dialog) - для открытия диалогов
+        - page.close(dialog) - для закрытия диалогов
+        
         Returns:
             MagicMock: Мок Page с проверкой Offstage Control
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
+        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
         page.dialog = None
         page.controls = []
         page._is_initialized = False
@@ -70,7 +75,7 @@ class TestOffstageControlPrevention(ViewTestBase):
             
         page.add = Mock(side_effect=mock_add)
         
-        # Мок для open() - проверяет, что контролы добавлены
+        # Мок для open() - проверяет, что контролы добавлены (СОВРЕМЕННЫЙ API)
         def mock_open(dialog):
             if not page._controls_added:
                 raise AssertionError("Offstage Control must be added to the page first")
@@ -87,6 +92,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         
         # Остальные методы
         page.update = MagicMock()
+        # Современный Flet API для закрытия диалогов
         page.close = MagicMock()
         
         return page
@@ -524,6 +530,7 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
     # Создаем mock объекты
     mock_page = MagicMock(spec=ft.Page)
     mock_page.overlay = []
+    # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
     mock_page.dialog = None
     mock_page.controls = []
     mock_page._controls_added = page_initialized
@@ -535,7 +542,7 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
     
     mock_page.add = Mock(side_effect=mock_add)
     
-    # Настраиваем поведение page.open() с проверкой Offstage Control
+    # Настраиваем поведение page.open() с проверкой Offstage Control (СОВРЕМЕННЫЙ API)
     def mock_open(dialog):
         if not mock_page._controls_added:
             raise AssertionError("Offstage Control must be added to the page first")
@@ -543,6 +550,8 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
     
     mock_page.open = Mock(side_effect=mock_open)
     mock_page.update = MagicMock()
+    # Современный Flet API для закрытия диалогов
+    mock_page.close = MagicMock()
     
     # Создаем mock session
     mock_session = Mock()

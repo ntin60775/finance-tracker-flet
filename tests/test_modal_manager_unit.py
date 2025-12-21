@@ -24,6 +24,9 @@ class TestModalManagerUnit(unittest.TestCase):
         self.mock_legend_component = MagicMock()
         self.modal_manager = ModalManager(self.mock_legend_component)
         self.mock_page = MagicMock(spec=ft.Page)
+        # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+        self.mock_page.open = MagicMock()
+        self.mock_page.close = MagicMock()
         self.sample_indicators = [
             INDICATOR_CONFIGS[IndicatorType.INCOME_DOT],
             INDICATOR_CONFIGS[IndicatorType.EXPENSE_DOT],
@@ -119,6 +122,9 @@ class TestModalManagerUnit(unittest.TestCase):
         """Тест показа fallback уведомления."""
         # Настраиваем кэшированный page
         mock_page = MagicMock(spec=ft.Page)
+        # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+        mock_page.open = MagicMock()
+        mock_page.close = MagicMock()
         self.modal_manager.page_manager.cached_page = mock_page
         
         # Вызываем fallback уведомление
@@ -133,6 +139,9 @@ class TestModalManagerUnit(unittest.TestCase):
         
         # Настраиваем кэшированный page
         mock_page = MagicMock(spec=ft.Page)
+        # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
+        mock_page.open = MagicMock()
+        mock_page.close = MagicMock()
         self.modal_manager.page_manager.cached_page = mock_page
         
         # Вызываем альтернативное закрытие

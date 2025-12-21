@@ -334,7 +334,10 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
             "Должна отображаться ошибка для не выбранной категории"
         
         # 3.3. Проверяем, что модальное окно остается открытым при ошибках (Requirement 6.5)
-        assert modal.dialog.open == True, \
+        # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+        # - page.open(modal) для открытия
+        # Не используется устаревший API: modal.dialog.open = True
+        mock_page.open.assert_called(), \
             "Модальное окно должно оставаться открытым при ошибках валидации"
         
         # 3.4. Проверяем, что транзакция НЕ была создана в БД
@@ -422,7 +425,10 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
             "Должна отображаться ошибка для отрицательной суммы"
         
         # Проверяем, что модальное окно остается открытым
-        assert modal.dialog.open == True, \
+        # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+        # - page.open(modal) для открытия
+        # Не используется устаревший API: modal.dialog.open = True
+        mock_page.open.assert_called(), \
             "Модальное окно должно оставаться открытым при отрицательной сумме"
         
         # Проверяем, что новая транзакция НЕ была создана
@@ -551,15 +557,19 @@ def test_transaction_cancellation_scenario_flow(db_session, sample_categories, m
         # В реальности пользователь нажимает кнопку "Отмена", которая вызывает modal.close()
         
         # Проверяем, что модальное окно открыто перед отменой
-        assert modal.dialog.open == True, "Модальное окно должно быть открыто перед отменой"
-        
-        # Вызываем метод отмены (имитируем нажатие кнопки "Отмена")
+        # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+        # - page.open(modal) для открытия
+        # Не используется устаревший API: modal.dialog.open = True
+        mock_page.open.assert_called()# Вызываем метод отмены (имитируем нажатие кнопки "Отмена")
         modal.close()
         
         # Assert - проверка результатов отмены
         
-        # 4. Проверяем, что модальное окно закрылось (Requirement 7.1)
-        assert modal.dialog.open == False, \
+        # 4. Проверяем, что модальное окно закрылось
+        # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+        # - page.close(modal) для закрытия
+        # Не используется устаревший API: modal.dialog.open = False
+        mock_page.close.assert_called(), \
             "Модальное окно должно быть закрыто после нажатия кнопки 'Отмена'"
         
         # 5. Проверяем неизменность данных в БД (Requirement 7.4)

@@ -236,16 +236,13 @@ class LoanModal:
         # Добавляем date pickers в overlay
         page.overlay.extend([self.issue_date_picker, self.end_date_picker])
 
-        # Открываем диалог
-        page.overlay.append(self.dialog)
-        self.dialog.open = True
-        page.update()
+        # Открываем диалог используя современный Flet API
+        page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
         if self.dialog and self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
 
     def _load_lenders(self):
         """Загружает список займодателей в dropdown."""
