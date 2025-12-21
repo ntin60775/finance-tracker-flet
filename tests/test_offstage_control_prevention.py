@@ -62,8 +62,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
-        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
-        page.dialog = None
         page.controls = []
         page._is_initialized = False
         page._controls_added = False
@@ -79,7 +77,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         def mock_open(dialog):
             if not page._controls_added:
                 raise AssertionError("Offstage Control must be added to the page first")
-            page.dialog = dialog
             
         page.open = Mock(side_effect=mock_open)
         
@@ -169,9 +166,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         
         self.assertIn("Offstage Control must be added to the page first", str(context.exception))
         
-        # Проверяем, что dialog не был установлен из-за ошибки
-        self.assertIsNone(self.mock_page.dialog)
-        
         # Симулируем добавление на страницу (страница готова)
         self.mock_page._controls_added = True
         
@@ -181,16 +175,13 @@ class TestOffstageControlPrevention(ViewTestBase):
         # Теперь диалог должен открыться без ошибок
         home_view.show_message("Test message")
         self.mock_page.open.assert_called_once()
-        self.assertIsNotNone(self.mock_page.dialog)
         
         # Дополнительная проверка: тестируем другие типы диалогов
         self.mock_page.open.reset_mock()
-        self.mock_page.dialog = None
         
         # Тестируем диалог ошибки
         home_view.show_error("Test error")
         self.mock_page.open.assert_called_once()
-        self.assertIsNotNone(self.mock_page.dialog)
 
     def test_snackbar_showing_safety(self):
         """
@@ -210,10 +201,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         
         self.assertIn("Offstage Control must be added to the page first", str(context.exception))
         
-        # Проверяем, что dialog не был установлен из-за ошибки
-        self.assertIsNone(self.mock_page.dialog)
-        self.mock_page.show_snack_bar.assert_not_called()
-        
         # Тест 2: Симулируем инициализацию страницы
         self.mock_page._controls_added = True
         
@@ -224,21 +211,17 @@ class TestOffstageControlPrevention(ViewTestBase):
         # Тест 3: Теперь SnackBar должен показаться без ошибок через диалог
         home_view.show_error("Test error after initialization")
         self.mock_page.open.assert_called_once()
-        self.assertIsNotNone(self.mock_page.dialog)
         
         # Тест 4: Проверяем показ информационного сообщения
         self.mock_page.open.reset_mock()
-        self.mock_page.dialog = None
         
         home_view.show_message("Test info message")
         self.mock_page.open.assert_called_once()
-        self.assertIsNotNone(self.mock_page.dialog)
         
         # Тест 5: Проверяем множественные вызовы SnackBar после инициализации
         self.mock_page.open.reset_mock()
         
         for i in range(3):
-            self.mock_page.dialog = None
             home_view.show_message(f"Message {i}")
             self.mock_page.open.assert_called()
         
@@ -293,7 +276,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         
         # Тест 5: Проверяем graceful degradation - приложение продолжает работать
         self.mock_page.open.reset_mock()
-        self.mock_page.dialog = None
         
         # Симулируем ошибку, но теперь она должна показаться пользователю
         try:
@@ -302,11 +284,9 @@ class TestOffstageControlPrevention(ViewTestBase):
             home_view.show_error(f"Ошибка валидации: {str(e)}")
         
         self.mock_page.open.assert_called_once()
-        self.assertIsNotNone(self.mock_page.dialog)
         
         # Тест 6: Проверяем, что после ошибки система остается работоспособной
         self.mock_page.open.reset_mock()
-        self.mock_page.dialog = None
         
         home_view.show_message("System is still working")
         self.mock_page.open.assert_called_once()
@@ -376,7 +356,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         
         for operation in unsafe_operations:
             try:
-                self.mock_page.dialog = None  # Сброс для каждого теста
                 operation()
             except Exception as e:
                 self.fail(f"Operation failed after initialization: {e}")
@@ -467,7 +446,6 @@ class TestOffstageControlPrevention(ViewTestBase):
         success_count = 0
         for i in range(3):
             try:
-                self.mock_page.dialog = None  # Сброс для каждого теста
                 home_view.show_message(f"Message {i}")
                 success_count += 1
             except Exception as e:
@@ -505,7 +483,8 @@ class TestOffstageControlPrevention(ViewTestBase):
         # Теперь диалоги должны открываться без ошибок
         test_dialog = ft.AlertDialog(title=ft.Text("Test"))
         self.mock_page.open(test_dialog)
-        self.assertEqual(self.mock_page.dialog, test_dialog)
+        # Проверяем, что open был вызван
+        self.mock_page.open.assert_called_with(test_dialog)
 
 
 # =============================================================================
@@ -530,8 +509,6 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
     # Создаем mock объекты
     mock_page = MagicMock(spec=ft.Page)
     mock_page.overlay = []
-    # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
-    mock_page.dialog = None
     mock_page.controls = []
     mock_page._controls_added = page_initialized
     
@@ -546,7 +523,6 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
     def mock_open(dialog):
         if not mock_page._controls_added:
             raise AssertionError("Offstage Control must be added to the page first")
-        mock_page.dialog = dialog
     
     mock_page.open = Mock(side_effect=mock_open)
     mock_page.update = MagicMock()
@@ -572,7 +548,6 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
             # Если страница инициализирована, все UI операции должны работать
             for message in error_messages:
                 try:
-                    mock_page.dialog = None  # Сброс для каждого теста
                     home_view.show_error(message)
                     # Проверяем, что диалог был открыт без ошибок
                     mock_page.open.assert_called()
@@ -588,7 +563,6 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
             
             for message in info_messages:
                 try:
-                    mock_page.dialog = None  # Сброс для каждого теста
                     home_view.show_message(message)
                     # Проверяем, что диалог был открыт без ошибок
                     mock_page.open.assert_called()

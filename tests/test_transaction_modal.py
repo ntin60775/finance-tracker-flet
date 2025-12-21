@@ -183,8 +183,9 @@ class TestTransactionModal(unittest.TestCase):
                         "Дата транзакции должна соответствовать предустановленной")
         
         # 2. Проверяем автоматическое закрытие модального окна
-        self.assertFalse(self.modal.dialog.open, 
-                        "Модальное окно должно автоматически закрыться после успешного сохранения")
+        # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
+        self.page.close.assert_called(), \
+                        "Модальное окно должно автоматически закрыться после успешного сохранения"
         
         # 3. Проверяем, что не было ошибок валидации
         self.assertTrue(self.modal.amount_field.error_text == "" or self.modal.amount_field.error_text is None, 
@@ -259,8 +260,7 @@ class TestTransactionModal(unittest.TestCase):
                         "Сумма должна соответствовать введенной")
         
         # Проверяем закрытие модального окна
-        self.assertFalse(self.modal.dialog.open, 
-                        "Модальное окно должно закрыться после сохранения дохода")
+        self.page.close.assert_called(), "Модальное окно должно закрыться после сохранения дохода"
 
     def test_transaction_save_with_minimal_data(self):
         """
@@ -306,8 +306,7 @@ class TestTransactionModal(unittest.TestCase):
                         "Должна использоваться сегодняшняя дата по умолчанию")
         
         # Проверяем закрытие модального окна
-        self.assertFalse(self.modal.dialog.open, 
-                        "Модальное окно должно закрыться даже при минимальных данных")
+        self.page.close.assert_called(), "Модальное окно должно закрыться даже при минимальных данных"
 
     def test_modal_initialization_with_form_fields(self):
         """
@@ -1128,7 +1127,7 @@ class TestTransactionModal(unittest.TestCase):
         # Assert - проверяем результаты отмены
         
         # 1. Модальное окно должно закрыться
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при нажатии 'Отмена'")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при нажатии 'Отмена'"
         
         # 2. Callback не должен быть вызван (данные не сохраняются)
         self.on_save.assert_not_called()
@@ -1162,7 +1161,7 @@ class TestTransactionModal(unittest.TestCase):
         self.modal.close()
         
         # Assert - проверяем закрытие
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при вызове close()")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при вызове close()"
         
         original_page = self.modal.page
         self.modal.page = None
@@ -1210,7 +1209,7 @@ class TestTransactionModal(unittest.TestCase):
         # Assert - проверяем результаты
         
         # 1. Модальное окно должно закрыться
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при нажатии Escape")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при нажатии Escape"
         
         # 2. Callback не должен быть вызван (данные не сохраняются)
         self.on_save.assert_not_called()
@@ -1256,7 +1255,7 @@ class TestTransactionModal(unittest.TestCase):
         # Assert - проверяем результаты
         
         # 1. Модальное окно должно закрыться
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при клике вне области")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при клике вне области"
         
         # 2. Callback не должен быть вызван (данные не сохраняются)
         self.on_save.assert_not_called()
@@ -1298,7 +1297,7 @@ class TestTransactionModal(unittest.TestCase):
         
         # Отменяем операцию
         self.modal.close()
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться")
+        self.page.close.assert_called(), "Модальное окно должно закрыться"
         
         # Act - повторное открытие с новой датой
         second_date = datetime.date(2024, 12, 20)
@@ -1382,7 +1381,7 @@ class TestTransactionModal(unittest.TestCase):
                         "Callback не должен быть вызван при отмене")
         
         # 2. Модальное окно должно закрыться
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться при отмене")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при отмене"
         
         # 3. В реальном приложении HomeView.on_transaction_saved не вызывается,
         # поэтому transaction_service.create_transaction не выполняется,
@@ -1442,8 +1441,7 @@ class TestTransactionModal(unittest.TestCase):
         # Assert - проверяем успешную отмену
         
         # 1. Модальное окно должно закрыться несмотря на ошибки валидации
-        self.assertFalse(self.modal.dialog.open, 
-                        "Модальное окно должно закрыться при отмене даже с ошибками валидации")
+        self.page.close.assert_called(), "Модальное окно должно закрыться при отмене даже с ошибками валидации"
         
         # 2. Callback не должен быть вызван
         self.on_save.assert_not_called()
@@ -1503,7 +1501,7 @@ class TestTransactionModal(unittest.TestCase):
                 # Assert - проверяем результаты каждой отмены
                 
                 # 1. Модальное окно должно закрыться
-                self.assertFalse(self.modal.dialog.open, f"Модальное окно должно закрыться в сценарии {i+1}")
+                self.page.close.assert_called(), f"Модальное окно должно закрыться в сценарии {i+1}"
                 
                 # 2. Callback не должен быть вызван ни разу за все сценарии
                 self.on_save.assert_not_called()
@@ -1813,8 +1811,7 @@ class TestTransactionModalProperties:
                 f"Дата должна сохраниться: ожидалась {transaction_date}, получена {called_transaction_data.transaction_date}"
             
             # 5. Проверяем, что модальное окно закрылось (имитация "появления в UI")
-            assert not modal.dialog.open, \
-                "Модальное окно должно закрыться после успешного сохранения (готовность к обновлению UI)"
+            mock_page.close.assert_called(), "Модальное окно должно закрыться после успешного сохранения (готовность к обновлению UI)"
             
             # 6. Проверяем, что не было ошибок валидации (данные были валидными)
             assert modal.amount_field.error_text is None or modal.amount_field.error_text == "", \
@@ -2092,7 +2089,7 @@ class TestTransactionModalCancelProperties:
                 f"исходное состояние должно сохраниться"
             
             # 2. Модальное окно должно закрыться
-            assert not modal.dialog.open, \
+            mock_page.close.assert_called(), \
                 f"Модальное окно должно закрыться при отмене через {cancel_method}"
             
             # 3. В реальном приложении это означает, что:
@@ -2286,7 +2283,7 @@ class TestTransactionModalCancelProperties:
                 modal.close()
             
             # Проверяем, что модальное окно закрылось
-            assert not modal.dialog.open, f"Модальное окно должно закрыться при отмене через {cancel_method}"
+            mock_page.close.assert_called(), f"Модальное окно должно закрыться при отмене через {cancel_method}"
             
             # Act - повторно открываем модальное окно для проверки сброса формы
             modal.open(mock_page, reopen_date)
@@ -2373,8 +2370,7 @@ class TestTransactionModalCancelProperties:
                 "Должно быть сохранено новое описание, а не описание до отмены"
             
             # 7. Модальное окно должно закрыться после успешного сохранения
-            assert not modal.dialog.open, \
-                "Модальное окно должно закрыться после успешного сохранения новых данных"
+            mock_page.close.assert_called(), "Модальное окно должно закрыться после успешного сохранения новых данных"
 
 
 if __name__ == '__main__':
@@ -2712,7 +2708,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.on_update.assert_not_called()
         
         # Проверяем закрытие модального окна
-        self.assertFalse(self.modal.dialog.open, "Модальное окно должно закрыться после сохранения")
+        self.page.close.assert_called(), "Модальное окно должно закрыться после сохранения"
 
     def test_edit_mode_comprehensive_prefill(self):
         """
@@ -2910,8 +2906,7 @@ class TestTransactionModalEditMode(unittest.TestCase):
         self.on_save.assert_not_called()
         
         # 5. Проверяем закрытие модального окна
-        self.assertFalse(self.modal.dialog.open, 
-                        "Модальное окно должно закрыться после успешного сохранения")
+        self.page.close.assert_called(), "Модальное окно должно закрыться после успешного сохранения"
 
     def test_modal_title_based_on_mode(self):
         """

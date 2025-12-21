@@ -1443,9 +1443,8 @@ class TestDialogDisplayProperties:
                     
                     # Проверяем, что диалог закрылся
                     # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-                    # - page.close(modal) для закрытия
-                    # Не используется устаревший API: dialog.open = False
-                    assert dialog.open == False, "Диалог должен закрыться после подтверждения удаления"
+                    # Проверяем вызов page.close()
+                    mock_page.close.assert_called(), "Диалог должен закрыться после подтверждения удаления"
                     
                 else:  # user_action == 'cancel'
                     # Ищем кнопку отмены
@@ -1472,9 +1471,8 @@ class TestDialogDisplayProperties:
                     
                     # Проверяем, что диалог закрылся
                     # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-                    # - page.close(modal) для закрытия
-                    # Не используется устаревший API: dialog.open = False
-                    assert dialog.open == False, "Диалог должен закрыться после отмены"
+                    # Проверяем вызов page.close()
+                    mock_page.close.assert_called(), "Диалог должен закрыться после отмены"
                     
                     # Проверяем, что транзакция осталась в БД (без использования mock)
                     remaining_transaction = session.query(TransactionDB).filter_by(id=transaction_id).first()

@@ -75,8 +75,6 @@ class TestInitializationOrder(ViewTestBase):
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
-        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
-        page.dialog = None
         page.controls = []
         
         # Отслеживание состояния lifecycle

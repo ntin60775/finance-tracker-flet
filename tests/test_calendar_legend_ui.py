@@ -40,7 +40,6 @@ def create_mock_page():
     mock_page.theme_mode = "light"
     
     # Настройка диалогов
-    mock_page.dialog = None
     mock_page.snack_bar = None
     
     return mock_page

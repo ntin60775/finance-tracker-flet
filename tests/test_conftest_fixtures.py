@@ -14,7 +14,6 @@ def test_mock_page_fixture(mock_page):
     """Тест фикстуры mock_page."""
     # Проверяем, что все необходимые атрибуты присутствуют
     assert hasattr(mock_page, 'overlay')
-    assert hasattr(mock_page, 'dialog')
     assert hasattr(mock_page, 'update')
     assert hasattr(mock_page, 'open')
     assert hasattr(mock_page, 'close')
@@ -22,7 +21,6 @@ def test_mock_page_fixture(mock_page):
     
     # Проверяем начальные значения
     assert mock_page.overlay == []
-    assert mock_page.dialog is None
     assert mock_page.width == 1200
     assert mock_page.height == 800
 

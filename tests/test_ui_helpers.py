@@ -35,8 +35,6 @@ class TestUIHelpers(unittest.TestCase):
         """Настройка перед каждым тестом."""
         self.mock_page = MagicMock(spec=ft.Page)
         self.mock_page.overlay = []
-        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
-        self.mock_page.dialog = None
         # Современный Flet API для работы с диалогами (>= 0.25.0)
         self.mock_page.open = MagicMock()
         self.mock_page.close = MagicMock()

@@ -335,8 +335,7 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
         
         # 3.3. Проверяем, что модальное окно остается открытым при ошибках (Requirement 6.5)
         # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-        # - page.open(modal) для открытия
-        # Не используется устаревший API: modal.dialog.open = True
+        # Модальное окно должно оставаться открытым при ошибках валидации
         mock_page.open.assert_called(), \
             "Модальное окно должно оставаться открытым при ошибках валидации"
         
@@ -426,8 +425,7 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
         
         # Проверяем, что модальное окно остается открытым
         # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-        # - page.open(modal) для открытия
-        # Не используется устаревший API: modal.dialog.open = True
+        # Модальное окно должно оставаться открытым при отрицательной сумме
         mock_page.open.assert_called(), \
             "Модальное окно должно оставаться открытым при отрицательной сумме"
         
@@ -559,16 +557,16 @@ def test_transaction_cancellation_scenario_flow(db_session, sample_categories, m
         # Проверяем, что модальное окно открыто перед отменой
         # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
         # - page.open(modal) для открытия
-        # Не используется устаревший API: modal.dialog.open = True
-        mock_page.open.assert_called()# Вызываем метод отмены (имитируем нажатие кнопки "Отмена")
+        mock_page.open.assert_called()
+        
+        # Вызываем метод отмены (имитируем нажатие кнопки "Отмена")
         modal.close()
         
         # Assert - проверка результатов отмены
         
         # 4. Проверяем, что модальное окно закрылось
         # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-        # - page.close(modal) для закрытия
-        # Не используется устаревший API: modal.dialog.open = False
+        # Проверяем вызов page.close()
         mock_page.close.assert_called(), \
             "Модальное окно должно быть закрыто после нажатия кнопки 'Отмена'"
         

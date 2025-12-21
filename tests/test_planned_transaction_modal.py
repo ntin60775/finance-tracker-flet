@@ -57,7 +57,6 @@ class TestPlannedTransactionModal(unittest.TestCase):
         """Тест инициализации PlannedTransactionModal."""
         self.assertIsInstance(self.modal.dialog, ft.AlertDialog)
         self.assertEqual(self.modal.dialog.title.value, "Новая плановая транзакция")
-        self.assertFalse(self.modal.dialog.open)
 
     def test_open_modal_defaults(self):
         """Тест открытия модального окна и его значений по умолчанию."""

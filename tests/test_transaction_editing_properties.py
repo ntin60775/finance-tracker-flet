@@ -337,7 +337,6 @@ class TestTransactionEditingProperties:
                 # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
                 # - page.open(modal) для открытия
                 # - page.close(modal) для закрытия
-                # Не используется устаревший API: modal.dialog.open = True/False
                 mock_page.open.assert_called(), \
                     "Модальное окно должно оставаться открытым при ошибке валидации"
             else:
@@ -519,14 +518,12 @@ class TestTransactionEditingProperties:
                 # Симулируем нажатие Escape (закрытие диалога)
                 # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
                 # - page.close(modal) для закрытия
-                # Не используется устаревший API: modal.dialog.open = False
-                modal.dialog.open = False
+                modal.close()
             elif cancel_method == 'outside_click':
                 # Симулируем клик вне диалога (закрытие)
                 # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
                 # - page.close(modal) для закрытия
-                # Не используется устаревший API: modal.dialog.open = False
-                modal.dialog.open = False
+                modal.close()
             
             # Assert - проверяем, что данные не были сохранены
             
@@ -538,10 +535,8 @@ class TestTransactionEditingProperties:
             
             # 3. Модальное окно должно быть закрыто
             # ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0)
-            # - page.close(modal) для закрытия
-            # Не используется устаревший API: modal.dialog.open = False
-            assert modal.dialog.open == False, \
-                "Модальное окно должно быть закрыто после отмены"
+            # Проверяем вызов page.close()
+            mock_page.close.assert_called()
             
             # 4. При повторном открытии поля должны быть предзаполнены оригинальными данными
             modal.open_edit(mock_page, mock_transaction)

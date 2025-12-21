@@ -94,9 +94,9 @@ def assert_modal_state(modal, is_open: bool, has_errors: bool = False) -> None:
     - page.open(dialog) - для открытия диалогов
     - page.close(dialog) - для закрытия диалогов
     
-    Не используется устаревший API:
-    - ❌ modal.dialog.open = True/False
-    - ✅ page.open(modal) / page.close(modal)
+    Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0):
+    - ✅ page.open(modal) - для открытия
+    - ✅ page.close(modal) - для закрытия
     
     Args:
         modal: Экземпляр модального окна
@@ -118,8 +118,8 @@ def assert_modal_state(modal, is_open: bool, has_errors: bool = False) -> None:
         if hasattr(modal, 'validation_errors'):
             assert len(modal.validation_errors) == 0, f"Неожиданные ошибки валидации: {modal.validation_errors}"
     
-    # Примечание: Проверка is_open должна выполняться через page.open/close вызовы,
-    # а не через modal.dialog.open атрибут (устаревший API)
+    # Примечание: Проверка is_open должна выполняться через page.open/close вызовы
+    # (современный Flet API >= 0.25.0)
 
 
 def assert_form_field_value(field, expected_value: Any, field_name: str = "field") -> None:

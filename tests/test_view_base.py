@@ -55,9 +55,9 @@ class ViewTestBase(unittest.TestCase):
         - page.open(dialog) - для открытия диалогов, SnackBar и других overlay компонентов
         - page.close(dialog) - для закрытия диалогов и overlay компонентов
         
-        ВАЖНО: Не используется устаревший API:
-        - ❌ page.dialog = dialog; dialog.open = True; page.update()
+        ВАЖНО: Используется СОВРЕМЕННЫЙ Flet Dialog API (>= 0.25.0):
         - ✅ page.open(dialog)
+        - ✅ page.close(dialog)
         
         Returns:
             MagicMock: Мок объекта page с настроенными атрибутами:
@@ -70,8 +70,6 @@ class ViewTestBase(unittest.TestCase):
         """
         page = MagicMock(spec=ft.Page)
         page.overlay = []
-        # Атрибут dialog оставлен для обратной совместимости, но не используется в новом коде
-        page.dialog = None
         page.update = MagicMock()
         # Современный Flet API для работы с диалогами
         page.open = MagicMock()
