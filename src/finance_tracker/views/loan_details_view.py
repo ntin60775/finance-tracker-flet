@@ -549,12 +549,11 @@ class LoanDetailsView(ft.Column):
 
             # Показываем уведомление
             if self.page:
-                self.page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text("Платёж успешно исполнен"),
                     bgcolor=ft.Colors.GREEN
                 )
-                self.page.snack_bar.open = True
-                self.page.update()
+                self.page.open(snack)
 
         except Exception as e:
             logger.error(f"Ошибка при исполнении платежа: {e}")
@@ -564,12 +563,11 @@ class LoanDetailsView(ft.Column):
         """Открыть диалог редактирования кредита."""
         # TODO: реализовать редактирование через LoanModal
         if self.page:
-            self.page.snack_bar = ft.SnackBar(
+            snack = ft.SnackBar(
                 content=ft.Text("Редактирование кредита в разработке"),
                 bgcolor=ft.Colors.AMBER
             )
-            self.page.snack_bar.open = True
-            self.page.update()
+            self.page.open(snack)
 
     def open_early_repayment_dialog(self, e):
         """Открыть диалог досрочного погашения."""
@@ -612,13 +610,13 @@ class LoanDetailsView(ft.Column):
 
                 # Показываем уведомление
                 if self.page:
-                    self.page.snack_bar = ft.SnackBar(
+                    snack = ft.SnackBar(
                         content=ft.Text(
                             f"Кредит полностью погашен! Отменено платежей: {result['cancelled_payments_count']}"
                         ),
                         bgcolor=ft.Colors.GREEN
                     )
-                    self.page.snack_bar.open = True
+                    self.page.open(snack)
             else:
                 # Частичное досрочное погашение
                 result = early_repayment_partial(
@@ -635,20 +633,17 @@ class LoanDetailsView(ft.Column):
 
                 # Показываем уведомление с предупреждением
                 if self.page:
-                    self.page.snack_bar = ft.SnackBar(
+                    snack = ft.SnackBar(
                         content=ft.Text(
                             f"Частичное погашение выполнено! {result['warning']}"
                         ),
                         bgcolor=ft.Colors.AMBER,
                         duration=5000
                     )
-                    self.page.snack_bar.open = True
+                    self.page.open(snack)
 
             # Обновляем UI
             self.load_loan_details()
-
-            if self.page:
-                self.page.update()
 
         except ValueError as e:
             logger.error(f"Ошибка валидации при досрочном погашении: {e}")
@@ -665,12 +660,11 @@ class LoanDetailsView(ft.Column):
             message: Текст ошибки
         """
         if self.page:
-            self.page.snack_bar = ft.SnackBar(
+            snack = ft.SnackBar(
                 content=ft.Text(message),
                 bgcolor=ft.Colors.RED
             )
-            self.page.snack_bar.open = True
-            self.page.update()
+            self.page.open(snack)
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""
         if hasattr(self, 'cm') and self.cm is not None:

@@ -29,10 +29,12 @@ def test_validation_error_handling(message):
     exception = ValidationError(message)
     handler.handle(exception)
     
-    # Проверяем, что показан SnackBar с сообщением об ошибке ввода
-    assert page_mock.snack_bar.open is True
-    assert f"Ошибка ввода: {message}" in page_mock.snack_bar.content.value
-    assert page_mock.update.called
+    # Проверяем, что page.open() был вызван для показа SnackBar
+    page_mock.open.assert_called_once()
+    # Проверяем, что передан SnackBar с правильным сообщением
+    snack_bar_arg = page_mock.open.call_args[0][0]
+    assert isinstance(snack_bar_arg, ft.SnackBar)
+    assert f"Ошибка ввода: {message}" in snack_bar_arg.content.value
 
 @given(st.text())
 def test_business_logic_error_handling(message):
@@ -46,9 +48,12 @@ def test_business_logic_error_handling(message):
     exception = BusinessLogicError(message)
     handler.handle(exception)
     
-    # Проверяем, что показан SnackBar с сообщением о бизнес-логике
-    assert page_mock.snack_bar.open is True
-    assert f"Невозможно выполнить операцию: {message}" in page_mock.snack_bar.content.value
+    # Проверяем, что page.open() был вызван для показа SnackBar
+    page_mock.open.assert_called_once()
+    # Проверяем, что передан SnackBar с правильным сообщением
+    snack_bar_arg = page_mock.open.call_args[0][0]
+    assert isinstance(snack_bar_arg, ft.SnackBar)
+    assert f"Невозможно выполнить операцию: {message}" in snack_bar_arg.content.value
 
 def test_database_error_handling():
     """
@@ -65,8 +70,13 @@ def test_database_error_handling():
         
         # Проверяем, что ошибка БД залогирована как ERROR
         logger_mock.error.assert_called()
+        # Проверяем, что page.open() был вызван для показа SnackBar
+        page_mock.open.assert_called_once()
+        # Проверяем, что передан SnackBar с правильным сообщением
+        snack_bar_arg = page_mock.open.call_args[0][0]
+        assert isinstance(snack_bar_arg, ft.SnackBar)
         # Пользователю показывается общее сообщение, без деталей подключения
-        assert "Произошла ошибка при работе с базой данных" in page_mock.snack_bar.content.value
+        assert "Произошла ошибка при работе с базой данных" in snack_bar_arg.content.value
 
 @given(st.text())
 def test_safe_handler_decorator(error_msg):
@@ -89,8 +99,12 @@ def test_safe_handler_decorator(error_msg):
     control.risky_method()
     
     # Декоратор должен был перехватить ошибку и вызвать ErrorHandler
-    assert page_mock.snack_bar.open is True
-    assert f"Ошибка ввода: {error_msg}" in page_mock.snack_bar.content.value
+    # Проверяем, что page.open() был вызван для показа SnackBar
+    page_mock.open.assert_called_once()
+    # Проверяем, что передан SnackBar с правильным сообщением
+    snack_bar_arg = page_mock.open.call_args[0][0]
+    assert isinstance(snack_bar_arg, ft.SnackBar)
+    assert f"Ошибка ввода: {error_msg}" in snack_bar_arg.content.value
 
 
 @given(

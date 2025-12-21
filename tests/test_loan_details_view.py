@@ -160,7 +160,6 @@ class TestLoanDetailsView(ViewTestBase):
         - При выборе таба "График платежей" загружаются платежи со статусом PENDING и OVERDUE
         - Платежи отображаются в списке
         - Количество элементов соответствует количеству платежей
-        - page.update вызывается после загрузки
         
         Validates: Requirements 9.2
         """
@@ -190,17 +189,11 @@ class TestLoanDetailsView(ViewTestBase):
         # Устанавливаем таб на "График платежей" (индекс 0)
         self.view.tabs.selected_index = 0
         
-        # Сбрасываем счетчик вызовов page.update
-        self.page.update.reset_mock()
-        
         # Загружаем платежи
         self.view.load_payments()
         
         # Проверяем, что список содержит элементы
         self.assertEqual(len(self.view.payments_list.controls), 2)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
 
     def test_load_payments_executed_history(self):
         """
@@ -262,17 +255,11 @@ class TestLoanDetailsView(ViewTestBase):
         # Настраиваем мок для возврата пустого списка
         self.mock_get_payments_by_loan.return_value = []
         
-        # Сбрасываем счетчик вызовов page.update
-        self.page.update.reset_mock()
-        
         # Загружаем платежи
         self.view.load_payments()
         
         # Проверяем, что в списке один элемент (сообщение о пустом состоянии)
         self.assertEqual(len(self.view.payments_list.controls), 1)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
 
     def test_back_button_click(self):
         """

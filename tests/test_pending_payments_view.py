@@ -15,6 +15,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 from contextlib import contextmanager
 
+import flet as ft
 from hypothesis import given, strategies as st, settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -365,8 +366,11 @@ class TestPendingPaymentsView(ViewTestBase):
         # Вызываем confirm_cancel_payment
         self.view.confirm_cancel_payment(test_payment)
         
-        # Проверяем, что диалог был создан
-        self.assertIsNotNone(self.page.dialog)
+        # Проверяем, что page.open() был вызван с диалогом
+        self.page.open.assert_called_once()
+        # Проверяем, что передан AlertDialog
+        call_args = self.page.open.call_args[0]
+        self.assertIsInstance(call_args[0], ft.AlertDialog)
 
     def test_update_statistics(self):
         """

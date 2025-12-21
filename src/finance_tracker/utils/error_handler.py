@@ -63,9 +63,7 @@ class ErrorHandler:
             bgcolor=ft.Colors.ERROR,
             action="OK",
         )
-        self.page.snack_bar = snack_bar
-        snack_bar.open = True
-        self.page.update()
+        self.page.open(snack_bar)
 
 
 def safe_handler(page_getter: Callable[[], Optional[ft.Page]] = None):

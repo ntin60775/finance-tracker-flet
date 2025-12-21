@@ -496,8 +496,7 @@ class PendingPaymentsView(ft.Column):
                 reason = reason_field.value or None
                 cancel_data = PendingPaymentCancel(cancel_reason=reason)
                 cancel_pending_payment(self.session, payment.id, cancel_data)
-                dialog.open = False
-                self.page.update()
+                self.page.close(dialog)
                 self.show_success("Отложенный платёж отменён")
                 self.refresh_data()
             except Exception as ex:
@@ -524,22 +523,19 @@ class PendingPaymentsView(ft.Column):
                 spacing=10,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: setattr(dialog, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=lambda _: self.page.close(dialog)),
                 ft.ElevatedButton("Отменить платёж", on_click=on_confirm),
             ],
         )
 
-        self.page.dialog = dialog
-        dialog.open = True
-        self.page.update()
+        self.page.open(dialog)
 
     def confirm_delete_payment(self, payment: PendingPaymentDB):
         """Подтверждение удаления платежа."""
         def on_confirm(e):
             try:
                 delete_pending_payment(self.session, payment.id)
-                dialog.open = False
-                self.page.update()
+                self.page.close(dialog)
                 self.show_success("Отложенный платёж удалён")
                 self.refresh_data()
             except ValueError as ve:
@@ -561,14 +557,12 @@ class PendingPaymentsView(ft.Column):
                 spacing=5,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: setattr(dialog, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=lambda _: self.page.close(dialog)),
                 ft.ElevatedButton("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR),
             ],
         )
 
-        self.page.dialog = dialog
-        dialog.open = True
-        self.page.update()
+        self.page.open(dialog)
 
     def show_success(self, message: str):
         """Отображение сообщения об успехе."""
@@ -576,9 +570,7 @@ class PendingPaymentsView(ft.Column):
             content=ft.Text(message),
             bgcolor=ft.Colors.GREEN,
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def show_error(self, message: str):
         """Отображение сообщения об ошибке."""
@@ -586,6 +578,4 @@ class PendingPaymentsView(ft.Column):
             content=ft.Text(message),
             bgcolor=ft.Colors.ERROR,
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)

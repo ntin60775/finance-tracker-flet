@@ -635,8 +635,7 @@ class LoansView(ft.Column):
                 delete_loan(self.session, loan.id, keep_transactions=True)
                 logger.info(f"Кредит удалён: {loan.name} (ID {loan.id})")
                 self._show_success(f"Кредит '{loan.name}' успешно удалён")
-                confirm_dialog.open = False
-                self.page.update()
+                self.page.close(confirm_dialog)
                 self.load_statistics()
                 self.load_loans()
 
@@ -648,8 +647,7 @@ class LoansView(ft.Column):
                 self._show_error(f"Не удалось удалить кредит: {str(ex)}")
 
         def cancel(e):
-            confirm_dialog.open = False
-            self.page.update()
+            self.page.close(confirm_dialog)
 
         confirm_dialog = ft.AlertDialog(
             modal=True,
@@ -671,9 +669,7 @@ class LoansView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        self.page.overlay.append(confirm_dialog)
-        confirm_dialog.open = True
-        self.page.update()
+        self.page.open(confirm_dialog)
 
     def _show_success(self, message: str):
         """Показывает snackbar с сообщением об успехе."""
@@ -682,9 +678,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.GREEN,
             duration=3000
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def _show_error(self, message: str):
         """Показывает snackbar с сообщением об ошибке."""
@@ -693,9 +687,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.ERROR,
             duration=5000
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def _show_info(self, message: str):
         """Показывает snackbar с информационным сообщением."""
@@ -704,9 +696,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.BLUE,
             duration=3000
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""

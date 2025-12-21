@@ -371,11 +371,11 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод открытия диалога
         self.view.open_create_dialog(mock_event)
         
-        # Проверяем, что page.snack_bar был установлен (текущая реализация показывает сообщение)
-        self.assertIsNotNone(self.page.snack_bar)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван с SnackBar
+        self.page.open.assert_called_once()
+        call_args = self.page.open.call_args[0][0]
+        # Проверяем, что это SnackBar (имеет атрибут content)
+        self.assertTrue(hasattr(call_args, 'content'))
 
     def test_edit_planned_transaction(self):
         """
@@ -400,11 +400,11 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод редактирования
         self.view.edit_planned_transaction(test_tx)
         
-        # Проверяем, что page.snack_bar был установлен (текущая реализация показывает сообщение)
-        self.assertIsNotNone(self.page.snack_bar)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван с SnackBar
+        self.page.open.assert_called_once()
+        call_args = self.page.open.call_args[0][0]
+        # Проверяем, что это SnackBar (имеет атрибут content)
+        self.assertTrue(hasattr(call_args, 'content'))
 
     def test_toggle_active_deactivate(self):
         """
@@ -519,14 +519,13 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод подтверждения удаления
         self.view.confirm_delete(test_tx)
         
-        # Проверяем, что page.dialog установлен
-        self.assertIsNotNone(self.page.dialog)
-        
-        # Проверяем, что диалог открыт
-        self.assertTrue(self.page.dialog.open)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван с диалогом
+        self.page.open.assert_called_once()
+        call_args = self.page.open.call_args[0][0]
+        # Проверяем, что это AlertDialog (имеет атрибуты title, content, actions)
+        self.assertTrue(hasattr(call_args, 'title'))
+        self.assertTrue(hasattr(call_args, 'content'))
+        self.assertTrue(hasattr(call_args, 'actions'))
 
     def test_delete_planned_transaction(self):
         """
@@ -565,8 +564,11 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем confirm_delete
         self.view.confirm_delete(test_tx)
         
-        # Получаем диалог и вызываем действие удаления
-        dlg = self.page.dialog
+        # Получаем диалог из вызова page.open
+        self.page.open.assert_called_once()
+        dlg = self.page.open.call_args[0][0]
+        
+        # Вызываем действие удаления
         delete_button = dlg.actions[1]  # Кнопка "Удалить"
         delete_button.on_click(None)
         

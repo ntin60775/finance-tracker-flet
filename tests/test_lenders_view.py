@@ -11,6 +11,7 @@
 """
 import unittest
 from unittest.mock import Mock, patch
+import flet as ft
 
 from finance_tracker.views.lenders_view import LendersView
 from finance_tracker.models.enums import LenderType
@@ -337,16 +338,18 @@ class TestLendersView(ViewTestBase):
         # Вызываем метод подтверждения удаления
         self.view.confirm_delete_lender(test_lender)
         
-        # Проверяем, что в overlay добавлен диалог
-        self.assertGreater(len(self.page.overlay), 0)
+        # Проверяем, что page.open был вызван с AlertDialog
+        self.page.open.assert_called_once()
         
-        # Проверяем, что последний элемент overlay - это AlertDialog
-        last_overlay = self.page.overlay[-1]
-        self.assertTrue(hasattr(last_overlay, 'open'))
-        self.assertTrue(last_overlay.open)
+        # Получаем аргумент вызова page.open
+        call_args = self.page.open.call_args[0]
+        dialog = call_args[0]
         
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что это AlertDialog
+        self.assertIsInstance(dialog, ft.AlertDialog)
+        
+        # Проверяем содержимое диалога
+        self.assertIn("Тестовый банк", dialog.content.value)
 
     def test_delete_lender_with_active_loans_shows_error(self):
         """
@@ -356,6 +359,7 @@ class TestLendersView(ViewTestBase):
         - При попытке удалить займодателя с активными кредитами возникает ошибка
         - Отображается сообщение об ошибке
         - Займодатель не удаляется
+        - Диалог остаётся открытым для повторной попытки или отмены
         
         Validates: Requirements 7.5
         """
@@ -374,8 +378,9 @@ class TestLendersView(ViewTestBase):
         # Открываем диалог подтверждения
         self.view.confirm_delete_lender(test_lender)
         
-        # Получаем диалог из overlay
-        confirm_dialog = self.page.overlay[-1]
+        # Получаем диалог из вызова page.open
+        call_args = self.page.open.call_args[0]
+        confirm_dialog = call_args[0]
         
         # Находим кнопку "Удалить" и вызываем её обработчик
         delete_button = None
@@ -385,6 +390,10 @@ class TestLendersView(ViewTestBase):
                 break
         
         self.assertIsNotNone(delete_button)
+        
+        # Сбрасываем счётчик вызовов page.open и page.close перед вызовом delete
+        self.page.open.reset_mock()
+        self.page.close.reset_mock()
         
         # Вызываем обработчик удаления
         delete_button.on_click(None)
@@ -396,16 +405,19 @@ class TestLendersView(ViewTestBase):
             test_lender.id
         )
         
-        # Проверяем, что в overlay добавлен SnackBar с ошибкой
-        # (последний элемент после диалога)
-        snackbar_found = False
-        for item in self.page.overlay:
-            if hasattr(item, 'bgcolor') and hasattr(item, 'content'):
-                # Это может быть SnackBar
-                snackbar_found = True
-                break
+        # Проверяем, что page.close НЕ был вызван (диалог остаётся открытым при ошибке)
+        self.page.close.assert_not_called()
         
-        self.assertTrue(snackbar_found, "SnackBar с ошибкой не найден")
+        # Проверяем, что page.open был вызван для SnackBar с ошибкой
+        self.page.open.assert_called_once()
+        
+        # Получаем аргумент вызова page.open для SnackBar
+        snackbar_call_args = self.page.open.call_args[0]
+        snackbar = snackbar_call_args[0]
+        
+        # Проверяем, что это SnackBar с ошибкой
+        self.assertIsInstance(snackbar, ft.SnackBar)
+        self.assertEqual(snackbar.bgcolor, ft.Colors.ERROR)
 
     def test_on_create_lender_success(self):
         """

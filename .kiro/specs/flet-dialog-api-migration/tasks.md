@@ -49,7 +49,7 @@
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 4.1, 4.2, 4.3, 5.1, 5.2_
 
-- [ ] 7. Checkpoint - Запустить тесты после миграции components
+- [x] 7. Checkpoint - Запустить тесты после миграции components
   - Запустить полный набор тестов: `pytest tests/ -v`
   - Убедиться, что все тесты проходят
   - Если тесты падают - исправить проблемы
@@ -57,50 +57,50 @@
 
 ### Этап 2: Миграция Views (Представления)
 
-- [ ] 8. Мигрировать pending_payments_view.py на современный API
+- [x] 8. Мигрировать pending_payments_view.py на современный API
   - Заменить `self.page.dialog = dialog` на использование `self.page.open(dialog)`
   - Заменить `dialog.open = True` на вызов `page.open()`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 9. Мигрировать planned_transactions_view.py на современный API
+- [x] 9. Мигрировать planned_transactions_view.py на современный API
   - Заменить `self.page.dialog = dlg` на использование `self.page.open(dlg)`
   - Заменить `dlg.open = True` на вызов `page.open()`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 10. Мигрировать categories_view.py на современный API
+- [x] 10. Мигрировать categories_view.py на современный API
   - Заменить `self.page.dialog = dlg` на использование `self.page.open(dlg)`
   - Заменить `dlg.open = True` на вызов `page.open()`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 11. Мигрировать loans_view.py на современный API
+- [x] 11. Мигрировать loans_view.py на современный API
   - Заменить использование `confirm_dialog.open = True` на `page.open(confirm_dialog)`
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 12. Мигрировать lenders_view.py на современный API
+- [x] 12. Мигрировать lenders_view.py на современный API
   - Заменить использование `confirm_dialog.open = True` на `page.open(confirm_dialog)`
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 13. Мигрировать loan_details_view.py на современный API
+- [x] 13. Мигрировать loan_details_view.py на современный API
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 14. Мигрировать settings_view.py на современный API
+- [x] 14. Мигрировать settings_view.py на современный API
   - Обновить использование SnackBar на `page.open(snack)` вместо `snack.open = True`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 15. Checkpoint - Запустить тесты после миграции views
+- [x] 15. Checkpoint - Запустить тесты после миграции views
   - Запустить полный набор тестов: `pytest tests/ -v`
   - Убедиться, что все тесты проходят
   - Если тесты падают - исправить проблемы
@@ -108,12 +108,12 @@
 
 ### Этап 3: Миграция Utilities
 
-- [ ] 16. Мигрировать error_handler.py на современный API
+- [x] 16. Мигрировать error_handler.py на современный API
   - Обновить использование SnackBar на `page.open(snack_bar)` вместо `snack_bar.open = True`
   - Удалить избыточные вызовы `page.update()` после работы с диалогами
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 17. Checkpoint - Запустить тесты после миграции utilities
+- [x] 17. Checkpoint - Запустить тесты после миграции utilities
   - Запустить полный набор тестов: `pytest tests/ -v`
   - Убедиться, что все тесты проходят
   - Если тесты падают - исправить проблемы

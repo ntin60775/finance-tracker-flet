@@ -220,11 +220,10 @@ class PlannedTransactionsView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка загрузки плановых транзакций: {e}")
             if self.page:
-                self.page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text(f"Ошибка загрузки плановых транзакций: {e}")
                 )
-                self.page.snack_bar.open = True
-                self.page.update()
+                self.page.open(snack)
 
     def _create_transaction_tile(self, tx: PlannedTransactionDB) -> ft.ListTile:
         """
@@ -587,11 +586,10 @@ class PlannedTransactionsView(ft.Column):
         logger.info("Открытие диалога создания плановой транзакции")
         # TODO: Реализовать PlannedTransactionModal и интегрировать
         if self.page:
-            self.page.snack_bar = ft.SnackBar(
+            snack = ft.SnackBar(
                 content=ft.Text("Создание плановых транзакций будет реализовано")
             )
-            self.page.snack_bar.open = True
-            self.page.update()
+            self.page.open(snack)
 
     def edit_planned_transaction(self, tx: PlannedTransactionDB):
         """
@@ -603,11 +601,10 @@ class PlannedTransactionsView(ft.Column):
         logger.info(f"Редактирование плановой транзакции ID {tx.id}")
         # TODO: Открыть PlannedTransactionModal в режиме редактирования
         if self.page:
-            self.page.snack_bar = ft.SnackBar(
+            snack = ft.SnackBar(
                 content=ft.Text("Редактирование плановых транзакций будет реализовано")
             )
-            self.page.snack_bar.open = True
-            self.page.update()
+            self.page.open(snack)
 
     def toggle_active(self, tx: PlannedTransactionDB):
         """
@@ -629,11 +626,10 @@ class PlannedTransactionsView(ft.Column):
             logger.info(f"Плановая транзакция ID {tx.id} {action}")
 
             if self.page:
-                self.page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text(f"Плановая транзакция {action}")
                 )
-                self.page.snack_bar.open = True
-                self.page.update()
+                self.page.open(snack)
 
             self.hide_details()
             self.refresh_data()
@@ -641,11 +637,10 @@ class PlannedTransactionsView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка изменения статуса плановой транзакции: {e}")
             if self.page:
-                self.page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text(f"Ошибка: {e}")
                 )
-                self.page.snack_bar.open = True
-                self.page.update()
+                self.page.open(snack)
 
     def confirm_delete(self, tx: PlannedTransactionDB):
         """
@@ -663,32 +658,28 @@ class PlannedTransactionsView(ft.Column):
                     delete_actual_transactions=False
                 )
 
-                dlg.open = False
-                self.page.update()
+                self.page.close(dlg)
 
                 logger.info(f"Плановая транзакция ID {tx.id} удалена")
 
                 if self.page:
-                    self.page.snack_bar = ft.SnackBar(
+                    snack = ft.SnackBar(
                         content=ft.Text("Плановая транзакция удалена")
                     )
-                    self.page.snack_bar.open = True
-                    self.page.update()
+                    self.page.open(snack)
 
                 self.hide_details()
                 self.refresh_data()
 
             except Exception as ex:
                 logger.error(f"Ошибка удаления плановой транзакции: {ex}")
-                dlg.open = False
-                self.page.update()
+                self.page.close(dlg)
 
                 if self.page:
-                    self.page.snack_bar = ft.SnackBar(
+                    snack = ft.SnackBar(
                         content=ft.Text(f"Ошибка: {ex}")
                     )
-                    self.page.snack_bar.open = True
-                    self.page.update()
+                    self.page.open(snack)
 
         # Получаем категорию для отображения
         category = self.session.query(CategoryDB).filter_by(id=tx.category_id).first()
@@ -702,7 +693,7 @@ class PlannedTransactionsView(ft.Column):
                 "Фактические транзакции, созданные из вхождений, НЕ будут удалены."
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda e: setattr(dlg, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=lambda e: self.page.close(dlg)),
                 ft.ElevatedButton(
                     "Удалить",
                     color=ft.Colors.ERROR,
@@ -712,6 +703,4 @@ class PlannedTransactionsView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
+        self.page.open(dlg)

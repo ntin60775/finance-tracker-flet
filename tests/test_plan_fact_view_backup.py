@@ -358,8 +358,8 @@ class TestPlannedTransactionsView(ViewTestBase):
         Тест открытия модального окна создания плановой транзакции.
         
         Проверяет:
-        - При нажатии кнопки создания открывается диалог
-        - Диалог открывается в режиме создания
+        - При нажатии кнопки создания показывается SnackBar
+        - page.open вызывается для отображения SnackBar
         
         Validates: Requirements 11.4
         """
@@ -371,19 +371,16 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод открытия диалога
         self.view.open_create_dialog(mock_event)
         
-        # Проверяем, что page.snack_bar был установлен (текущая реализация показывает сообщение)
-        self.assertIsNotNone(self.page.snack_bar)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван (для SnackBar)
+        self.page.open.assert_called_once()
 
     def test_edit_planned_transaction(self):
         """
         Тест открытия модального окна редактирования плановой транзакции.
         
         Проверяет:
-        - При нажатии кнопки редактирования открывается диалог
-        - Диалог открывается в режиме редактирования с данными транзакции
+        - При нажатии кнопки редактирования показывается SnackBar
+        - page.open вызывается для отображения SnackBar
         
         Validates: Requirements 11.5
         """
@@ -400,11 +397,8 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод редактирования
         self.view.edit_planned_transaction(test_tx)
         
-        # Проверяем, что page.snack_bar был установлен (текущая реализация показывает сообщение)
-        self.assertIsNotNone(self.page.snack_bar)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван (для SnackBar)
+        self.page.open.assert_called_once()
 
     def test_toggle_active_deactivate(self):
         """
@@ -519,14 +513,8 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем метод подтверждения удаления
         self.view.confirm_delete(test_tx)
         
-        # Проверяем, что page.dialog установлен
-        self.assertIsNotNone(self.page.dialog)
-        
-        # Проверяем, что диалог открыт
-        self.assertTrue(self.page.dialog.open)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван (для диалога)
+        self.page.open.assert_called_once()
 
     def test_delete_planned_transaction(self):
         """
@@ -565,8 +553,11 @@ class TestPlannedTransactionsView(ViewTestBase):
         # Вызываем confirm_delete
         self.view.confirm_delete(test_tx)
         
-        # Получаем диалог и вызываем действие удаления
-        dlg = self.page.dialog
+        # Получаем диалог из вызова page.open
+        self.page.open.assert_called_once()
+        dlg = self.page.open.call_args[0][0]
+        
+        # Вызываем действие удаления
         delete_button = dlg.actions[1]  # Кнопка "Удалить"
         delete_button.on_click(None)
         

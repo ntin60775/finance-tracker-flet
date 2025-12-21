@@ -135,10 +135,8 @@ class CategoryDialog(ft.AlertDialog):
 
     def close(self, e):
         """Закрытие диалога."""
-        self.open = False
         if self.page:
             self.page.close(self)
-            self.page.update()
 
 
 class CategoriesView(ft.Column):
@@ -230,10 +228,9 @@ class CategoriesView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка загрузки категорий: {e}")
             # Показываем сообщение об ошибке пользователю
-            if self.page and hasattr(self.page, 'snack_bar'):
-                self.page.snack_bar = ft.SnackBar(content=ft.Text(f"Ошибка загрузки категорий: {e}"))
-                self.page.snack_bar.open = True
-                self.page.update()
+            if self.page:
+                snack = ft.SnackBar(content=ft.Text(f"Ошибка загрузки категорий: {e}"))
+                self.page.open(snack)
 
     def _create_category_tile(self, category: CategoryDB) -> ft.Container:
         """Создание элемента списка для категории."""
@@ -357,22 +354,22 @@ class CategoriesView(ft.Column):
         @safe_handler()
         def delete_action(e):
             delete_category(self.session, category_id)
-            dlg.open = False
-            self.page.update()
+            self.page.close(dlg)
             self.refresh_data()
             self.page.open(ft.SnackBar(content=ft.Text(f"Категория '{name}' удалена")))
+
+        def cancel_action(e):
+            self.page.close(dlg)
 
         dlg = ft.AlertDialog(
             modal=True,
             title=ft.Text("Подтверждение удаления"),
             content=ft.Text(f"Вы действительно хотите удалить категорию '{name}'?"),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda e: setattr(dlg, 'open', False) or self.page.update()),
+                ft.TextButton("Отмена", on_click=cancel_action),
                 ft.TextButton("Удалить", on_click=delete_action, style=ft.ButtonStyle(color=ft.Colors.ERROR)),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
         
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
+        self.page.open(dlg)

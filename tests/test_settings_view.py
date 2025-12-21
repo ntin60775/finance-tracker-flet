@@ -190,8 +190,7 @@ class TestSettingsView(ViewTestBase):
         
         Проверяет:
         - При нажатии кнопки "Сохранить" вызывается settings.save()
-        - Отображается SnackBar с сообщением об успехе
-        - page.update() вызывается для отображения SnackBar
+        - Отображается SnackBar через page.open()
         
         Validates: Requirements 13.5
         """
@@ -204,12 +203,14 @@ class TestSettingsView(ViewTestBase):
         # Проверяем, что settings.save был вызван
         self.mock_settings.save.assert_called_once()
         
-        # Проверяем, что SnackBar установлен
-        self.assertIsNotNone(self.page.snack_bar)
-        self.assertTrue(self.page.snack_bar.open)
+        # Проверяем, что page.open был вызван для SnackBar
+        self.page.open.assert_called_once()
         
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Получаем аргумент вызова page.open
+        snack_bar = self.page.open.call_args[0][0]
+        
+        # Проверяем, что это SnackBar
+        self.assertIsInstance(snack_bar, ft.SnackBar)
 
     def test_save_settings_shows_success_message(self):
         """
@@ -227,8 +228,10 @@ class TestSettingsView(ViewTestBase):
         # Вызываем метод сохранения
         self.view._save_settings(mock_event)
         
+        # Получаем SnackBar из вызова page.open
+        snack_bar = self.page.open.call_args[0][0]
+        
         # Проверяем, что SnackBar содержит правильное сообщение
-        snack_bar = self.page.snack_bar
         self.assertIsNotNone(snack_bar)
         self.assertIn("успешно", snack_bar.content.value.lower())
         self.assertEqual(snack_bar.bgcolor, ft.Colors.GREEN)

@@ -146,6 +146,4 @@ class SettingsView(ft.Column):
             content=ft.Text("Настройки успешно сохранены"),
             bgcolor=ft.Colors.GREEN
         )
-        self.page.snack_bar = snack_bar
-        snack_bar.open = True
-        self.page.update()
+        self.page.open(snack_bar)

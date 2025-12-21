@@ -445,7 +445,7 @@ class TestLoansView(ViewTestBase):
         Проверяет:
         - При вызове on_create_loan вызывается create_loan сервис
         - После создания перезагружаются статистика и список кредитов
-        - Показывается сообщение об успехе
+        - Показывается сообщение об успехе через page.open()
         
         Validates: Requirements 8.3
         """
@@ -456,6 +456,7 @@ class TestLoansView(ViewTestBase):
         # Сбрасываем счетчики вызовов
         self.mock_get_all_loans.reset_mock()
         self.mock_get_summary_statistics.reset_mock()
+        self.page.open.reset_mock()
         
         # Вызываем on_create_loan
         self.view.on_create_loan(
@@ -477,8 +478,8 @@ class TestLoansView(ViewTestBase):
         self.assert_service_called(self.mock_get_summary_statistics, self.mock_session)
         self.assert_service_called(self.mock_get_all_loans, self.mock_session, status=None)
         
-        # Проверяем, что SnackBar был добавлен в overlay
-        self.assertGreater(len(self.page.overlay), 0)
+        # Проверяем, что page.open был вызван для SnackBar
+        self.page.open.assert_called()
 
     def test_on_update_loan_success(self):
         """
@@ -487,7 +488,7 @@ class TestLoansView(ViewTestBase):
         Проверяет:
         - При вызове on_update_loan вызывается update_loan сервис
         - После обновления перезагружаются статистика и список кредитов
-        - Показывается сообщение об успехе
+        - Показывается сообщение об успехе через page.open()
         
         Validates: Requirements 8.3
         """
@@ -498,6 +499,7 @@ class TestLoansView(ViewTestBase):
         # Сбрасываем счетчики вызовов
         self.mock_get_all_loans.reset_mock()
         self.mock_get_summary_statistics.reset_mock()
+        self.page.open.reset_mock()
         
         # Вызываем on_update_loan
         self.view.on_update_loan(
@@ -519,8 +521,8 @@ class TestLoansView(ViewTestBase):
         self.assert_service_called(self.mock_get_summary_statistics, self.mock_session)
         self.assert_service_called(self.mock_get_all_loans, self.mock_session, status=None)
         
-        # Проверяем, что SnackBar был добавлен в overlay
-        self.assertGreater(len(self.page.overlay), 0)
+        # Проверяем, что page.open был вызван для SnackBar
+        self.page.open.assert_called()
 
     def test_confirm_delete_loan(self):
         """
@@ -529,7 +531,7 @@ class TestLoansView(ViewTestBase):
         Проверяет:
         - При вызове confirm_delete_loan открывается диалог подтверждения
         - Диалог содержит информацию об удаляемом кредите
-        - page.dialog установлен и открыт
+        - page.open() вызывается с диалогом
         
         Validates: Requirements 8.3
         """
@@ -539,11 +541,8 @@ class TestLoansView(ViewTestBase):
         # Вызываем метод подтверждения удаления
         self.view.confirm_delete_loan(test_loan)
         
-        # Проверяем, что диалог был добавлен в overlay
-        self.assertGreater(len(self.page.overlay), 0)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван с диалогом
+        self.page.open.assert_called_once()
 
     def test_load_statistics_with_data(self):
         """

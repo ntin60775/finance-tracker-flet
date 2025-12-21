@@ -311,14 +311,8 @@ class TestCategoriesView(ViewTestBase):
         # Вызываем метод подтверждения удаления
         self.view.confirm_delete(category_id=1, name="Тестовая категория")
         
-        # Проверяем, что page.dialog установлен
-        self.assertIsNotNone(self.page.dialog)
-        
-        # Проверяем, что диалог открыт
-        self.assertTrue(self.page.dialog.open)
-        
-        # Проверяем, что page.update был вызван
-        self.assert_page_updated(self.page)
+        # Проверяем, что page.open был вызван (современный API)
+        self.assert_modal_opened(self.page)
 
     def test_will_unmount_closes_session(self):
         """

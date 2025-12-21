@@ -383,8 +383,7 @@ class LendersView(ft.Column):
                 delete_lender(self.session, lender.id)
                 logger.info(f"Займодатель удалён: {lender.name} (ID {lender.id})")
                 self._show_success(f"Займодатель '{lender.name}' успешно удалён")
-                confirm_dialog.open = False
-                self.page.update()
+                self.page.close(confirm_dialog)
                 self.load_lenders()
 
             except ValueError as ve:
@@ -395,8 +394,7 @@ class LendersView(ft.Column):
                 self._show_error(f"Не удалось удалить займодателя: {str(ex)}")
 
         def cancel(e):
-            confirm_dialog.open = False
-            self.page.update()
+            self.page.close(confirm_dialog)
 
         confirm_dialog = ft.AlertDialog(
             modal=True,
@@ -418,9 +416,7 @@ class LendersView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        self.page.overlay.append(confirm_dialog)
-        confirm_dialog.open = True
-        self.page.update()
+        self.page.open(confirm_dialog)
 
     def _show_success(self, message: str):
         """Показывает snackbar с сообщением об успехе."""
@@ -429,9 +425,7 @@ class LendersView(ft.Column):
             bgcolor=ft.Colors.GREEN,
             duration=3000
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def _show_error(self, message: str):
         """Показывает snackbar с сообщением об ошибке."""
@@ -440,9 +434,7 @@ class LendersView(ft.Column):
             bgcolor=ft.Colors.ERROR,
             duration=5000
         )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
+        self.page.open(snack)
 
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""
