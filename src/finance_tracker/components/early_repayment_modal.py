@@ -184,17 +184,14 @@ class EarlyRepaymentModal:
         """
         self.page = page
         page.overlay.append(self.date_picker)
-        page.dialog = self.dialog
-        self.dialog.open = True
-        page.update()
+        page.open(self.dialog)
 
         logger.debug(f"Открыто модальное окно досрочного погашения для кредита ID {self.loan.id}")
 
     def _close_dialog(self, e=None):
         """Закрывает модальное окно."""
         if self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
             logger.debug("Модальное окно досрочного погашения закрыто")
 
     def _on_type_change(self, e):

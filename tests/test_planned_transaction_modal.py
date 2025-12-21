@@ -45,6 +45,9 @@ class TestPlannedTransactionModal(unittest.TestCase):
         )
         self.page = MagicMock()
         self.page.overlay = []
+        # Добавляем методы для современного Flet API
+        self.page.open = Mock()
+        self.page.close = Mock()
         self.modal.page = self.page
 
     def tearDown(self):
@@ -60,7 +63,8 @@ class TestPlannedTransactionModal(unittest.TestCase):
         """Тест открытия модального окна и его значений по умолчанию."""
         self.modal.open(self.page)
 
-        self.assertTrue(self.modal.dialog.open)
+        # Проверяем вызов page.open() с диалогом
+        self.page.open.assert_called_once_with(self.modal.dialog)
         self.assertEqual(self.modal.type_segment.selected, {TransactionType.EXPENSE.value})
         self.assertEqual(self.modal.recurrence_type_dropdown.value, RecurrenceType.NONE.value)
         self.assertFalse(self.modal.end_condition_dropdown.visible)
@@ -102,7 +106,8 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.assertEqual(called_arg.amount, 500)
         self.assertEqual(called_arg.category_id, self.cat_id_1)
         self.assertIsNone(called_arg.recurrence_rule)
-        self.assertFalse(self.modal.dialog.open)
+        # Проверяем вызов page.close() с диалогом
+        self.page.close.assert_called_once_with(self.modal.dialog)
         
     def test_save_periodic_transaction(self):
         """Тест сохранения периодической транзакции."""
@@ -143,7 +148,8 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
         self.assertEqual(self.modal.interval_field.error_text, "Интервал должен быть больше 0")
         self.on_save.assert_not_called()
-        self.assertTrue(self.modal.dialog.open)
+        # При ошибке валидации диалог не закрывается, поэтому page.close не должен быть вызван
+        self.page.close.assert_not_called()
 
 
 if __name__ == '__main__':

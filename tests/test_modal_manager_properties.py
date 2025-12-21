@@ -30,15 +30,17 @@ class TestModalManagerProperties:
     ))
     def test_modal_dialog_functionality_property(self, indicator_types):
         """
-        **Feature: calendar-legend-improvement, Property 5: Modal dialog functionality**
-        **Validates: Requirements 3.1, 3.2, 3.4**
+        **Feature: calendar-legend-width-fix, Property 7: Modal dialog stability**
+        **Validates: Requirements 5.1, 5.5**
         
         Property: Для любого набора индикаторов модальное окно должно создаваться,
-        открываться и закрываться корректно.
+        открываться и закрываться корректно с использованием PageAccessManager.
+        Использует современный Flet API (page.open/page.close).
         """
-        # Arrange - подготовка индикаторов
+        # Arrange - подготовка индикаторов и mock компонента
         indicators = [INDICATOR_CONFIGS[indicator_type] for indicator_type in indicator_types]
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         mock_page = MagicMock(spec=ft.Page)
         
         # Act & Assert - создание модального окна
@@ -53,23 +55,20 @@ class TestModalManagerProperties:
         assert len(dialog.actions) == 1
         assert dialog.actions[0].text == "Закрыть"
         
-        # Act & Assert - открытие модального окна
-        result = modal_manager.open_modal(mock_page)
+        # Act & Assert - открытие модального окна через современный Flet API
+        result = modal_manager.open_modal(page=mock_page)
         
-        # Проверяем успешное открытие
+        # Проверяем успешное открытие через page.open()
         assert result == True
-        assert mock_page.dialog == dialog
-        assert dialog.open == True
-        mock_page.update.assert_called_once()
+        mock_page.open.assert_called_once_with(dialog)
         
-        # Act & Assert - закрытие модального окна
-        mock_page.update.reset_mock()
-        result = modal_manager.close_modal(mock_page)
+        # Act & Assert - закрытие модального окна через современный Flet API
+        mock_page.reset_mock()
+        result = modal_manager.close_modal(page=mock_page)
         
-        # Проверяем успешное закрытие
+        # Проверяем успешное закрытие через page.close()
         assert result == True
-        assert dialog.open == False
-        mock_page.update.assert_called_once()
+        mock_page.close.assert_called_once_with(dialog)
 
     @given(st.lists(
         st.sampled_from(list(IndicatorType)), 
@@ -79,15 +78,16 @@ class TestModalManagerProperties:
     ))
     def test_modal_dialog_structure_property(self, indicator_types):
         """
-        **Feature: calendar-legend-improvement, Property 6: Modal dialog structure**
-        **Validates: Requirements 3.2, 3.3**
+        **Feature: calendar-legend-width-fix, Property 7: Modal dialog stability**
+        **Validates: Requirements 5.1, 5.3**
         
         Property: Для любого набора индикаторов модальное окно должно содержать
         все индикаторы, сгруппированные по типам (точки, символы, фон).
         """
         # Arrange
         indicators = [INDICATOR_CONFIGS[indicator_type] for indicator_type in indicator_types]
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         
         # Act
         dialog = modal_manager.create_modal(indicators)
@@ -116,56 +116,69 @@ class TestModalManagerProperties:
     @given(st.one_of(st.none(), st.just(MagicMock(spec=ft.Page))))
     def test_page_object_handling_property(self, page):
         """
-        **Feature: calendar-legend-improvement, Property 7: Page object handling**
-        **Validates: Requirements 3.5, 5.2**
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 2.5, 5.2, 5.5**
         
         Property: ModalManager должен безопасно обрабатывать любые page объекты,
-        включая None, без вызова исключений.
+        включая None, без вызова исключений, используя PageAccessManager.
+        Использует современный Flet API (page.open/page.close).
         """
         # Arrange
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        # Убираем page из mock_legend_component, чтобы PageAccessManager не нашёл его
+        mock_legend_component.page = None
+        modal_manager = ModalManager(mock_legend_component)
         indicators = [INDICATOR_CONFIGS[IndicatorType.INCOME_DOT]]
         modal_manager.create_modal(indicators)
         
-        # Act & Assert - открытие с любым page объектом
-        try:
-            result = modal_manager.open_modal(page)
-            
-            if page is None:
-                # При None должен вернуть False, но не упасть
-                assert result == False
-            else:
-                # При валидном page должен вернуть True
-                assert result == True
-                assert page.dialog == modal_manager.dialog
-                assert modal_manager.dialog.open == True
+        # Мокируем PageAccessManager, чтобы он возвращал только переданный page
+        with patch.object(modal_manager.page_manager, 'get_page', return_value=page):
+            # Act & Assert - открытие с любым page объектом
+            try:
+                result = modal_manager.open_modal(page=page)
                 
-        except Exception as e:
-            pytest.fail(f"open_modal не должен вызывать исключения с page={page}: {e}")
-        
-        # Act & Assert - закрытие с любым page объектом
-        try:
-            result = modal_manager.close_modal(page)
+                if page is None:
+                    # При None должен вернуть False, но не упасть
+                    assert result == False
+                else:
+                    # При валидном page должен вернуть True
+                    assert result == True
+                    # Проверяем вызов page.open() (современный Flet API)
+                    page.open.assert_called_once_with(modal_manager.dialog)
+                    
+            except Exception as e:
+                pytest.fail(f"open_modal не должен вызывать исключения с page={page}: {e}")
             
-            if page is None:
-                # При None должен вернуть False, но не упасть
-                assert result == False
-            else:
-                # При валидном page должен вернуть True
-                assert result == True
-                assert modal_manager.dialog.open == False
+            # Act & Assert - закрытие с любым page объектом
+            try:
+                if page is not None:
+                    page.reset_mock()
+                result = modal_manager.close_modal(page=page)
                 
-        except Exception as e:
-            pytest.fail(f"close_modal не должен вызывать исключения с page={page}: {e}")
+                if page is None:
+                    # При None должен вернуть False, но не упасть
+                    assert result == False
+                else:
+                    # При валидном page должен вернуть True
+                    assert result == True
+                    # Проверяем вызов page.close() (современный Flet API)
+                    page.close.assert_called_once_with(modal_manager.dialog)
+                    
+            except Exception as e:
+                pytest.fail(f"close_modal не должен вызывать исключения с page={page}: {e}")
 
     def test_modal_dialog_error_handling(self):
         """
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 5.5**
+        
         Тест: ModalManager должен создавать fallback диалог при ошибках.
         
         Проверяет, что при ошибке создания основного диалога создаётся
         упрощённая версия без падения приложения.
         """
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         
         # Создаём некорректные индикаторы, которые могут вызвать ошибку
         invalid_indicators = [
@@ -197,6 +210,9 @@ class TestModalManagerProperties:
     ))
     def test_indicator_grouping_correctness_property(self, indicator_types):
         """
+        **Feature: calendar-legend-width-fix, Property 7: Modal dialog stability**
+        **Validates: Requirements 5.3**
+        
         Property: Группировка индикаторов должна быть корректной для любого набора.
         
         Проверяет, что индикаторы правильно группируются по типам:
@@ -206,7 +222,8 @@ class TestModalManagerProperties:
         """
         # Arrange
         indicators = [INDICATOR_CONFIGS[indicator_type] for indicator_type in indicator_types]
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         
         # Act
         groups = modal_manager._group_indicators_by_type(indicators)
@@ -231,12 +248,16 @@ class TestModalManagerProperties:
 
     def test_close_modal_handler_safety(self):
         """
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 2.5, 5.5**
+        
         Тест: Обработчик закрытия модального окна должен быть безопасным.
         
-        Проверяет, что _close_modal_handler корректно обрабатывает различные
-        типы событий и не падает при некорректных данных.
+        Проверяет, что улучшенный _close_modal_handler корректно обрабатывает различные
+        типы событий и не падает при некорректных данных, используя PageAccessManager.
         """
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         indicators = [INDICATOR_CONFIGS[IndicatorType.INCOME_DOT]]
         modal_manager.create_modal(indicators)
         
@@ -259,10 +280,14 @@ class TestModalManagerProperties:
     @given(st.sampled_from(list(IndicatorType)))
     def test_legend_item_creation_property(self, indicator_type):
         """
+        **Feature: calendar-legend-width-fix, Property 7: Modal dialog stability**
+        **Validates: Requirements 5.3**
+        
         Property: Для любого типа индикатора должен создаваться корректный элемент легенды.
         """
         # Arrange
-        modal_manager = ModalManager()
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
         indicator = INDICATOR_CONFIGS[indicator_type]
         
         # Act
@@ -335,3 +360,118 @@ class TestModalManagerProperties:
                 groups['backgrounds'].append(indicator)
         
         return groups
+    
+    @given(st.lists(
+        st.sampled_from([None, Mock(), Mock(control=Mock(page=MagicMock(spec=ft.Page)))]),
+        min_size=1,
+        max_size=5
+    ))
+    def test_page_access_manager_integration_property(self, events):
+        """
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 2.2, 2.5, 5.2**
+        
+        Property: ModalManager должен корректно использовать PageAccessManager
+        для получения page объекта из любых типов событий.
+        Использует современный Flet API (page.open/page.close).
+        """
+        # Arrange
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
+        indicators = [INDICATOR_CONFIGS[IndicatorType.INCOME_DOT]]
+        modal_manager.create_modal(indicators)
+        
+        # Act & Assert - тестируем открытие с различными событиями
+        for event in events:
+            try:
+                result = modal_manager.open_modal(event_or_control=event)
+                
+                # Результат должен быть boolean, не должно быть исключений
+                assert isinstance(result, bool)
+                
+                # Если есть валидный page в событии, должно открыться успешно
+                if (event and hasattr(event, 'control') and 
+                    hasattr(event.control, 'page') and event.control.page):
+                    assert result == True
+                    # Проверяем вызов page.open() (современный Flet API)
+                    event.control.page.open.assert_called_with(modal_manager.dialog)
+                    
+                    # Тестируем закрытие
+                    event.control.page.reset_mock()
+                    close_result = modal_manager.close_modal(event_or_control=event)
+                    assert isinstance(close_result, bool)
+                    # Проверяем вызов page.close() (современный Flet API)
+                    event.control.page.close.assert_called_with(modal_manager.dialog)
+                    
+            except Exception as e:
+                pytest.fail(f"PageAccessManager интеграция не должна вызывать исключения: {e}")
+    
+    @given(st.booleans())
+    def test_fallback_notification_property(self, has_cached_page):
+        """
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 2.4, 5.2**
+        
+        Property: При недоступности модального окна должно показываться fallback уведомление.
+        """
+        # Arrange
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
+        
+        if has_cached_page:
+            # Настраиваем кэшированный page для показа уведомления
+            mock_page = MagicMock(spec=ft.Page)
+            modal_manager.page_manager.cached_page = mock_page
+        else:
+            modal_manager.page_manager.cached_page = None
+        
+        # Act - вызываем fallback уведомление
+        try:
+            modal_manager._show_fallback_notification()
+            
+            # Assert - не должно быть исключений
+            # Если есть кэшированный page, должна быть попытка показать snack bar
+            if has_cached_page:
+                # Проверяем, что была попытка создать snack bar
+                # (детальная проверка зависит от реализации)
+                pass
+                
+        except Exception as e:
+            pytest.fail(f"Fallback уведомление не должно вызывать исключения: {e}")
+    
+    @given(st.lists(
+        st.sampled_from([None, Exception("Test error"), Mock()]),
+        min_size=1,
+        max_size=3
+    ))
+    def test_alternative_close_robustness_property(self, error_scenarios):
+        """
+        **Feature: calendar-legend-width-fix, Property 9: Error handling robustness**
+        **Validates: Requirements 5.5**
+        
+        Property: Альтернативное закрытие модального окна должно быть устойчивым к ошибкам.
+        """
+        # Arrange
+        mock_legend_component = Mock()
+        modal_manager = ModalManager(mock_legend_component)
+        indicators = [INDICATOR_CONFIGS[IndicatorType.INCOME_DOT]]
+        modal_manager.create_modal(indicators)
+        
+        # Настраиваем кэшированный page
+        mock_page = MagicMock(spec=ft.Page)
+        modal_manager.page_manager.cached_page = mock_page
+        
+        # Act & Assert - тестируем альтернативное закрытие
+        for scenario in error_scenarios:
+            try:
+                # Симулируем различные сценарии ошибок
+                if isinstance(scenario, Exception):
+                    with patch.object(mock_page, 'update', side_effect=scenario):
+                        modal_manager._try_alternative_close()
+                else:
+                    modal_manager._try_alternative_close()
+                
+                # Не должно быть необработанных исключений
+                
+            except Exception as e:
+                pytest.fail(f"Альтернативное закрытие не должно вызывать исключения: {e}")

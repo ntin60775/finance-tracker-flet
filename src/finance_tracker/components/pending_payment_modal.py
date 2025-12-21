@@ -155,7 +155,6 @@ class PendingPaymentModal:
             payment: Платёж для редактирования (если None - создание нового).
         """
         self.page = page
-        self.page.dialog = self.dialog
 
         # Setup Date Picker if not added
         if self.date_picker not in self.page.overlay:
@@ -200,14 +199,12 @@ class PendingPaymentModal:
         self.amount_field.error_text = None
         self.error_text.value = ""
 
-        self.dialog.open = True
-        self.page.update()
+        self.page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
         if self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
 
     def _load_categories(self):
         """Загружает категории расходов."""

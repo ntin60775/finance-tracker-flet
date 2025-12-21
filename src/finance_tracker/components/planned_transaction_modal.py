@@ -239,7 +239,6 @@ class PlannedTransactionModal:
             date: Предустановленная дата начала (по умолчанию сегодня).
         """
         self.page = page
-        self.page.dialog = self.dialog
 
         # Setup Date Pickers if not added
         if self.start_date_picker not in self.page.overlay:
@@ -274,14 +273,12 @@ class PlannedTransactionModal:
         # Load categories
         self._load_categories(TransactionType.EXPENSE)
 
-        self.dialog.open = True
-        self.page.update()
+        self.page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog:
-            self.dialog.open = False
-            self.page.update()
+        if self.dialog and self.page:
+            self.page.close(self.dialog)
 
     def _open_start_date_picker(self, e):
         """Открытие выбора даты начала."""

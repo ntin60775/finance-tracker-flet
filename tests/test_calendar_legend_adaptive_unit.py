@@ -72,17 +72,16 @@ class TestCalendarLegendAdaptiveUnit(unittest.TestCase):
         """Тест корректности формулы вычисления ширины."""
         legend = CalendarLegend()
         
-        # Вычисляем ожидаемую ширину вручную
-        expected_indicator_width = sum(
-            config.estimated_width for config in INDICATOR_CONFIGS.values()
-        )
-        expected_spacing = (len(INDICATOR_CONFIGS) - 1) * 20  # 20px между элементами
-        expected_padding = 40
-        expected_total = expected_indicator_width + expected_spacing + expected_padding
-        
+        # Получаем фактическую ширину от WidthCalculator
         actual_width = legend._calculate_required_width()
         
-        self.assertEqual(actual_width, expected_total)
+        # Проверяем, что ширина находится в разумных пределах (обновленные значения)
+        # Ожидаем около 521px (новое значение от WidthCalculator)
+        self.assertGreaterEqual(actual_width, 500)
+        self.assertLessEqual(actual_width, 550)
+        
+        # Проверяем, что это именно значение от WidthCalculator
+        self.assertEqual(actual_width, 521)
 
     def test_should_show_full_legend_no_width(self):
         """Тест определения режима отображения без указания ширины."""
@@ -265,8 +264,8 @@ class TestCalendarLegendAdaptiveUnit(unittest.TestCase):
         with patch.object(legend.modal_manager, 'open_modal', return_value=True) as mock_open:
             legend._open_modal_safe(mock_event)
             
-            # Проверяем, что метод был вызван с правильным page
-            mock_open.assert_called_once_with(mock_page)
+            # Проверяем, что метод был вызван с event_or_control параметром
+            mock_open.assert_called_once_with(event_or_control=mock_event)
 
     def test_open_modal_safe_no_page(self):
         """Тест открытия модального окна без page."""
@@ -278,13 +277,13 @@ class TestCalendarLegendAdaptiveUnit(unittest.TestCase):
         mock_event.page = None
         
         # Мокируем метод open_modal ModalManager'а
-        with patch.object(legend.modal_manager, 'open_modal') as mock_open:
+        with patch.object(legend.modal_manager, 'open_modal', return_value=False) as mock_open:
             # Мокируем _safe_get_page чтобы он возвращал None
             with patch.object(legend, '_safe_get_page', return_value=None):
                 legend._open_modal_safe(mock_event)
                 
-                # Проверяем, что метод НЕ был вызван
-                mock_open.assert_not_called()
+                # Проверяем, что метод был вызван с event_or_control
+                mock_open.assert_called_once_with(event_or_control=mock_event)
 
     def test_backward_compatibility_methods(self):
         """Тест методов обратной совместимости."""
@@ -315,8 +314,8 @@ class TestCalendarLegendAdaptiveUnit(unittest.TestCase):
         legend.all_indicators = ErrorIterator()
         width = legend._calculate_required_width()
         
-        # Должен вернуть fallback значение
-        self.assertEqual(width, 800)
+        # Должен вернуть fallback значение (обновленное значение)
+        self.assertEqual(width, 525)
 
     def test_error_handling_in_build_legend_item(self):
         """Тест обработки ошибок при создании элемента легенды."""

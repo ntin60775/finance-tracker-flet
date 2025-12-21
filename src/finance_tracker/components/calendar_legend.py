@@ -10,22 +10,38 @@ from .calendar_legend_types import (
     INDICATOR_CONFIGS
 )
 from .modal_manager import ModalManager
+from .width_calculator import WidthCalculator, WidthCalculationResult
+from .page_access_manager import PageAccessManager
 
 logger = logging.getLogger(__name__)
 
 
 class CalendarLegend(ft.Container):
     """
-    Улучшенная легенда календаря с адаптивным отображением.
+    Улучшенная легенда календаря с адаптивным отображением и исправленными оценками ширины.
     
     Показывает все доступные индикаторы календаря в одну строку при достаточной ширине,
     или отображает приоритетные индикаторы с кнопкой "Подробнее" при ограниченном пространстве.
     
+    Ключевые исправления в этой версии:
+    - Скорректированы завышенные оценки ширины индикаторов (с ~670px до ~525px)
+    - Исправлена неработающая кнопка "Подробнее" через улучшенный доступ к page
+    - Добавлен WidthCalculator для точных вычислений ширины
+    - Интегрирован PageAccessManager для надёжного доступа к page объекту
+    - Улучшен ModalManager для стабильной работы модального окна
+    
     Поддерживает:
-    - Автоматическое определение доступной ширины
-    - Приоритизацию индикаторов при ограниченном пространстве
-    - Безопасную работу с модальным окном
-    - Адаптивное поведение при изменении размеров
+    - Автоматическое определение доступной ширины календаря
+    - Приоритизацию индикаторов при ограниченном пространстве (1-7 по важности)
+    - Безопасную работу с модальным окном через множественные стратегии доступа к page
+    - Адаптивное поведение при изменении размеров (порог 525px для полной легенды)
+    - Визуальную группировку индикаторов (точки, символы, фон)
+    - Подробное логирование для диагностики проблем
+    
+    Режимы отображения:
+    - Полная легенда: все 7 индикаторов в одну строку (при ширине >= 525px)
+    - Сокращённая легенда: приоритетные индикаторы + кнопка "Подробнее" (при ширине < 525px)
+    - Модальное окно: все индикаторы с описаниями, сгруппированные по типам
     """
 
     def __init__(self, calendar_width: Optional[int] = None):
@@ -46,12 +62,20 @@ class CalendarLegend(ft.Container):
             self.all_indicators = self._get_all_indicators()
             
             # Создаём менеджер модального окна
-            self.modal_manager = ModalManager()
+            self.modal_manager = ModalManager(self)
+            
+            # Создаём менеджер доступа к page объекту
+            self.page_access_manager = PageAccessManager(self)
             
             # Инициализируем UI
             self._initialize_ui()
             
-            logger.debug(f"CalendarLegend инициализирован с шириной {calendar_width}")
+            logger.debug(
+                f"CalendarLegend инициализирован успешно: "
+                f"ширина календаря={calendar_width}px, "
+                f"индикаторов загружено={len(self.all_indicators)}, "
+                f"режим отображения={self.display_mode.value}"
+            )
             
         except Exception as e:
             logger.error(f"Критическая ошибка при инициализации CalendarLegend: {e}")
@@ -59,7 +83,8 @@ class CalendarLegend(ft.Container):
             self.calendar_width = calendar_width
             self.display_mode = DisplayMode.AUTO
             self.all_indicators = []
-            self.modal_manager = ModalManager()
+            self.modal_manager = ModalManager(self)
+            self.page_access_manager = PageAccessManager(self)
             self._build_fallback_ui()
 
     def _get_all_indicators(self) -> List[LegendIndicator]:
@@ -74,7 +99,10 @@ class CalendarLegend(ft.Container):
             # Сортируем по приоритету (1 = высший приоритет)
             indicators.sort(key=lambda x: x.priority)
             
-            logger.debug(f"Загружено {len(indicators)} индикаторов")
+            logger.debug(
+                f"Загружено {len(indicators)} индикаторов календарной легенды: "
+                f"{[ind.type.value for ind in indicators]}"
+            )
             return indicators
             
         except Exception as e:
@@ -85,39 +113,61 @@ class CalendarLegend(ft.Container):
         """
         Вычисляет необходимую ширину для отображения всех индикаторов.
         
+        Использует WidthCalculator для точного вычисления ширины с учётом
+        длины текста и размеров визуальных элементов.
+        
         Returns:
             Необходимая ширина в пикселях
         """
         try:
             if not self.all_indicators:
+                logger.debug("Нет индикаторов для вычисления ширины, возвращаем минимальную ширину")
                 return 100  # Минимальная ширина
             
-            # Суммируем ширину всех индикаторов
-            total_indicator_width = sum(
-                indicator.estimated_width for indicator in self.all_indicators
+            # Используем WidthCalculator для точного вычисления
+            result = WidthCalculator.calculate_width_with_fallback(self.all_indicators)
+            
+            # Логируем детали вычисления для отладки исправлений ширины
+            logger.debug(
+                f"Вычисление ширины легенды завершено: "
+                f"общая_ширина={result.total_width}px, "
+                f"точность={'высокая' if result.is_accurate else 'fallback'}, "
+                f"индикаторов={len(self.all_indicators)}, "
+                f"ширина_индикаторов={sum(result.individual_widths.values()) if result.individual_widths else 'N/A'}px, "
+                f"отступы_между_элементами={result.spacing_width}px, "
+                f"padding_контейнера={result.padding_width}px"
             )
             
-            # Добавляем отступы между элементами (20px между каждой парой)
-            spacing = (len(self.all_indicators) - 1) * 20
+            # Дополнительное логирование индивидуальных ширин для отладки
+            if result.individual_widths:
+                for indicator_type, width in result.individual_widths.items():
+                    logger.debug(f"  Ширина индикатора {indicator_type.value}: {width}px")
             
-            # Добавляем padding контейнера
-            padding = 40
+            # Логируем сравнение с предыдущими значениями для контроля исправлений
+            if result.total_width <= 525:
+                logger.debug(
+                    f"✓ Исправление ширины успешно: {result.total_width}px <= 525px (цель достигнута)"
+                )
+            else:
+                logger.warning(
+                    f"⚠ Ширина всё ещё высокая: {result.total_width}px > 525px (требует дополнительной оптимизации)"
+                )
             
-            required_width = total_indicator_width + spacing + padding
-            
-            logger.debug(f"Вычисленная необходимая ширина: {required_width}px "
-                        f"(индикаторы: {total_indicator_width}px, "
-                        f"отступы: {spacing}px, padding: {padding}px)")
-            
-            return required_width
+            return result.total_width
             
         except Exception as e:
             logger.error(f"Ошибка при вычислении ширины легенды: {e}")
-            return 800  # Fallback к безопасному значению
+            # Fallback к безопасному значению
+            fallback_width = 525  # Новое ожидаемое значение после исправлений
+            logger.warning(f"Использован fallback для ширины легенды: {fallback_width}px")
+            return fallback_width
 
     def _should_show_full_legend(self) -> bool:
         """
         Определяет, показывать ли полную легенду или сокращённую с кнопкой.
+        
+        Использует порог в 525px для определения режима отображения.
+        Если ширина календаря >= требуемой ширины, показывается полная легенда.
         
         Returns:
             True если нужно показать полную легенду, False для сокращённой
@@ -131,8 +181,32 @@ class CalendarLegend(ft.Container):
             required_width = self._calculate_required_width()
             can_fit_all = self.calendar_width >= required_width
             
-            logger.debug(f"Проверка помещения: календарь {self.calendar_width}px, "
-                        f"требуется {required_width}px, помещается: {can_fit_all}")
+            # Подробное логирование для отладки режима отображения
+            logger.debug(
+                f"Определение режима отображения легенды: "
+                f"ширина_календаря={self.calendar_width}px, "
+                f"требуемая_ширина={required_width}px, "
+                f"помещается={'ДА' if can_fit_all else 'НЕТ'}, "
+                f"выбранный_режим={'полная легенда' if can_fit_all else 'сокращённая с кнопкой'}"
+            )
+            
+            # Логируем пересечение критического порога 525px
+            if self.calendar_width is not None:
+                if self.calendar_width >= 525:
+                    logger.debug(
+                        f"✓ Ширина календаря ({self.calendar_width}px) >= 525px (порог для полной легенды)"
+                    )
+                else:
+                    logger.debug(
+                        f"⚠ Ширина календаря ({self.calendar_width}px) < 525px (показываем сокращённую легенду)"
+                    )
+            
+            # Логируем эффект исправлений
+            if can_fit_all and self.calendar_width and self.calendar_width < 670:
+                logger.info(
+                    f"🎉 Исправление работает! Полная легенда показана при ширине {self.calendar_width}px "
+                    f"(раньше требовалось ~670px)"
+                )
             
             return can_fit_all
             
@@ -167,16 +241,28 @@ class CalendarLegend(ft.Container):
                 if current_width + needed_width <= usable_width:
                     selected_indicators.append(indicator)
                     current_width += needed_width
-                    logger.debug(f"Добавлен индикатор {indicator.type}, "
-                               f"текущая ширина: {current_width}px")
+                    logger.debug(
+                        f"✓ Добавлен приоритетный индикатор {indicator.type.value}: "
+                        f"ширина={needed_width}px, "
+                        f"приоритет={indicator.priority}, "
+                        f"текущая_общая_ширина={current_width}px"
+                    )
                 else:
-                    logger.debug(f"Индикатор {indicator.type} не помещается, "
-                               f"нужно {current_width + needed_width}px, "
-                               f"доступно {usable_width}px")
+                    logger.debug(
+                        f"✗ Индикатор {indicator.type.value} не помещается: "
+                        f"нужно={current_width + needed_width}px, "
+                        f"доступно={usable_width}px, "
+                        f"приоритет={indicator.priority} (пропущен)"
+                    )
                     break
             
-            logger.debug(f"Выбрано {len(selected_indicators)} индикаторов "
-                        f"для ширины {available_width}px")
+            logger.debug(
+                f"Выбор приоритетных индикаторов завершён: "
+                f"выбрано={len(selected_indicators)} из {len(self.all_indicators)}, "
+                f"доступная_ширина={available_width}px, "
+                f"использовано_ширины={current_width}px, "
+                f"выбранные_индикаторы={[ind.type.value for ind in selected_indicators]}"
+            )
             
             return selected_indicators
             
@@ -202,10 +288,16 @@ class CalendarLegend(ft.Container):
             # Определяем режим отображения и строим соответствующий UI
             if self._should_show_full_legend():
                 content = self._build_full_legend()
-                logger.debug("Построена полная легенда с визуальной группировкой")
+                logger.debug(
+                    f"Построена полная легенда: "
+                    f"все {len(self.all_indicators)} индикаторов с визуальной группировкой"
+                )
             else:
                 content = self._build_compact_legend()
-                logger.debug("Построена сокращённая легенда с приоритизацией")
+                logger.debug(
+                    f"Построена сокращённая легенда: "
+                    f"приоритетные индикаторы + кнопка 'Подробнее'"
+                )
             
             # Настраиваем контейнер с улучшенным стилем
             self.padding = ft.padding.symmetric(horizontal=10, vertical=5)
@@ -214,7 +306,11 @@ class CalendarLegend(ft.Container):
             self.border_radius = 4
             self.content = content
             
-            logger.debug("UI легенды успешно инициализирован")
+            logger.debug(
+                f"UI календарной легенды успешно инициализирован: "
+                f"режим={'полный' if self._should_show_full_legend() else 'сокращённый'}, "
+                f"модальное_окно={'создано' if self.modal_manager.dialog else 'не создано'}"
+            )
             
         except Exception as e:
             logger.error(f"Ошибка при инициализации UI легенды: {e}")
@@ -351,7 +447,11 @@ class CalendarLegend(ft.Container):
                     group_indicators.sort(key=lambda x: x.priority)
                     result[group_name] = group_indicators
             
-            logger.debug(f"Индикаторы сгруппированы: {list(result.keys())}")
+            logger.debug(
+                f"Визуальная группировка индикаторов завершена: "
+                f"групп={len(result)}, "
+                f"распределение={[(group, len(indicators)) for group, indicators in result.items()]}"
+            )
             return result
             
         except Exception as e:
@@ -565,30 +665,47 @@ class CalendarLegend(ft.Container):
         """
         Безопасное открытие модального окна с обработкой ошибок.
         
+        Использует улучшенный ModalManager с PageAccessManager для надёжного доступа к page.
+        
         Args:
             e: Событие от кнопки "Подробнее"
         """
         try:
-            # Безопасное получение page объекта
-            page = self._safe_get_page(e)
-            if not page:
-                logger.warning("Не удалось открыть модальное окно: page недоступен")
-                return
+            # Создаём модальное окно если оно ещё не создано
+            if not self.modal_manager.dialog:
+                self.modal_manager.create_modal(self.all_indicators)
             
-            # Открываем модальное окно через ModalManager
-            success = self.modal_manager.open_modal(page)
+            # Открываем модальное окно через улучшенный ModalManager
+            # ModalManager сам использует PageAccessManager для получения page
+            success = self.modal_manager.open_modal(event_or_control=e)
+            
             if success:
-                logger.debug("Модальное окно успешно открыто")
+                logger.info(
+                    f"✓ Модальное окно календарной легенды успешно открыто: "
+                    f"использован_улучшенный_ModalManager=True, "
+                    f"PageAccessManager_стратегии=множественные"
+                )
             else:
-                logger.warning("Не удалось открыть модальное окно")
+                logger.warning(
+                    f"✗ Не удалось открыть модальное окно календарной легенды: "
+                    f"проверьте доступность page объекта, "
+                    f"событие_типа={type(e).__name__ if e else 'None'}"
+                )
                 
         except Exception as ex:
-            logger.error(f"Ошибка при открытии модального окна: {ex}, "
-                        f"событие: {type(e).__name__ if e else 'None'}")
+            logger.error(
+                f"Критическая ошибка при открытии модального окна календарной легенды: {ex}, "
+                f"тип_события={type(e).__name__ if e else 'None'}, "
+                f"модальное_окно_создано={self.modal_manager.dialog is not None}, "
+                f"PageAccessManager_доступен={self.page_access_manager is not None}"
+            )
 
     def _safe_get_page(self, event_or_control) -> Optional[ft.Page]:
         """
         Безопасное получение page объекта из события или контрола.
+        
+        УСТАРЕЛО: Используйте PageAccessManager.get_page() вместо этого метода.
+        Оставлено для обратной совместимости.
         
         Args:
             event_or_control: Событие или контрол от которого нужно получить page
@@ -596,24 +713,8 @@ class CalendarLegend(ft.Container):
         Returns:
             Page объект или None если не удалось получить
         """
-        try:
-            if event_or_control is None:
-                return None
-                
-            if hasattr(event_or_control, 'control') and event_or_control.control:
-                if hasattr(event_or_control.control, 'page'):
-                    return event_or_control.control.page
-            elif hasattr(event_or_control, 'page'):
-                return event_or_control.page
-            elif hasattr(self, 'page') and self.page:
-                return self.page
-            return None
-        except (AttributeError, TypeError) as e:
-            logger.warning(f"Не удалось получить page объект для модального окна: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Неожиданная ошибка при получении page объекта: {e}")
-            return None
+        logger.debug("Использован устаревший метод _safe_get_page, перенаправляем на PageAccessManager")
+        return self.page_access_manager.get_page(event_or_control)
 
     def update_calendar_width(self, new_width: Optional[int]):
         """
@@ -631,15 +732,26 @@ class CalendarLegend(ft.Container):
             new_mode = DisplayMode.FULL if new_width is None or new_width >= self._calculate_required_width() else DisplayMode.COMPACT
             
             if old_mode != new_mode:
-                logger.debug(f"Режим отображения изменился с {old_mode} на {new_mode}")
+                logger.info(
+                    f"🔄 Режим отображения легенды изменился: "
+                    f"{old_mode.value} → {new_mode.value}, "
+                    f"ширина_календаря: {old_width}px → {new_width}px, "
+                    f"требуемая_ширина={self._calculate_required_width()}px"
+                )
                 self._rebuild_ui()
             else:
-                logger.debug(f"Режим отображения не изменился: {new_mode}")
+                logger.debug(
+                    f"Режим отображения не изменился: {new_mode.value}, "
+                    f"ширина_календаря: {old_width}px → {new_width}px"
+                )
                 
         except Exception as e:
-            logger.error(f"Ошибка при обновлении ширины календаря: {e}, "
-                        f"старая ширина: {getattr(self, 'calendar_width', None)}, "
-                        f"новая ширина: {new_width}")
+            logger.error(
+                f"Ошибка при обновлении ширины календарной легенды: {e}, "
+                f"старая_ширина={getattr(self, 'calendar_width', None)}px, "
+                f"новая_ширина={new_width}px, "
+                f"требуемая_ширина_для_полной_легенды=~525px"
+            )
             # Fallback - устанавливаем новую ширину без перестройки UI
             self.calendar_width = new_width
 
@@ -651,10 +763,16 @@ class CalendarLegend(ft.Container):
             # Определяем новый режим и перестраиваем контент
             if self._should_show_full_legend():
                 self.content = self._build_full_legend()
-                logger.debug("UI перестроен в полный режим с группировкой")
+                logger.info(
+                    f"🔄 UI легенды перестроен в полный режим: "
+                    f"все {len(self.all_indicators)} индикаторов с группировкой"
+                )
             else:
                 self.content = self._build_compact_legend()
-                logger.debug("UI перестроен в сокращённый режим с приоритизацией")
+                logger.info(
+                    f"🔄 UI легенды перестроен в сокращённый режим: "
+                    f"приоритетные индикаторы + кнопка 'Подробнее'"
+                )
             
             # Обновляем стиль контейнера
             self.padding = ft.padding.symmetric(horizontal=10, vertical=5)
@@ -663,14 +781,18 @@ class CalendarLegend(ft.Container):
             # Обновляем отображение если есть доступ к page
             if hasattr(self, 'page') and self.page:
                 self.page.update()
-                logger.debug("UI легенды обновлён на странице")
+                logger.debug("UI календарной легенды обновлён на странице")
+            else:
+                logger.debug("Page недоступен для обновления UI легенды")
                 
         except Exception as e:
             logger.error(f"Ошибка при перестройке UI: {e}")
             # Fallback к безопасному состоянию
             try:
                 self._build_fallback_ui()
-                logger.info("Использован fallback UI после ошибки перестройки")
+                logger.info(
+                    f"Использован fallback UI после ошибки перестройки календарной легенды"
+                )
             except Exception as fallback_error:
                 logger.error(f"Критическая ошибка даже в fallback UI: {fallback_error}")
                 # Минимальный fallback

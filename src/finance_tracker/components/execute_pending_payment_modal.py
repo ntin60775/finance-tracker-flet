@@ -116,7 +116,6 @@ class ExecutePendingPaymentModal:
         """
         self.page = page
         self.payment = payment
-        self.page.dialog = self.dialog
 
         # Setup Date Picker if not added
         if self.date_picker not in self.page.overlay:
@@ -151,14 +150,12 @@ class ExecutePendingPaymentModal:
 
         self.error_text.value = ""
 
-        self.dialog.open = True
-        self.page.update()
+        self.page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
         if self.page:
-            self.dialog.open = False
-            self.page.update()
+            self.page.close(self.dialog)
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""

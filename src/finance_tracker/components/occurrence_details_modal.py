@@ -30,15 +30,12 @@ class OccurrenceDetailsModal(ft.AlertDialog):
         """
         self.page = page
         self._build_content(details)
-        page.dialog = self
-        self.open = True
-        page.update()
+        page.open(self)
 
     def close(self, e=None):
         """Закрывает модальное окно."""
-        self.open = False
         if self.page:
-            self.page.update()
+            self.page.close(self)
 
     def _build_content(self, details: dict):
         """Строит содержимое окна на основе данных."""

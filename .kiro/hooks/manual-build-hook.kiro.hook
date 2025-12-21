@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Ручная сборка проекта",
+  "description": "Ручной запуск сборки проекта через PyInstaller с командой: pyinstaller finance_tracker.spec --clean --noconfirm",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "pyinstaller finance_tracker.spec --clean --noconfirm"
+  }
+}

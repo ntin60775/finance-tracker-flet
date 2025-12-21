@@ -16,4 +16,9 @@ from finance_tracker.app import main
 
 if __name__ == "__main__":
     # Запуск приложения через основную точку входа
-    ft.app(target=main, assets_dir="assets")
+    # view=ft.AppView.FLET_APP создаёт нативное десктопное окно
+    ft.app(
+        target=main, 
+        assets_dir="assets",
+        view=ft.AppView.FLET_APP
+    )

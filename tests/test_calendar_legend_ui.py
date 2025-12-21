@@ -88,8 +88,8 @@ class TestCalendarLegendUI(unittest.TestCase):
         with patch.object(legend.modal_manager, 'open_modal', return_value=True) as mock_open:
             legend._open_modal_safe(mock_event)
             
-            # Проверяем вызов открытия модального окна
-            mock_open.assert_called_once_with(self.mock_page)
+            # Проверяем вызов открытия модального окна с event_or_control
+            mock_open.assert_called_once_with(event_or_control=mock_event)
 
     def test_details_button_visibility_based_on_width(self):
         """Тест видимости кнопки в зависимости от ширины."""
@@ -154,8 +154,8 @@ class TestCalendarLegendUI(unittest.TestCase):
         with patch.object(legend.modal_manager, 'close_modal', return_value=True) as mock_close:
             close_button.on_click(mock_event)
             
-            # Проверяем вызов закрытия модального окна
-            mock_close.assert_called_once_with(self.mock_page)
+            # Проверяем вызов закрытия модального окна с дополнительным параметром
+            mock_close.assert_called_once_with(self.mock_page, mock_event)
 
     def test_modal_error_handling_without_page(self):
         """Тест обработки ошибок при отсутствии page объекта."""

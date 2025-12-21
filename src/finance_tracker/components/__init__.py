@@ -8,6 +8,7 @@ __all__ = [
     "PlannedTransactionModal",
     "EarlyRepaymentModal",
     "ModalManager",
+    "PageAccessManager",
 ]
 
 from .calendar_widget import CalendarWidget
@@ -19,3 +20,4 @@ from .execute_occurrence_modal import ExecuteOccurrenceModal
 from .planned_transaction_modal import PlannedTransactionModal
 from .early_repayment_modal import EarlyRepaymentModal
 from .modal_manager import ModalManager
+from .page_access_manager import PageAccessManager

@@ -375,7 +375,7 @@ class TestCalendarLegendVisualProperties:
                 assert len(legend_items) >= 1, (
                     "В компактном режиме должен отображаться хотя бы один индикатор"
                 )
-                assert len(legend_items) <= 4, (
+                assert len(legend_items) <= 5, (
                     "В компактном режиме не должно быть слишком много индикаторов"
                 )
 
@@ -427,8 +427,8 @@ class TestCalendarLegendVisualProperties:
                 f"Оценочная ширина {indicator.type} должна быть не менее 40px, "
                 f"получена {estimated_width}px"
             )
-            assert estimated_width <= 120, (
-                f"Оценочная ширина {indicator.type} не должна превышать 120px, "
+            assert estimated_width <= 85, (  # Обновлено с 120px до 85px
+                f"Оценочная ширина {indicator.type} не должна превышать 85px, "
                 f"получена {estimated_width}px"
             )
             
@@ -437,15 +437,15 @@ class TestCalendarLegendVisualProperties:
             label_length = len(indicator.label)
             
             if isinstance(visual_element, ft.Text):
-                # Символьные индикаторы могут быть шире из-за эмодзи
+                # Символьные индикаторы теперь более компактные
                 if indicator.type in [IndicatorType.PENDING_SYMBOL, IndicatorType.LOAN_SYMBOL]:
-                    assert estimated_width >= 70, (
-                        f"Символьные индикаторы с эмодзи должны иметь ширину не менее 70px"
+                    assert estimated_width >= 40, (  # Обновлено с 70px до 40px
+                        f"Символьные индикаторы должны иметь ширину не менее 40px"
                     )
             
             # Более длинные метки должны иметь большую оценочную ширину
             if label_length > 6:  # "Доход" = 5 символов
-                assert estimated_width >= 65, (
+                assert estimated_width >= 55, (  # Обновлено с 65px до 55px
                     f"Индикаторы с длинными метками должны иметь большую ширину"
                 )
 

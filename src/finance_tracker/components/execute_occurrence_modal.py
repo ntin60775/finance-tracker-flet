@@ -161,7 +161,6 @@ class ExecuteOccurrenceModal:
         """
         self.page = page
         self.occurrence = occurrence
-        self.page.dialog = self.dialog
 
         # Setup Date Picker if not added
         if self.date_picker not in self.page.overlay:
@@ -190,14 +189,12 @@ class ExecuteOccurrenceModal:
             f"Плановая сумма: {occurrence.amount:.2f} ₽"
         )
 
-        self.dialog.open = True
-        self.page.update()
+        self.page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog:
-            self.dialog.open = False
-            self.page.update()
+        if self.dialog and self.page:
+            self.page.close(self.dialog)
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""

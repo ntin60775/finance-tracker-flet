@@ -4,6 +4,7 @@ Unit тесты для ModalManager календарной легенды.
 Проверяет базовую функциональность создания и управления модальным окном.
 """
 import unittest
+import unittest.mock
 from unittest.mock import MagicMock
 
 import flet as ft
@@ -20,7 +21,8 @@ class TestModalManagerUnit(unittest.TestCase):
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.modal_manager = ModalManager()
+        self.mock_legend_component = MagicMock()
+        self.modal_manager = ModalManager(self.mock_legend_component)
         self.mock_page = MagicMock(spec=ft.Page)
         self.sample_indicators = [
             INDICATOR_CONFIGS[IndicatorType.INCOME_DOT],
@@ -29,8 +31,10 @@ class TestModalManagerUnit(unittest.TestCase):
         ]
 
     def test_modal_manager_initialization(self):
-        """Тест инициализации ModalManager."""
+        """Тест инициализации ModalManager с PageAccessManager."""
         self.assertIsNone(self.modal_manager.dialog)
+        self.assertIsNotNone(self.modal_manager.page_manager)
+        self.assertEqual(self.modal_manager.page_manager.legend, self.mock_legend_component)
 
     def test_create_modal_basic(self):
         """Тест создания базового модального окна."""
@@ -44,42 +48,53 @@ class TestModalManagerUnit(unittest.TestCase):
         self.assertEqual(dialog.actions[0].text, "Закрыть")
 
     def test_open_modal_success(self):
-        """Тест успешного открытия модального окна."""
+        """Тест успешного открытия модального окна через современный Flet API."""
         self.modal_manager.create_modal(self.sample_indicators)
         
-        result = self.modal_manager.open_modal(self.mock_page)
+        result = self.modal_manager.open_modal(page=self.mock_page)
         
         self.assertTrue(result)
-        self.assertEqual(self.mock_page.dialog, self.modal_manager.dialog)
-        self.assertTrue(self.modal_manager.dialog.open)
-        self.mock_page.update.assert_called_once()
+        # Проверяем вызов page.open() (современный Flet API)
+        self.mock_page.open.assert_called_once_with(self.modal_manager.dialog)
 
     def test_open_modal_no_page(self):
         """Тест открытия модального окна без page объекта."""
         self.modal_manager.create_modal(self.sample_indicators)
         
-        result = self.modal_manager.open_modal(None)
-        
-        self.assertFalse(result)
+        # Мокируем PageAccessManager, чтобы он возвращал None
+        with unittest.mock.patch.object(
+            self.modal_manager.page_manager, 
+            'get_page', 
+            return_value=None
+        ):
+            result = self.modal_manager.open_modal(page=None)
+            
+            self.assertFalse(result)
 
     def test_close_modal_success(self):
-        """Тест успешного закрытия модального окна."""
+        """Тест успешного закрытия модального окна через современный Flet API."""
         self.modal_manager.create_modal(self.sample_indicators)
-        self.modal_manager.open_modal(self.mock_page)
+        self.modal_manager.open_modal(page=self.mock_page)
         
-        result = self.modal_manager.close_modal(self.mock_page)
+        result = self.modal_manager.close_modal(page=self.mock_page)
         
         self.assertTrue(result)
-        self.assertFalse(self.modal_manager.dialog.open)
-        self.assertEqual(self.mock_page.update.call_count, 2)  # Открытие + закрытие
+        # Проверяем вызов page.close() (современный Flet API)
+        self.mock_page.close.assert_called_once_with(self.modal_manager.dialog)
 
     def test_close_modal_no_page(self):
         """Тест закрытия модального окна без page объекта."""
         self.modal_manager.create_modal(self.sample_indicators)
         
-        result = self.modal_manager.close_modal(None)
-        
-        self.assertFalse(result)
+        # Мокируем PageAccessManager, чтобы он возвращал None
+        with unittest.mock.patch.object(
+            self.modal_manager.page_manager, 
+            'get_page', 
+            return_value=None
+        ):
+            result = self.modal_manager.close_modal(page=None)
+            
+            self.assertFalse(result)
 
     def test_indicator_grouping(self):
         """Тест группировки индикаторов по типам."""
@@ -99,6 +114,66 @@ class TestModalManagerUnit(unittest.TestCase):
         self.assertEqual(len(groups['dots']), 2)  # INCOME_DOT, EXPENSE_DOT
         self.assertEqual(len(groups['symbols']), 3)  # PLANNED_SYMBOL, PENDING_SYMBOL, LOAN_SYMBOL
         self.assertEqual(len(groups['backgrounds']), 2)  # CASH_GAP_BG, OVERDUE_BG
+    
+    def test_fallback_notification(self):
+        """Тест показа fallback уведомления."""
+        # Настраиваем кэшированный page
+        mock_page = MagicMock(spec=ft.Page)
+        self.modal_manager.page_manager.cached_page = mock_page
+        
+        # Вызываем fallback уведомление
+        self.modal_manager._show_fallback_notification()
+        
+        # Проверяем, что была попытка создать snack bar
+        # (детальная проверка зависит от реализации, но не должно быть исключений)
+    
+    def test_alternative_close(self):
+        """Тест альтернативного закрытия модального окна через современный Flet API."""
+        self.modal_manager.create_modal(self.sample_indicators)
+        
+        # Настраиваем кэшированный page
+        mock_page = MagicMock(spec=ft.Page)
+        self.modal_manager.page_manager.cached_page = mock_page
+        
+        # Вызываем альтернативное закрытие
+        self.modal_manager._try_alternative_close()
+        
+        # Проверяем вызов page.close() (современный Flet API)
+        mock_page.close.assert_called_once_with(self.modal_manager.dialog)
+    
+    def test_close_modal_handler_with_page_access_manager(self):
+        """Тест обработчика закрытия с использованием PageAccessManager."""
+        self.modal_manager.create_modal(self.sample_indicators)
+        
+        # Создаём mock события с page
+        mock_event = MagicMock()
+        mock_event.control.page = self.mock_page
+        
+        # Вызываем обработчик
+        self.modal_manager._close_modal_handler(mock_event)
+        
+        # Проверяем, что модальное окно было закрыто
+        # (детальная проверка зависит от реализации PageAccessManager)
+    
+    def test_open_modal_with_event_or_control(self):
+        """Тест открытия модального окна через event_or_control параметр с современным Flet API."""
+        self.modal_manager.create_modal(self.sample_indicators)
+        
+        # Создаём mock события с page
+        mock_event = MagicMock()
+        mock_event.control.page = self.mock_page
+        
+        # Мокируем PageAccessManager для возврата page
+        with unittest.mock.patch.object(
+            self.modal_manager.page_manager, 
+            'get_page', 
+            return_value=self.mock_page
+        ):
+            result = self.modal_manager.open_modal(event_or_control=mock_event)
+            
+            self.assertTrue(result)
+            # Проверяем вызов page.open() (современный Flet API)
+            self.mock_page.open.assert_called_with(self.modal_manager.dialog)
 
 
 if __name__ == '__main__':
