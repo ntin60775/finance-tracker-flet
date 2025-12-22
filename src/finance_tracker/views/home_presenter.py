@@ -21,6 +21,7 @@ from finance_tracker.models.models import (
     TransactionUpdate, # for update_transaction
     PendingPaymentExecute, # for execute_pending_payment
     PendingPaymentCancel, # for cancel_pending_payment
+    PendingPaymentCreate, # for create_pending_payment
 )
 
 class HomePresenter:
@@ -181,6 +182,32 @@ class HomePresenter:
             self._handle_error("Ошибка пропуска плановой операции", e)
     
     # Pending Payment Operations
+    def create_pending_payment(self, payment_data: PendingPaymentCreate) -> None:
+        """
+        Создать новый отложенный платёж.
+        
+        Args:
+            payment_data: Данные для создания платежа
+        """
+        try:
+            logger.debug(f"Создание отложенного платежа: {payment_data}")
+            
+            pending_payment_service.create_pending_payment(self.session, payment_data)
+            self.session.commit()
+            
+            logger.info("Отложенный платёж успешно создан")
+            self._refresh_data()
+            self.callbacks.show_message("Отложенный платёж успешно создан")
+            
+        except ValueError as ve:
+            self.session.rollback()
+            logger.error(f"Ошибка валидации при создании платежа: {ve}")
+            self.callbacks.show_error(f"Ошибка валидации: {str(ve)}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Ошибка создания отложенного платежа: {e}", exc_info=True)
+            self._handle_error("Ошибка создания отложенного платежа", e)
+    
     def execute_pending_payment(self, payment_id: str, executed_amount: Decimal, executed_date: date) -> None: 
         """Исполнить отложенный платёж."""
         try:

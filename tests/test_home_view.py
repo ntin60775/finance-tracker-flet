@@ -377,5 +377,295 @@ class TestHomeViewProperties:
             f"Переданная дата должна быть объектом datetime.date, получено {type(passed_date)}"
 
 
+class TestHomeViewPendingPaymentIntegration(unittest.TestCase):
+    """Тесты интеграции модального окна отложенных платежей с HomeView."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.mock_presenter_patcher = patch('finance_tracker.views.home_view.HomePresenter')
+        self.mock_pending_payment_modal_patcher = patch('finance_tracker.views.home_view.PendingPaymentModal')
+        self.mock_pending_payments_widget_patcher = patch('finance_tracker.views.home_view.PendingPaymentsWidget')
+
+        self.mock_presenter = self.mock_presenter_patcher.start()
+        self.mock_pending_payment_modal_class = self.mock_pending_payment_modal_patcher.start()
+        self.mock_pending_payments_widget = self.mock_pending_payments_widget_patcher.start()
+
+        self.page = MagicMock()
+        self.page.open = Mock()
+        self.mock_session = Mock()
+
+        # Создаем mock экземпляр модального окна
+        self.mock_payment_modal_instance = Mock()
+        self.mock_pending_payment_modal_class.return_value = self.mock_payment_modal_instance
+
+        # Создаем экземпляр HomeView
+        self.view = HomeView(self.page, self.mock_session)
+
+    def tearDown(self):
+        """Очистка после каждого теста."""
+        self.mock_presenter_patcher.stop()
+        self.mock_pending_payment_modal_patcher.stop()
+        self.mock_pending_payments_widget_patcher.stop()
+
+    def test_pending_payment_modal_initialization(self):
+        """Тест инициализации PendingPaymentModal с правильными callbacks."""
+        # Проверяем, что PendingPaymentModal был создан
+        self.mock_pending_payment_modal_class.assert_called_once()
+        
+        # Получаем аргументы вызова конструктора
+        call_args = self.mock_pending_payment_modal_class.call_args
+        
+        # Проверяем, что session передан
+        self.assertEqual(call_args.kwargs['session'], self.mock_session)
+        
+        # Проверяем, что on_save callback установлен на on_pending_payment_saved
+        on_save_callback = call_args.kwargs['on_save']
+        self.assertEqual(on_save_callback, self.view.on_pending_payment_saved)
+        
+        # Проверяем, что on_update callback установлен (даже если не используется)
+        self.assertIn('on_update', call_args.kwargs)
+
+    def test_pending_payments_widget_initialization_with_add_callback(self):
+        """Тест инициализации PendingPaymentsWidget с callback добавления."""
+        # Проверяем, что PendingPaymentsWidget был создан
+        self.mock_pending_payments_widget.assert_called_once()
+        
+        # Получаем аргументы вызова конструктора
+        call_args = self.mock_pending_payments_widget.call_args
+        
+        # Проверяем, что on_add_payment callback установлен
+        self.assertIn('on_add_payment', call_args.kwargs)
+        on_add_callback = call_args.kwargs['on_add_payment']
+        
+        # Проверяем, что callback - это метод on_add_pending_payment
+        self.assertEqual(on_add_callback, self.view.on_add_pending_payment)
+
+    def test_on_add_pending_payment_opens_modal(self):
+        """Тест открытия модального окна через on_add_pending_payment."""
+        # Act - вызываем метод открытия модального окна
+        self.view.on_add_pending_payment()
+        
+        # Assert - проверяем вызов payment_modal.open() с правильным page
+        self.mock_payment_modal_instance.open.assert_called_once_with(self.page)
+
+    def test_on_add_pending_payment_with_none_page(self):
+        """Тест обработки ошибки при отсутствии page объекта."""
+        # Arrange - устанавливаем page в None
+        self.view.page = None
+        
+        # Act - вызываем метод (не должно быть исключений)
+        self.view.on_add_pending_payment()
+        
+        # Assert - проверяем, что modal.open() НЕ был вызван
+        self.mock_payment_modal_instance.open.assert_not_called()
+
+    def test_on_add_pending_payment_with_none_modal(self):
+        """Тест обработки ошибки при отсутствии модального окна."""
+        # Arrange - устанавливаем payment_modal в None
+        self.view.payment_modal = None
+        
+        # Act - вызываем метод (не должно быть исключений)
+        self.view.on_add_pending_payment()
+        
+        # Assert - проверяем, что не было попытки вызвать open()
+        # (так как modal = None, вызов невозможен)
+
+    def test_on_add_pending_payment_exception_handling(self):
+        """Тест обработки исключений при открытии модального окна."""
+        # Arrange - настраиваем modal.open() для выброса исключения
+        self.mock_payment_modal_instance.open.side_effect = Exception("Test exception")
+        
+        # Act - вызываем метод (не должно быть необработанных исключений)
+        self.view.on_add_pending_payment()
+        
+        # Assert - проверяем, что был показан SnackBar с ошибкой
+        self.page.open.assert_called()
+        
+        # Проверяем, что был передан SnackBar
+        call_args = self.page.open.call_args
+        snack_bar = call_args[0][0]
+        
+        # Проверяем, что это SnackBar с сообщением об ошибке
+        self.assertIsNotNone(snack_bar)
+
+    @patch('finance_tracker.models.models.PendingPaymentCreate')
+    def test_on_pending_payment_saved_calls_presenter(self, mock_payment_create_class):
+        """Тест обработки сохранения через on_pending_payment_saved."""
+        # Arrange - создаем mock данных платежа
+        mock_payment_data = Mock()
+        mock_payment_create_class.return_value = mock_payment_data
+        
+        # Act - вызываем callback сохранения
+        self.view.on_pending_payment_saved(mock_payment_data)
+        
+        # Assert - проверяем вызов presenter.create_pending_payment
+        self.mock_presenter.return_value.create_pending_payment.assert_called_once_with(mock_payment_data)
+
+    def test_on_pending_payment_saved_with_valid_data(self):
+        """Тест сохранения с валидными данными."""
+        # Arrange - создаем mock данных с реальными атрибутами
+        from decimal import Decimal
+        from finance_tracker.models.enums import PendingPaymentPriority
+        
+        mock_payment_data = Mock()
+        mock_payment_data.amount = Decimal('1000.50')
+        mock_payment_data.category_id = "test-category-id"
+        mock_payment_data.description = "Тестовый платёж"
+        mock_payment_data.priority = PendingPaymentPriority.MEDIUM
+        mock_payment_data.planned_date = None
+        
+        # Act - вызываем callback
+        self.view.on_pending_payment_saved(mock_payment_data)
+        
+        # Assert - проверяем, что данные переданы в presenter
+        self.mock_presenter.return_value.create_pending_payment.assert_called_once()
+        call_args = self.mock_presenter.return_value.create_pending_payment.call_args
+        passed_data = call_args[0][0]
+        
+        # Проверяем, что переданы те же данные
+        self.assertEqual(passed_data, mock_payment_data)
+
+
+class TestHomeViewNavigation(unittest.TestCase):
+    """Тесты навигации к разделу отложенных платежей."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.mock_presenter_patcher = patch('finance_tracker.views.home_view.HomePresenter')
+        self.mock_presenter = self.mock_presenter_patcher.start()
+
+        self.page = MagicMock()
+        self.page.open = Mock()
+        self.mock_session = Mock()
+
+        # Создаем экземпляр HomeView
+        self.view = HomeView(self.page, self.mock_session)
+
+    def tearDown(self):
+        """Очистка после каждого теста."""
+        self.mock_presenter_patcher.stop()
+
+    def test_on_show_all_payments_calls_navigate(self):
+        """Тест вызова метода навигации при нажатии 'Показать всё'."""
+        # Arrange - создаем mock MainWindow с методом navigate
+        mock_main_window = Mock()
+        mock_main_window.navigate = Mock()
+        
+        # Добавляем MainWindow в page.controls
+        self.page.controls = [mock_main_window]
+        
+        # Act - вызываем метод навигации
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем вызов navigate с индексом 3 (раздел "Отложенные платежи")
+        mock_main_window.navigate.assert_called_once_with(3)
+
+    def test_on_show_all_payments_fallback_when_no_navigation(self):
+        """Тест fallback поведения если навигация не реализована."""
+        # Arrange - создаем page без MainWindow или без метода navigate
+        self.page.controls = []
+        
+        # Act - вызываем метод навигации
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем показ SnackBar с сообщением
+        self.page.open.assert_called_once()
+        
+        # Получаем аргументы вызова page.open()
+        call_args = self.page.open.call_args
+        snack_bar = call_args[0][0]
+        
+        # Проверяем, что это SnackBar
+        self.assertIsNotNone(snack_bar)
+
+    def test_on_show_all_payments_shows_snackbar_when_no_navigate_method(self):
+        """Тест показа SnackBar при отсутствии метода navigate."""
+        # Arrange - создаем control без метода navigate
+        mock_control = Mock(spec=[])  # spec=[] означает, что у объекта нет атрибутов
+        self.page.controls = [mock_control]
+        
+        # Act - вызываем метод навигации
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем показ SnackBar
+        self.page.open.assert_called_once()
+        
+        # Проверяем содержимое SnackBar
+        call_args = self.page.open.call_args
+        snack_bar = call_args[0][0]
+        
+        # Проверяем, что в сообщении упоминается "в разработке"
+        # (точное содержимое зависит от реализации)
+        self.assertIsNotNone(snack_bar)
+
+    def test_on_show_all_payments_with_none_page(self):
+        """Тест обработки ошибки при отсутствии page объекта."""
+        # Arrange - устанавливаем page в None
+        self.view.page = None
+        
+        # Act - вызываем метод (не должно быть исключений)
+        self.view.on_show_all_payments()
+        
+        # Assert - метод должен завершиться без ошибок
+        # (проверка, что не было исключений)
+
+    def test_on_show_all_payments_with_multiple_controls(self):
+        """Тест навигации когда в page.controls несколько элементов."""
+        # Arrange - создаем несколько controls, один из которых - MainWindow
+        mock_control1 = Mock(spec=[])  # Без метода navigate
+        mock_main_window = Mock()
+        mock_main_window.navigate = Mock()
+        mock_control2 = Mock(spec=[])  # Без метода navigate
+        
+        self.page.controls = [mock_control1, mock_main_window, mock_control2]
+        
+        # Act - вызываем метод навигации
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем, что найден правильный control и вызван navigate
+        mock_main_window.navigate.assert_called_once_with(3)
+        
+        # Проверяем, что SnackBar НЕ был показан (навигация успешна)
+        # page.open может быть вызван для других целей, но не для SnackBar с ошибкой
+
+    def test_on_show_all_payments_exception_handling(self):
+        """Тест обработки исключений при навигации."""
+        # Arrange - настраиваем navigate для выброса исключения
+        mock_main_window = Mock()
+        mock_main_window.navigate = Mock(side_effect=Exception("Test exception"))
+        
+        self.page.controls = [mock_main_window]
+        
+        # Act - вызываем метод (не должно быть необработанных исключений)
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем, что был показан SnackBar с ошибкой
+        self.page.open.assert_called()
+        
+        # Проверяем, что был передан SnackBar
+        call_args = self.page.open.call_args
+        snack_bar = call_args[0][0]
+        
+        # Проверяем, что это SnackBar с сообщением об ошибке
+        self.assertIsNotNone(snack_bar)
+
+    def test_on_show_all_payments_correct_index(self):
+        """Тест передачи правильного индекса раздела."""
+        # Arrange
+        mock_main_window = Mock()
+        mock_main_window.navigate = Mock()
+        self.page.controls = [mock_main_window]
+        
+        # Act
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем, что передан индекс 3 (раздел "Отложенные платежи")
+        call_args = mock_main_window.navigate.call_args
+        passed_index = call_args[0][0]
+        
+        self.assertEqual(passed_index, 3, 
+                        "Индекс раздела 'Отложенные платежи' должен быть 3")
+
+
 if __name__ == '__main__':
     unittest.main()

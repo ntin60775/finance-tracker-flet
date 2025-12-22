@@ -434,7 +434,7 @@ class PendingPaymentsView(ft.Column):
             padding=15,
             border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=10,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_LOWEST,
+            bgcolor=ft.Colors.SURFACE,
         )
 
     def open_create_dialog(self, e):

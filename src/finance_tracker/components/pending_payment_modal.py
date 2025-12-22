@@ -156,9 +156,10 @@ class PendingPaymentModal:
         """
         self.page = page
 
-        # Setup Date Picker if not added
+        # Setup Date Picker - добавляем в overlay если ещё не добавлен
         if self.date_picker not in self.page.overlay:
             self.page.overlay.append(self.date_picker)
+            self.page.update()
 
         # Load categories
         self._load_categories()
@@ -235,11 +236,16 @@ class PendingPaymentModal:
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""
+        if not self.page:
+            return
+            
         if self.planned_date:
             self.date_picker.value = self.planned_date
         else:
             self.date_picker.value = datetime.date.today()
-        self.date_picker.pick_date()
+        
+        # Открываем DatePicker через page.open()
+        self.page.open(self.date_picker)
 
     def _on_date_change(self, e):
         """Обработка изменения даты."""

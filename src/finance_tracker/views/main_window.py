@@ -40,6 +40,15 @@ class MainWindow(ft.Row):
         self.page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
         self.page.padding = 0
         
+        # Настройка локализации на русский язык
+        self.page.locale_configuration = ft.LocaleConfiguration(
+            supported_locales=[
+                ft.Locale("ru", "RU"),
+                ft.Locale("en", "US"),
+            ],
+            current_locale=ft.Locale("ru", "RU")
+        )
+        
         # Настройка иконки окна
         try:
             import os

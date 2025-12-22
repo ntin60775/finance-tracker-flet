@@ -13,8 +13,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from finance_tracker.views.home_presenter import HomePresenter
 from finance_tracker.views.interfaces import IHomeViewCallbacks
-from finance_tracker.models.models import TransactionCreate, PendingPaymentExecute, PendingPaymentCancel
-from finance_tracker.models.enums import TransactionType
+from finance_tracker.models.models import TransactionCreate, PendingPaymentExecute, PendingPaymentCancel, PendingPaymentCreate
+from finance_tracker.models.enums import TransactionType, PendingPaymentPriority
 
 
 class TestHomePresenter(unittest.TestCase):
@@ -371,6 +371,178 @@ class TestHomePresenter(unittest.TestCase):
         # Проверяем success callback
         self.callbacks.show_message.assert_called_once_with("Отложенный платёж успешно исполнен")
         self.callbacks.show_error.assert_not_called()
+
+    def test_create_pending_payment_success(self):
+        """Тест успешного создания отложенного платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('1000.50'),
+            category_id=str(uuid.uuid4()),
+            description="Тестовый отложенный платёж",
+            priority=PendingPaymentPriority.HIGH
+        )
+        
+        self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем вызов сервиса
+        self.mock_pending_payment_service.create_pending_payment.assert_called_once_with(
+            self.session, payment_data
+        )
+        
+        # Проверяем commit и отсутствие rollback
+        self.session.commit.assert_called_once()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем success callback
+        self.callbacks.show_message.assert_called_once_with("Отложенный платёж успешно создан")
+        self.callbacks.show_error.assert_not_called()
+        
+        # Проверяем, что данные обновлены (вызван _refresh_data)
+        # _refresh_data вызывает несколько методов загрузки данных
+        self.mock_pending_payment_service.get_all_pending_payments.assert_called()
+        self.mock_pending_payment_service.get_pending_payments_statistics.assert_called()
+
+    def test_create_pending_payment_validation_error(self):
+        """Тест обработки ошибки валидации при создании платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('1000.50'),
+            category_id=str(uuid.uuid4()),
+            description="Тестовый платёж",
+            priority=PendingPaymentPriority.MEDIUM
+        )
+        
+        # Настраиваем ValueError (например, категория не найдена)
+        test_error = ValueError("Категория с ID ... не найдена")
+        self.mock_pending_payment_service.create_pending_payment.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger') as mock_logger:
+            self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем rollback
+        self.session.rollback.assert_called_once()
+        self.session.commit.assert_not_called()
+        
+        # Проверяем логирование
+        mock_logger.error.assert_called_once()
+        error_log = mock_logger.error.call_args[0][0]
+        self.assertIn("Ошибка валидации при создании платежа", error_log)
+        
+        # Проверяем error callback с правильным сообщением
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка валидации", error_message)
+        self.assertIn(str(test_error), error_message)
+        
+        # Проверяем, что success callback не вызван
+        self.callbacks.show_message.assert_not_called()
+
+    def test_create_pending_payment_database_error(self):
+        """Тест обработки ошибки БД при создании платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('500.00'),
+            category_id=str(uuid.uuid4()),
+            description="Тестовый платёж",
+            priority=PendingPaymentPriority.LOW
+        )
+        
+        # Настраиваем SQLAlchemyError
+        test_error = SQLAlchemyError("Database connection error")
+        self.mock_pending_payment_service.create_pending_payment.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger') as mock_logger:
+            self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем rollback
+        self.session.rollback.assert_called_once()
+        self.session.commit.assert_not_called()
+        
+        # Проверяем логирование (вызывается дважды: в методе и в _handle_error)
+        self.assertEqual(mock_logger.error.call_count, 2)
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка создания отложенного платежа", error_message)
+        
+        # Проверяем, что success callback не вызван
+        self.callbacks.show_message.assert_not_called()
+
+    def test_create_pending_payment_calls_refresh_data(self):
+        """Тест вызова _refresh_data после создания платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('750.25'),
+            category_id=str(uuid.uuid4()),
+            description="Платёж для проверки обновления",
+            priority=PendingPaymentPriority.CRITICAL
+        )
+        
+        # Сбрасываем счётчики вызовов после setUp
+        self.mock_pending_payment_service.get_all_pending_payments.reset_mock()
+        self.mock_pending_payment_service.get_pending_payments_statistics.reset_mock()
+        self.mock_transaction_service.get_by_date_range.reset_mock()
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.reset_mock()
+        self.mock_transaction_service.get_transactions_by_date.reset_mock()
+        self.mock_planned_transaction_service.get_occurrences_by_date.reset_mock()
+        self.mock_planned_transaction_service.get_pending_occurrences.reset_mock()
+        
+        self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем, что _refresh_data был вызван (проверяем вызовы методов загрузки)
+        # _refresh_data вызывает load_calendar_data
+        self.mock_transaction_service.get_by_date_range.assert_called_once()
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.assert_called_once()
+        
+        # _refresh_data вызывает on_date_selected
+        self.mock_transaction_service.get_transactions_by_date.assert_called_once()
+        self.mock_planned_transaction_service.get_occurrences_by_date.assert_called_once()
+        
+        # _refresh_data вызывает load_planned_occurrences
+        self.mock_planned_transaction_service.get_pending_occurrences.assert_called_once()
+        
+        # _refresh_data вызывает load_pending_payments
+        self.mock_pending_payment_service.get_all_pending_payments.assert_called_once()
+        self.mock_pending_payment_service.get_pending_payments_statistics.assert_called_once()
+
+    def test_create_pending_payment_shows_success_message(self):
+        """Тест показа сообщения об успехе при создании платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('300.00'),
+            category_id=str(uuid.uuid4()),
+            description="Платёж для проверки сообщения",
+            priority=PendingPaymentPriority.MEDIUM
+        )
+        
+        self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем, что показано правильное сообщение
+        self.callbacks.show_message.assert_called_once_with("Отложенный платёж успешно создан")
+        
+        # Проверяем, что ошибка не показана
+        self.callbacks.show_error.assert_not_called()
+
+    def test_create_pending_payment_shows_error_on_failure(self):
+        """Тест показа сообщения об ошибке при неудаче создания платежа."""
+        payment_data = PendingPaymentCreate(
+            amount=Decimal('200.00'),
+            category_id=str(uuid.uuid4()),
+            description="Платёж с ошибкой",
+            priority=PendingPaymentPriority.HIGH
+        )
+        
+        # Настраиваем ошибку
+        test_error = ValueError("Тестовая ошибка валидации")
+        self.mock_pending_payment_service.create_pending_payment.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger'):
+            self.presenter.create_pending_payment(payment_data)
+        
+        # Проверяем, что показана ошибка
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка валидации", error_message)
+        
+        # Проверяем, что success сообщение не показано
+        self.callbacks.show_message.assert_not_called()
+
 
     def test_cancel_pending_payment_success(self):
         """Тест успешной отмены отложенного платежа."""

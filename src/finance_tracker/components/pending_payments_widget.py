@@ -43,6 +43,7 @@ class PendingPaymentsWidget(ft.Container):
         on_cancel: Callable[[PendingPaymentDB], None],
         on_delete: Callable[[int], None],
         on_show_all: Callable[[], None],
+        on_add_payment: Callable[[], None] = None,
     ):
         """
         Инициализация виджета отложенных платежей.
@@ -53,6 +54,7 @@ class PendingPaymentsWidget(ft.Container):
             on_cancel: Callback для отмены платежа.
             on_delete: Callback для удаления платежа.
             on_show_all: Callback для перехода в полный раздел отложенных платежей.
+            on_add_payment: Callback для добавления нового отложенного платежа.
         """
         super().__init__()
         self.session = session
@@ -60,6 +62,7 @@ class PendingPaymentsWidget(ft.Container):
         self.on_cancel = on_cancel
         self.on_delete = on_delete
         self.on_show_all = on_show_all
+        self.on_add_payment = on_add_payment
         self.payments: List[PendingPaymentDB] = []
         self.statistics: Dict[str, Any] = {}
         self.current_filter = "all"  # all, with_date, without_date
@@ -105,6 +108,14 @@ class PendingPaymentsWidget(ft.Container):
             italic=True
         )
 
+        # Кнопка добавления отложенного платежа
+        self.add_payment_button = ft.IconButton(
+            icon=ft.Icons.ADD,
+            tooltip="Добавить отложенный платёж",
+            icon_color=ft.Colors.PRIMARY,
+            on_click=lambda _: self._safe_add_payment()
+        )
+
         self.show_all_button = ft.TextButton(
             "Показать все",
             icon=ft.Icons.ARROW_FORWARD,
@@ -128,7 +139,13 @@ class PendingPaymentsWidget(ft.Container):
                             ],
                             spacing=2,
                         ),
-                        self.show_all_button,
+                        ft.Row(
+                            controls=[
+                                self.add_payment_button,
+                                self.show_all_button,
+                            ],
+                            spacing=5,
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
@@ -183,6 +200,21 @@ class PendingPaymentsWidget(ft.Container):
 
         if self.page:
             self.update()
+
+    def _safe_add_payment(self):
+        """
+        Безопасный вызов callback для добавления платежа.
+        
+        Обрабатывает случай, когда callback не установлен.
+        """
+        try:
+            if self.on_add_payment:
+                logger.debug("Вызов callback для добавления отложенного платежа")
+                self.on_add_payment()
+            else:
+                logger.warning("Callback для добавления платежа не установлен")
+        except Exception as e:
+            logger.error(f"Ошибка при вызове callback добавления платежа: {e}", exc_info=True)
 
     def _update_statistics(self):
         """Обновление статистики."""
@@ -331,5 +363,5 @@ class PendingPaymentsWidget(ft.Container):
             padding=10,
             border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=8,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_LOWEST,
+            bgcolor=ft.Colors.SURFACE,
         )

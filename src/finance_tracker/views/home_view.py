@@ -4,7 +4,7 @@ from typing import List, Any, Tuple, Dict
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence
+from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence, PendingPaymentCreate
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.components.transactions_panel import TransactionsPanel
 from finance_tracker.components.calendar_legend import CalendarLegend
@@ -85,7 +85,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_execute=self.on_execute_payment,
             on_cancel=self.on_cancel_payment,
             on_delete=self.on_delete_payment,
-            on_show_all=self.on_show_all_payments
+            on_show_all=self.on_show_all_payments,
+            on_add_payment=self.on_add_pending_payment
         )
 
         # Modals
@@ -108,7 +109,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         self.payment_modal = PendingPaymentModal(
             session=self.session,
-            on_save=lambda _: None,  # Не используется на главном экране
+            on_save=self.on_pending_payment_saved,
             on_update=lambda _, __: None  # Не используется на главном экране
         )
 
@@ -525,9 +526,73 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_show_all_payments(self):
         """Переход к разделу всех отложенных платежей."""
-        logger.info("Запрос на переход к разделу отложенных платежей")
-        # TODO: Реализовать навигацию через MainWindow
-        pass
+        try:
+            logger.info("Переход к разделу отложенных платежей")
+            
+            # Проверяем наличие page
+            if not self.page:
+                logger.error("Page не инициализирована")
+                return
+            
+            # Проверяем наличие метода навигации в MainWindow
+            # MainWindow должен быть доступен через page.controls
+            main_window = None
+            if hasattr(self.page, 'controls') and self.page.controls:
+                for control in self.page.controls:
+                    if hasattr(control, 'navigate'):
+                        main_window = control
+                        break
+            
+            if main_window and hasattr(main_window, 'navigate'):
+                # Вызываем метод навигации MainWindow
+                # Индекс 3 соответствует разделу "Отложенные платежи"
+                main_window.navigate(3)
+                logger.info("Навигация к разделу отложенных платежей выполнена")
+            else:
+                # Fallback: показываем SnackBar если навигация не реализована
+                logger.warning("Навигация к разделу отложенных платежей не реализована")
+                self.page.open(ft.SnackBar(
+                    content=ft.Text("Раздел 'Отложенные платежи' в разработке")
+                ))
+                
+        except Exception as e:
+            logger.error(f"Ошибка при переходе к разделу отложенных платежей: {e}", exc_info=True)
+            if self.page:
+                try:
+                    self.page.open(ft.SnackBar(
+                        content=ft.Text("Ошибка при переходе к разделу"),
+                        bgcolor=ft.Colors.ERROR
+                    ))
+                except Exception as snack_error:
+                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
+
+    def on_add_pending_payment(self):
+        """Открытие модального окна добавления отложенного платежа."""
+        try:
+            logger.debug("Открытие модального окна добавления отложенного платежа")
+            
+            if not self.page:
+                logger.error("Page не инициализирована")
+                return
+                
+            if not self.payment_modal:
+                logger.error("PendingPaymentModal не инициализирован")
+                return
+                
+            self.payment_modal.open(self.page)
+            logger.info("Модальное окно добавления отложенного платежа открыто")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии модального окна: {e}", exc_info=True)
+            if self.page:
+                self.page.open(ft.SnackBar(
+                    content=ft.Text("Не удалось открыть форму добавления платежа"),
+                    bgcolor=ft.Colors.ERROR
+                ))
+
+    def on_pending_payment_saved(self, data: PendingPaymentCreate):
+        """Обработка сохранения нового отложенного платежа."""
+        self.presenter.create_pending_payment(data)
 
     def on_execute_loan_payment(self, payment: LoanPaymentDB):
         """Исполнение платежа по кредиту."""
