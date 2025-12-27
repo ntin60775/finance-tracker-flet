@@ -9,7 +9,7 @@
 """
 
 import datetime
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,7 @@ class PlannedTransactionsWidget(ft.Container):
         on_execute: Callable[[PlannedOccurrence], None],
         on_skip: Callable[[PlannedOccurrence], None],
         on_show_all: Callable[[], None],
+        on_add_planned_transaction: Optional[Callable[[], None]] = None,
     ):
         """
         Инициализация виджета плановых транзакций.
@@ -48,12 +49,15 @@ class PlannedTransactionsWidget(ft.Container):
             on_execute: Callback для исполнения вхождения.
             on_skip: Callback для пропуска вхождения.
             on_show_all: Callback для перехода в полный раздел плановых транзакций.
+            on_add_planned_transaction: Callback для добавления новой плановой транзакции.
+                                        Если None, кнопка добавления не отображается.
         """
         super().__init__()
         self.session = session
         self.on_execute = on_execute
         self.on_skip = on_skip
         self.on_show_all = on_show_all
+        self.on_add_planned_transaction = on_add_planned_transaction
         self.occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]] = []
 
         # UI Components
@@ -78,6 +82,16 @@ class PlannedTransactionsWidget(ft.Container):
             on_click=lambda _: self.on_show_all()
         )
 
+        # Кнопка добавления плановой транзакции (отображается только если callback задан)
+        self.add_button: Optional[ft.IconButton] = None
+        if self.on_add_planned_transaction:
+            self.add_button = ft.IconButton(
+                icon=ft.Icons.ADD,
+                icon_color=ft.Colors.PRIMARY,
+                tooltip="Добавить плановую транзакцию",
+                on_click=lambda _: self.on_add_planned_transaction()
+            )
+
         # Init Layout
         self.padding = 15
         self.border = ft.border.all(1, "outlineVariant")
@@ -86,17 +100,43 @@ class PlannedTransactionsWidget(ft.Container):
 
         self.content = ft.Column(
             controls=[
-                ft.Row(
-                    controls=[
-                        self.title_text,
-                        self.show_all_button,
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                ),
+                self._build_header(),
                 ft.Divider(),
                 self.occurrences_list,
             ],
             spacing=10,
+        )
+
+    def _build_header(self) -> ft.Row:
+        """
+        Построение заголовка виджета.
+
+        Структура: [Title] ... [+Add] [Show All]
+        - Title слева
+        - Кнопки справа, сгруппированы вместе
+        - Кнопка добавления отображается только если callback задан
+
+        Returns:
+            Row с заголовком и кнопками действий.
+        """
+        # Группа кнопок справа
+        right_buttons = []
+
+        # Кнопка добавления (если callback задан)
+        if self.add_button:
+            right_buttons.append(self.add_button)
+
+        right_buttons.append(self.show_all_button)
+
+        return ft.Row(
+            controls=[
+                self.title_text,
+                ft.Row(
+                    controls=right_buttons,
+                    spacing=5,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
     def set_occurrences(

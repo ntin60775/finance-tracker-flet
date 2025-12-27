@@ -22,6 +22,7 @@ from finance_tracker.models.models import (
     PendingPaymentExecute, # for execute_pending_payment
     PendingPaymentCancel, # for cancel_pending_payment
     PendingPaymentCreate, # for create_pending_payment
+    PlannedTransactionCreate, # for create_planned_transaction
 )
 
 class HomePresenter:
@@ -157,6 +158,52 @@ class HomePresenter:
                 "selected_date": self.selected_date
             })
             self._handle_error("Ошибка удаления транзакции", e)
+    
+    # Planned Transaction Operations
+    def create_planned_transaction(self, data: PlannedTransactionCreate) -> None:
+        """
+        Создать новую плановую транзакцию.
+        
+        Args:
+            data: Данные для создания плановой транзакции.
+        """
+        try:
+            logger.info(f"Создание плановой транзакции: {data.description or 'без описания'}")
+            
+            # Создаём плановую транзакцию через сервис
+            planned_tx = planned_transaction_service.create_planned_transaction(self.session, data)
+            
+            self.session.commit()
+            logger.info(f"Плановая транзакция создана: {planned_tx.id}")
+            
+            # Обновляем все данные после успешного создания
+            # Это обновит календарь, виджет плановых транзакций и другие компоненты
+            self._refresh_data()
+            
+            # Показываем уведомление об успехе пользователю
+            self.callbacks.show_message("Плановая транзакция успешно создана")
+            
+        except Exception as e:
+            self.session.rollback()
+            # Логируем ошибку с полным контекстом
+            recurrence_info = None
+            if data.recurrence_rule and data.recurrence_rule.recurrence_type:
+                recurrence_info = data.recurrence_rule.recurrence_type.value
+            logger.error(
+                f"Ошибка при создании плановой транзакции: {e}", 
+                extra={
+                    "description": data.description,
+                    "amount": str(data.amount),
+                    "category_id": data.category_id,
+                    "start_date": str(data.start_date),
+                    "recurrence_type": recurrence_info,
+                    "selected_date": self.selected_date,
+                    "session_active": self.session.is_active
+                },
+                exc_info=True
+            )
+            # Показываем сообщение об ошибке пользователю
+            self.callbacks.show_error(f"Ошибка при создании плановой транзакции: {str(e)}")
     
     # Planned Occurrence Operations
     def execute_occurrence(self, occurrence: Any, execution_date: date, amount: Decimal) -> None: # amount should be Decimal

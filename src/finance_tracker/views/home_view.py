@@ -4,7 +4,7 @@ from typing import List, Any, Tuple, Dict
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence, PendingPaymentCreate
+from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence, PendingPaymentCreate, PlannedTransactionCreate
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.components.transactions_panel import TransactionsPanel
 from finance_tracker.components.calendar_legend import CalendarLegend
@@ -14,6 +14,7 @@ from finance_tracker.components.pending_payments_widget import PendingPaymentsWi
 from finance_tracker.components.execute_occurrence_modal import ExecuteOccurrenceModal
 from finance_tracker.components.execute_pending_payment_modal import ExecutePendingPaymentModal
 from finance_tracker.components.pending_payment_modal import PendingPaymentModal
+from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
 from finance_tracker.utils.logger import get_logger
 from finance_tracker.models.models import (
     PendingPaymentExecute,
@@ -77,7 +78,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             session=self.session,
             on_execute=self.on_execute_occurrence,
             on_skip=self.on_skip_occurrence,
-            on_show_all=self.on_show_all_occurrences
+            on_show_all=self.on_show_all_occurrences,
+            on_add_planned_transaction=self.on_add_planned_transaction
         )
 
         self.pending_payments_widget = PendingPaymentsWidget(
@@ -111,6 +113,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             session=self.session,
             on_save=self.on_pending_payment_saved,
             on_update=lambda _, __: None  # Не используется на главном экране
+        )
+
+        self.planned_transaction_modal = PlannedTransactionModal(
+            session=self.session,
+            on_save=self.on_planned_transaction_saved
         )
 
         # Layout
@@ -593,6 +600,35 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_pending_payment_saved(self, data: PendingPaymentCreate):
         """Обработка сохранения нового отложенного платежа."""
         self.presenter.create_pending_payment(data)
+
+    def on_add_planned_transaction(self):
+        """
+        Открытие модального окна добавления плановой транзакции.
+        
+        Вызывается при нажатии кнопки "+" в виджете плановых транзакций.
+        """
+        try:
+            logger.debug("Открытие модального окна добавления плановой транзакции")
+            
+            if not self.page:
+                logger.error("Page не инициализирована")
+                return
+                
+            self.planned_transaction_modal.open(self.page, self.selected_date)
+            logger.info("Модальное окно добавления плановой транзакции открыто")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при открытии модального окна: {e}", exc_info=True)
+            self.show_error("Не удалось открыть форму добавления плановой транзакции")
+
+    def on_planned_transaction_saved(self, data: PlannedTransactionCreate):
+        """
+        Обработка сохранения новой плановой транзакции.
+        
+        Args:
+            data: Данные для создания плановой транзакции.
+        """
+        self.presenter.create_planned_transaction(data)
 
     def on_execute_loan_payment(self, payment: LoanPaymentDB):
         """Исполнение платежа по кредиту."""

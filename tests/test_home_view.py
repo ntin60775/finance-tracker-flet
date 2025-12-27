@@ -98,6 +98,30 @@ class TestHomeView(unittest.TestCase):
         # Но данные не загружены
         self.mock_presenter.return_value.load_initial_data.assert_not_called()
 
+    def test_planned_transaction_modal_initialization(self):
+        """Тест инициализации PlannedTransactionModal."""
+        # Проверяем, что модальное окно создано
+        self.assertIsNotNone(self.view.planned_transaction_modal)
+        
+        # Проверяем, что модальное окно имеет правильную сессию
+        self.assertEqual(self.view.planned_transaction_modal.session, self.mock_session)
+        
+        # Проверяем, что callback установлен
+        self.assertIsNotNone(self.view.planned_transaction_modal.on_save)
+
+    def test_on_planned_transaction_saved_delegates_to_presenter(self):
+        """Тест, что on_planned_transaction_saved делегирует в Presenter."""
+        from finance_tracker.models.models import PlannedTransactionCreate
+        
+        # Создаем тестовые данные
+        test_data = Mock(spec=PlannedTransactionCreate)
+        
+        # Вызываем метод
+        self.view.on_planned_transaction_saved(test_data)
+        
+        # Проверяем, что вызван метод Presenter
+        self.mock_presenter.return_value.create_planned_transaction.assert_called_once_with(test_data)
+
     def test_callback_passed_to_transactions_panel(self):
         """Тест передачи callback функции в TransactionsPanel."""
         # Проверяем, что TransactionsPanel был создан с правильными параметрами
@@ -665,6 +689,267 @@ class TestHomeViewNavigation(unittest.TestCase):
         
         self.assertEqual(passed_index, 3, 
                         "Индекс раздела 'Отложенные платежи' должен быть 3")
+
+    def test_on_show_all_payments_with_multiple_controls(self):
+        """Тест навигации когда в page.controls несколько элементов."""
+        # Arrange - создаем несколько controls, один из которых имеет метод navigate
+        mock_control_1 = Mock(spec=[])  # Без navigate
+        mock_main_window = Mock()
+        mock_main_window.navigate = Mock()
+        mock_control_2 = Mock(spec=[])  # Без navigate
+        
+        self.page.controls = [mock_control_1, mock_main_window, mock_control_2]
+        
+        # Act - вызываем метод навигации
+        self.view.on_show_all_payments()
+        
+        # Assert - проверяем, что найден правильный control и вызван navigate
+        mock_main_window.navigate.assert_called_once_with(3)
+
+
+class TestHomeViewPlannedTransactionCallbackChain:
+    """Property-based тесты для callback цепочки плановых транзакций."""
+
+    @given(
+        test_date=st.dates(min_value=datetime.date(2020, 1, 1), max_value=datetime.date(2030, 12, 31))
+    )
+    @settings(max_examples=100, deadline=None)
+    @patch('finance_tracker.views.home_view.PlannedTransactionModal')
+    @patch('finance_tracker.views.home_view.HomePresenter')
+    @patch('finance_tracker.views.home_view.TransactionsPanel')
+    @patch('finance_tracker.views.home_view.PlannedTransactionsWidget')
+    def test_property_1_callback_invoked_on_button_click(
+        self, 
+        mock_planned_transactions_widget_class,
+        mock_transactions_panel,
+        mock_presenter,
+        mock_planned_transaction_modal_class,
+        test_date
+    ):
+        """
+        **Feature: planned-transaction-add-button, Property 1: Callback вызывается при нажатии кнопки добавления**
+        **Validates: Requirements 1.2, 3.2**
+        
+        Property: Для любого виджета PlannedTransactionsWidget с заданным callback on_add_planned_transaction,
+        при нажатии кнопки добавления callback должен быть вызван ровно один раз.
+        """
+        # Arrange - создаем mock объекты
+        mock_page = MagicMock()
+        mock_page.open = Mock()
+        mock_session = Mock()
+        
+        # Создаем mock экземпляр PlannedTransactionModal
+        mock_planned_transaction_modal_instance = Mock()
+        mock_planned_transaction_modal_class.return_value = mock_planned_transaction_modal_instance
+        
+        # Создаем mock экземпляр PlannedTransactionsWidget
+        mock_planned_widget_instance = Mock()
+        mock_planned_transactions_widget_class.return_value = mock_planned_widget_instance
+        
+        # Создаем HomeView с мокированными зависимостями
+        view = HomeView(mock_page, mock_session)
+        
+        # Устанавливаем тестовую дату
+        view.selected_date = test_date
+        
+        # Получаем callback, который был передан в PlannedTransactionsWidget
+        call_args = mock_planned_transactions_widget_class.call_args
+        assert call_args is not None, "PlannedTransactionsWidget должен быть создан"
+        
+        # Проверяем, что on_add_planned_transaction был передан
+        assert 'on_add_planned_transaction' in call_args.kwargs, \
+            "on_add_planned_transaction должен быть передан в PlannedTransactionsWidget"
+        
+        on_add_callback = call_args.kwargs['on_add_planned_transaction']
+        
+        # Проверяем, что callback не None
+        assert on_add_callback is not None, \
+            "on_add_planned_transaction callback не должен быть None"
+        
+        # Проверяем, что callback - это метод on_add_planned_transaction из HomeView
+        assert on_add_callback == view.on_add_planned_transaction, \
+            f"Callback должен быть методом on_add_planned_transaction, получен {on_add_callback}"
+        
+        # Act - симулируем нажатие кнопки добавления через вызов callback
+        # Сбрасываем счетчик вызовов modal.open перед тестом
+        mock_planned_transaction_modal_instance.open.reset_mock()
+        
+        # Вызываем callback (симулируем нажатие кнопки)
+        on_add_callback()
+        
+        # Assert - проверяем, что модальное окно было открыто ровно один раз
+        assert mock_planned_transaction_modal_instance.open.call_count == 1, \
+            f"Модальное окно должно быть открыто ровно 1 раз, вызвано {mock_planned_transaction_modal_instance.open.call_count} раз"
+        
+        # Проверяем, что модальное окно было открыто с правильными параметрами
+        mock_planned_transaction_modal_instance.open.assert_called_once_with(mock_page, test_date)
+        
+        # Проверяем корректность переданных параметров
+        call_args_open = mock_planned_transaction_modal_instance.open.call_args
+        passed_page = call_args_open[0][0]
+        passed_date = call_args_open[0][1]
+        
+        assert passed_page is mock_page, \
+            f"Page должна быть передана корректно. Ожидалось: {mock_page}, получено: {passed_page}"
+        
+        assert passed_date == test_date, \
+            f"Дата должна быть передана корректно. Ожидалось: {test_date}, получено: {passed_date}"
+        
+        # Проверяем, что callback был вызван без исключений
+        # (если мы дошли до этой точки, значит исключений не было)
+        
+        # Дополнительная проверка: убеждаемся, что callback вызывается каждый раз
+        # Сбрасываем mock и вызываем еще раз
+        mock_planned_transaction_modal_instance.open.reset_mock()
+        on_add_callback()
+        
+        assert mock_planned_transaction_modal_instance.open.call_count == 1, \
+            "При повторном вызове callback модальное окно должно быть открыто снова"
+
+
+class TestHomeViewPlannedTransactionIntegration(unittest.TestCase):
+    """Тесты интеграции плановых транзакций в HomeView."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.mock_presenter_patcher = patch('finance_tracker.views.home_view.HomePresenter')
+        self.mock_transactions_panel_patcher = patch('finance_tracker.views.home_view.TransactionsPanel')
+        self.mock_planned_transaction_modal_patcher = patch('finance_tracker.views.home_view.PlannedTransactionModal')
+        self.mock_planned_transactions_widget_patcher = patch('finance_tracker.views.home_view.PlannedTransactionsWidget')
+
+        self.mock_presenter = self.mock_presenter_patcher.start()
+        self.mock_transactions_panel = self.mock_transactions_panel_patcher.start()
+        self.mock_planned_transaction_modal_class = self.mock_planned_transaction_modal_patcher.start()
+        self.mock_planned_transactions_widget = self.mock_planned_transactions_widget_patcher.start()
+
+        self.page = MagicMock()
+        self.mock_session = Mock()
+
+        # Создаем mock экземпляр PlannedTransactionModal
+        self.mock_planned_transaction_modal_instance = Mock()
+        self.mock_planned_transaction_modal_class.return_value = self.mock_planned_transaction_modal_instance
+
+        # Создаем экземпляр HomeView
+        self.view = HomeView(self.page, self.mock_session)
+
+    def tearDown(self):
+        """Очистка после каждого теста."""
+        self.mock_presenter_patcher.stop()
+        self.mock_transactions_panel_patcher.stop()
+        self.mock_planned_transaction_modal_patcher.stop()
+        self.mock_planned_transactions_widget_patcher.stop()
+
+    def test_planned_transaction_modal_initialization(self):
+        """Тест инициализации PlannedTransactionModal."""
+        # Проверяем, что PlannedTransactionModal был создан
+        self.mock_planned_transaction_modal_class.assert_called_once()
+        
+        # Получаем аргументы вызова конструктора
+        call_args = self.mock_planned_transaction_modal_class.call_args
+        
+        # Проверяем, что session передан
+        self.assertIn('session', call_args.kwargs)
+        self.assertEqual(call_args.kwargs['session'], self.mock_session)
+        
+        # Проверяем, что on_save callback установлен
+        self.assertIn('on_save', call_args.kwargs)
+        on_save_callback = call_args.kwargs['on_save']
+        
+        # Проверяем, что callback - это метод on_planned_transaction_saved
+        self.assertEqual(on_save_callback, self.view.on_planned_transaction_saved)
+
+    def test_on_add_planned_transaction_opens_modal(self):
+        """Тест открытия модального окна через on_add_planned_transaction."""
+        # Arrange - устанавливаем тестовую дату
+        test_date = datetime.date(2024, 12, 11)
+        self.view.selected_date = test_date
+        
+        # Act - вызываем метод открытия модального окна
+        self.view.on_add_planned_transaction()
+        
+        # Assert - проверяем вызов planned_transaction_modal.open() с правильными параметрами
+        self.mock_planned_transaction_modal_instance.open.assert_called_once_with(self.page, test_date)
+
+    def test_on_add_planned_transaction_with_none_page(self):
+        """Тест обработки ошибки при отсутствии page объекта."""
+        # Arrange - устанавливаем page в None
+        self.view.page = None
+        
+        # Act - вызываем метод (не должно быть исключений)
+        self.view.on_add_planned_transaction()
+        
+        # Assert - проверяем, что modal.open() НЕ был вызван
+        self.mock_planned_transaction_modal_instance.open.assert_not_called()
+
+    def test_on_add_planned_transaction_exception_handling(self):
+        """Тест обработки исключений при открытии модального окна."""
+        # Arrange - настраиваем modal.open() для выброса исключения
+        self.mock_planned_transaction_modal_instance.open.side_effect = Exception("Test exception")
+        
+        # Act - вызываем метод (не должно быть необработанных исключений)
+        self.view.on_add_planned_transaction()
+        
+        # Assert - проверяем, что был показан SnackBar с ошибкой
+        self.page.open.assert_called()
+        
+        # Проверяем, что был передан SnackBar
+        call_args = self.page.open.call_args
+        snack_bar = call_args[0][0]
+        
+        # Проверяем, что это SnackBar с сообщением об ошибке
+        self.assertIsNotNone(snack_bar)
+
+    @patch('finance_tracker.models.models.PlannedTransactionCreate')
+    def test_on_planned_transaction_saved_calls_presenter(self, mock_planned_transaction_create_class):
+        """Тест обработки сохранения через on_planned_transaction_saved."""
+        # Arrange - создаем mock данных плановой транзакции
+        mock_planned_transaction_data = Mock()
+        mock_planned_transaction_create_class.return_value = mock_planned_transaction_data
+        
+        # Act - вызываем callback сохранения
+        self.view.on_planned_transaction_saved(mock_planned_transaction_data)
+        
+        # Assert - проверяем вызов presenter.create_planned_transaction
+        self.mock_presenter.return_value.create_planned_transaction.assert_called_once_with(mock_planned_transaction_data)
+
+    def test_on_planned_transaction_saved_with_valid_data(self):
+        """Тест сохранения с валидными данными."""
+        # Arrange - создаем mock данных с реальными атрибутами
+        from decimal import Decimal
+        from finance_tracker.models.enums import TransactionType
+        
+        mock_planned_transaction_data = Mock()
+        mock_planned_transaction_data.amount = Decimal('1000.50')
+        mock_planned_transaction_data.category_id = "test-category-id"
+        mock_planned_transaction_data.description = "Тестовая плановая транзакция"
+        mock_planned_transaction_data.type = TransactionType.EXPENSE
+        mock_planned_transaction_data.start_date = datetime.date(2024, 12, 11)
+        
+        # Act - вызываем callback
+        self.view.on_planned_transaction_saved(mock_planned_transaction_data)
+        
+        # Assert - проверяем, что данные переданы в presenter
+        self.mock_presenter.return_value.create_planned_transaction.assert_called_once()
+        call_args = self.mock_presenter.return_value.create_planned_transaction.call_args
+        passed_data = call_args[0][0]
+        
+        # Проверяем, что переданы те же данные
+        self.assertEqual(passed_data, mock_planned_transaction_data)
+
+    def test_planned_transactions_widget_initialization_with_add_callback(self):
+        """Тест инициализации PlannedTransactionsWidget с callback добавления."""
+        # Проверяем, что PlannedTransactionsWidget был создан
+        self.mock_planned_transactions_widget.assert_called_once()
+        
+        # Получаем аргументы вызова конструктора
+        call_args = self.mock_planned_transactions_widget.call_args
+        
+        # Проверяем, что on_add_planned_transaction callback установлен
+        self.assertIn('on_add_planned_transaction', call_args.kwargs)
+        on_add_callback = call_args.kwargs['on_add_planned_transaction']
+        
+        # Проверяем, что callback - это метод on_add_planned_transaction
+        self.assertEqual(on_add_callback, self.view.on_add_planned_transaction)
 
 
 if __name__ == '__main__':

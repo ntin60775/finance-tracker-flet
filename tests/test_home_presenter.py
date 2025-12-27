@@ -544,6 +544,161 @@ class TestHomePresenter(unittest.TestCase):
         self.callbacks.show_message.assert_not_called()
 
 
+    # Тесты для плановых транзакций
+    def test_create_planned_transaction_success(self):
+        """Тест успешного создания плановой транзакции."""
+        from finance_tracker.models.models import PlannedTransactionCreate, RecurrenceRuleCreate
+        from finance_tracker.models.enums import RecurrenceType
+        
+        planned_data = PlannedTransactionCreate(
+            amount=Decimal('500.00'),
+            type=TransactionType.EXPENSE,
+            category_id=str(uuid.uuid4()),
+            description="Тестовая плановая транзакция",
+            start_date=date.today(),
+            recurrence_rule=RecurrenceRuleCreate(
+                recurrence_type=RecurrenceType.MONTHLY,
+                interval=1
+            )
+        )
+        
+        # Мокируем созданную плановую транзакцию
+        mock_planned_tx = Mock(id=str(uuid.uuid4()))
+        self.mock_planned_transaction_service.create_planned_transaction.return_value = mock_planned_tx
+        
+        self.presenter.create_planned_transaction(planned_data)
+        
+        # Проверяем вызов сервиса
+        self.mock_planned_transaction_service.create_planned_transaction.assert_called_once_with(
+            self.session, planned_data
+        )
+        
+        # Проверяем commit и отсутствие rollback
+        self.session.commit.assert_called_once()
+        self.session.rollback.assert_not_called()
+        
+        # Проверяем success callback
+        self.callbacks.show_message.assert_called_once_with("Плановая транзакция успешно создана")
+        self.callbacks.show_error.assert_not_called()
+
+    def test_create_planned_transaction_calls_refresh_data(self):
+        """Тест вызова _refresh_data после создания плановой транзакции."""
+        from finance_tracker.models.models import PlannedTransactionCreate, RecurrenceRuleCreate
+        from finance_tracker.models.enums import RecurrenceType
+        
+        planned_data = PlannedTransactionCreate(
+            amount=Decimal('750.25'),
+            type=TransactionType.INCOME,
+            category_id=str(uuid.uuid4()),
+            description="Плановая транзакция для проверки обновления",
+            start_date=date.today(),
+            recurrence_rule=RecurrenceRuleCreate(
+                recurrence_type=RecurrenceType.WEEKLY,
+                interval=2
+            )
+        )
+        
+        # Мокируем созданную плановую транзакцию
+        mock_planned_tx = Mock(id=str(uuid.uuid4()))
+        self.mock_planned_transaction_service.create_planned_transaction.return_value = mock_planned_tx
+        
+        # Сбрасываем счётчики вызовов после setUp
+        self.mock_pending_payment_service.get_all_pending_payments.reset_mock()
+        self.mock_pending_payment_service.get_pending_payments_statistics.reset_mock()
+        self.mock_transaction_service.get_by_date_range.reset_mock()
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.reset_mock()
+        self.mock_transaction_service.get_transactions_by_date.reset_mock()
+        self.mock_planned_transaction_service.get_occurrences_by_date.reset_mock()
+        self.mock_planned_transaction_service.get_pending_occurrences.reset_mock()
+        
+        self.presenter.create_planned_transaction(planned_data)
+        
+        # Проверяем, что _refresh_data был вызван (проверяем вызовы методов загрузки)
+        # _refresh_data вызывает load_calendar_data
+        self.mock_transaction_service.get_by_date_range.assert_called_once()
+        self.mock_planned_transaction_service.get_occurrences_by_date_range.assert_called_once()
+        
+        # _refresh_data вызывает on_date_selected
+        self.mock_transaction_service.get_transactions_by_date.assert_called_once()
+        self.mock_planned_transaction_service.get_occurrences_by_date.assert_called_once()
+        
+        # _refresh_data вызывает load_planned_occurrences
+        self.mock_planned_transaction_service.get_pending_occurrences.assert_called_once()
+        
+        # _refresh_data вызывает load_pending_payments
+        self.mock_pending_payment_service.get_all_pending_payments.assert_called_once()
+        self.mock_pending_payment_service.get_pending_payments_statistics.assert_called_once()
+
+    def test_create_planned_transaction_shows_success_message(self):
+        """Тест показа сообщения об успехе при создании плановой транзакции."""
+        from finance_tracker.models.models import PlannedTransactionCreate, RecurrenceRuleCreate
+        from finance_tracker.models.enums import RecurrenceType
+        
+        planned_data = PlannedTransactionCreate(
+            amount=Decimal('300.00'),
+            type=TransactionType.EXPENSE,
+            category_id=str(uuid.uuid4()),
+            description="Плановая транзакция для проверки сообщения",
+            start_date=date.today(),
+            recurrence_rule=RecurrenceRuleCreate(
+                recurrence_type=RecurrenceType.DAILY,
+                interval=1
+            )
+        )
+        
+        # Мокируем созданную плановую транзакцию
+        mock_planned_tx = Mock(id=str(uuid.uuid4()))
+        self.mock_planned_transaction_service.create_planned_transaction.return_value = mock_planned_tx
+        
+        self.presenter.create_planned_transaction(planned_data)
+        
+        # Проверяем, что показано правильное сообщение
+        self.callbacks.show_message.assert_called_once_with("Плановая транзакция успешно создана")
+        
+        # Проверяем, что ошибка не показана
+        self.callbacks.show_error.assert_not_called()
+
+    def test_create_planned_transaction_error_handling(self):
+        """Тест обработки ошибки при создании плановой транзакции."""
+        from finance_tracker.models.models import PlannedTransactionCreate, RecurrenceRuleCreate
+        from finance_tracker.models.enums import RecurrenceType
+        
+        planned_data = PlannedTransactionCreate(
+            amount=Decimal('200.00'),
+            type=TransactionType.EXPENSE,
+            category_id=str(uuid.uuid4()),
+            description="Плановая транзакция с ошибкой",
+            start_date=date.today(),
+            recurrence_rule=RecurrenceRuleCreate(
+                recurrence_type=RecurrenceType.MONTHLY,
+                interval=1
+            )
+        )
+        
+        # Настраиваем ошибку
+        test_error = SQLAlchemyError("Database error")
+        self.mock_planned_transaction_service.create_planned_transaction.side_effect = test_error
+        
+        with patch('finance_tracker.views.home_presenter.logger') as mock_logger:
+            self.presenter.create_planned_transaction(planned_data)
+        
+        # Проверяем rollback
+        self.session.rollback.assert_called_once()
+        self.session.commit.assert_not_called()
+        
+        # Проверяем логирование
+        mock_logger.error.assert_called_once()
+        error_log = mock_logger.error.call_args[0][0]
+        self.assertIn("Ошибка при создании плановой транзакции", error_log)
+        
+        # Проверяем error callback
+        self.callbacks.show_error.assert_called_once()
+        error_message = self.callbacks.show_error.call_args[0][0]
+        self.assertIn("Ошибка при создании плановой транзакции", error_message)
+        
+        # Проверяем, что success сообщение не показано
+        self.callbacks.show_message.assert_not_called()
+
     def test_cancel_pending_payment_success(self):
         """Тест успешной отмены отложенного платежа."""
         payment_id = "payment-id"
