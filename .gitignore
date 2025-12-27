@@ -24,6 +24,9 @@ build/
 htmlcov/
 .hypothesis/
 
+# Linting
+.ruff_cache/
+
 # User data (должна храниться локально, не в репозитории)
 .finance_tracker_data/
 *.db
