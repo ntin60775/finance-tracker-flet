@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Any, Tuple, Dict
+from typing import List, Any, Tuple, Dict, Optional, Callable
 
 import flet as ft
 from sqlalchemy.orm import Session
@@ -39,13 +39,25 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     Реализует паттерн MVP: View делегирует бизнес-логику в Presenter,
     получает обновления через IHomeViewCallbacks.
+    
+    Args:
+        page: Объект страницы Flet для управления UI
+        session: Активная сессия БД для работы с данными
+        navigate_callback: Опциональный callback для навигации между разделами приложения.
+                          Принимает индекс раздела (int) для переключения.
     """
 
-    def __init__(self, page: ft.Page, session: Session):
+    def __init__(
+        self, 
+        page: ft.Page, 
+        session: Session,
+        navigate_callback: Optional[Callable[[int], None]] = None
+    ):
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self.page = page
         self.session = session
         self.selected_date = datetime.date.today()
+        self.navigate_callback = navigate_callback
 
         # Создаем Presenter с инжекцией зависимостей
         self.presenter = HomePresenter(session, self)
@@ -458,9 +470,14 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_show_all_occurrences(self):
         """Переход к разделу всех плановых транзакций."""
-        # TODO: Реализовать навигацию через MainWindow
-        logger.info("Запрос на переход к разделу плановых транзакций")
-        pass
+        if self.navigate_callback:
+            try:
+                self.navigate_callback(1)
+                logger.info("Переход к разделу плановых транзакций")
+            except Exception as e:
+                logger.error(f"Ошибка при навигации к плановым транзакциям: {e}")
+        else:
+            logger.warning("Метод навигации не доступен в HomeView")
 
     def on_execute_payment(self, payment):
         """Открытие модального окна для исполнения отложенного платежа."""

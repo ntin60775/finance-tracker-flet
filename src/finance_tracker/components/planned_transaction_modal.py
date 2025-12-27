@@ -66,12 +66,12 @@ class PlannedTransactionModal:
                 ft.Segment(
                     value=TransactionType.EXPENSE.value,
                     label=ft.Text("Расход"),
-                    icon=ft.Icons.ARROW_CIRCLE_DOWN,
+                    icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN),
                 ),
                 ft.Segment(
                     value=TransactionType.INCOME.value,
                     label=ft.Text("Доход"),
-                    icon=ft.Icons.ARROW_CIRCLE_UP,
+                    icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP),
                 ),
             ],
             selected={TransactionType.EXPENSE.value},
@@ -282,25 +282,33 @@ class PlannedTransactionModal:
 
     def _open_start_date_picker(self, e):
         """Открытие выбора даты начала."""
-        self.start_date_picker.pick_date()
+        self.page.open(self.start_date_picker)
 
     def _on_start_date_change(self, e):
         """Обработка выбора даты начала."""
         if self.start_date_picker.value:
-            self.current_start_date = self.start_date_picker.value.date()
+            # DatePicker.value уже datetime.date в современном Flet
+            if isinstance(self.start_date_picker.value, datetime.datetime):
+                self.current_start_date = self.start_date_picker.value.date()
+            else:
+                self.current_start_date = self.start_date_picker.value
             self.start_date_button.text = self.current_start_date.strftime("%d.%m.%Y")
-            self.start_date_button.update()
+            self.page.update()
 
     def _open_end_date_picker(self, e):
         """Открытие выбора даты окончания."""
-        self.end_date_picker.pick_date()
+        self.page.open(self.end_date_picker)
 
     def _on_end_date_change(self, e):
         """Обработка выбора даты окончания."""
         if self.end_date_picker.value:
-            self.current_end_date = self.end_date_picker.value.date()
+            # DatePicker.value уже datetime.date в современном Flet
+            if isinstance(self.end_date_picker.value, datetime.datetime):
+                self.current_end_date = self.end_date_picker.value.date()
+            else:
+                self.current_end_date = self.end_date_picker.value
             self.end_date_button.text = self.current_end_date.strftime("%d.%m.%Y")
-            self.end_date_button.update()
+            self.page.update()
 
     def _on_type_change(self, e):
         """Обработка смены типа транзакции."""
@@ -442,6 +450,7 @@ class PlannedTransactionModal:
         # Build base recurrence rule
         rule_data = {
             "recurrence_type": rec_type,
+            "interval": 1,  # По умолчанию интервал = 1
         }
 
         # Custom interval

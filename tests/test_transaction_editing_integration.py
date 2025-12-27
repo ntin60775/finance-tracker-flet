@@ -117,7 +117,7 @@ class TestTransactionEditingIntegration(unittest.TestCase):
                 mock_update.return_value = updated_transaction
                 
                 # Создаем HomeView с реальной архитектурой
-                home_view = HomeView(self.mock_page, self.mock_session)
+                home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
                 
                 # Устанавливаем тестовую дату
                 home_view.selected_date = self.test_date
@@ -233,7 +233,7 @@ class TestTransactionEditingIntegration(unittest.TestCase):
                 mock_delete.return_value = True  # Успешное удаление
                 
                 # Создаем HomeView с реальной архитектурой
-                home_view = HomeView(self.mock_page, self.mock_session)
+                home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
                 
                 # Устанавливаем тестовую дату и начальные данные
                 home_view.selected_date = self.test_date
@@ -334,7 +334,7 @@ class TestTransactionEditingIntegration(unittest.TestCase):
                 mock_get_cats.return_value = categories_list
                 
                 # Создаем HomeView с реальной архитектурой
-                home_view = HomeView(self.mock_page, self.mock_session)
+                home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
                 
                 # Устанавливаем тестовую дату и начальные данные
                 home_view.selected_date = self.test_date

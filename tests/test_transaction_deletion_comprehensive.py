@@ -1239,7 +1239,7 @@ class TestDialogDisplayProperties:
             mock_page.update = Mock()
             
             # Создаем HomeView с mock page
-            home_view = HomeView(mock_page, session)
+            home_view = HomeView(mock_page, session, navigate_callback=Mock())
             
             # Act - симулируем нажатие кнопки удаления
             # Это должно вызвать отображение диалога подтверждения
@@ -1404,7 +1404,7 @@ class TestDialogDisplayProperties:
                 mock_delete_service.return_value = True
                 
                 # Создаем HomeView с mock page
-                home_view = HomeView(mock_page, session)
+                home_view = HomeView(mock_page, session, navigate_callback=Mock())
                 
                 # Act - симулируем нажатие кнопки удаления и действие пользователя
                 home_view.on_delete_transaction(transaction)

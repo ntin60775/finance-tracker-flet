@@ -128,8 +128,8 @@ class LoanDetailsView(ft.Column):
             selected_index=0,
             animation_duration=300,
             tabs=[
-                ft.Tab(text="График платежей", icon=ft.Icons.CALENDAR_MONTH),
-                ft.Tab(text="История", icon=ft.Icons.HISTORY),
+                ft.Tab(text="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
+                ft.Tab(text="История", icon=ft.Icon(ft.Icons.HISTORY)),
             ],
             on_change=self.on_tab_change,
             expand=True

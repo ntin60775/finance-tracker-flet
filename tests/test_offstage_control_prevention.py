@@ -101,7 +101,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.1
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Проверяем, что HomeView создан
         self.assertIsNotNone(home_view)
@@ -158,7 +158,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.4
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Попытка открыть диалог до добавления на страницу должна вызвать ошибку
         with self.assertRaises(AssertionError) as context:
@@ -193,7 +193,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.3
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Тест 1: Попытка показать SnackBar до инициализации должна вызвать ошибку
         with self.assertRaises(AssertionError) as context:
@@ -238,7 +238,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.5
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Тест 1: Симулируем ошибку в Presenter до инициализации
         self.mock_presenter.return_value.load_initial_data.side_effect = Exception("Database connection error")
@@ -298,7 +298,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.1
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Проверяем, что все основные компоненты созданы
         self.assertIsNotNone(home_view.calendar_widget)
@@ -326,7 +326,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.3, 1.5
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Тест 1: Список операций, которые должны быть безопасны до инициализации
         safe_operations = [
@@ -367,7 +367,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.3, 1.4
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Тест 1: Модальные окна должны создаваться безопасно
         self.assertIsNotNone(home_view.transaction_modal)
@@ -406,7 +406,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         # Создание нового HomeView не должно вызывать никаких диалогов
         self.mock_page.open.reset_mock()
         
-        new_home_view = HomeView(self.mock_page, self.mock_session)
+        new_home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         self.assertIsNotNone(new_home_view.transaction_modal)
         
         # Никаких диалогов не должно быть показано при создании
@@ -419,7 +419,7 @@ class TestOffstageControlPrevention(ViewTestBase):
         Validates: Requirements 1.3, 1.5
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Тест 1: Множественные попытки показать диалоги до инициализации
         error_count = 0
@@ -538,7 +538,7 @@ def test_property_1_ui_initialization_order_safety(error_messages, info_messages
          patch('finance_tracker.views.home_view.TransactionsPanel') as MockTransactionsPanel:
         
         # Создаем HomeView
-        home_view = HomeView(mock_page, mock_session)
+        home_view = HomeView(mock_page, mock_session, navigate_callback=Mock())
         
         # Property 1: Проверяем, что load_initial_data НЕ вызывается в конструкторе
         MockPresenter.return_value.load_initial_data.assert_not_called()

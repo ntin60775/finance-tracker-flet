@@ -67,27 +67,49 @@ python main.py
 
 ### Testing
 
+**КРИТИЧЕСКИ ВАЖНО - Правила запуска тестов:**
+
+1. **ВСЕГДА ждать завершения всех тестов** - не прерывать выполнение
+2. **НЕ использовать сокращённые версии** команд (например, `-q`, `--tb=short`)
+3. **НЕ указывать таймаут** при запуске тестов - дать им завершиться естественным образом
+4. **Дождаться полного вывода** всех результатов тестирования
+
+**Причина:** Property-based тесты (Hypothesis) могут выполняться долго (100+ итераций на тест). Прерывание или таймаут приведёт к неполным результатам и пропущенным ошибкам.
+
 ```bash
-# Run all tests
+# Run all tests - ПРАВИЛЬНО (дождаться завершения!)
 pytest tests/
 
-# Run with coverage
+# Run with coverage - ПРАВИЛЬНО
 pytest tests/ --cov=src/finance_tracker --cov-report=html
 
 # Run specific test categories
 pytest tests/test_*_view.py              # UI tests
-pytest tests/test_*_properties.py        # Property-based tests
+pytest tests/test_*_properties.py        # Property-based tests (могут быть медленными!)
 pytest tests/test_transaction_service.py # Specific service
 
-# Run with verbose output
+# Run with verbose output - ПРАВИЛЬНО
 pytest tests/ -v
 
-# Stop on first failure
+# Stop on first failure - использовать осторожно
 pytest tests/ -x
 
 # Filter by test name
 pytest tests/ -k "test_load_data"
+
+# ❌ НЕПРАВИЛЬНО - не использовать:
+# pytest tests/ -q                    # Сокращённый вывод - скрывает детали
+# pytest tests/ --tb=short            # Короткий traceback - теряется контекст
+# pytest tests/ --timeout=30          # Таймаут - прервёт property-based тесты
 ```
+
+**Ожидаемое время выполнения:**
+- Unit тесты: ~10-30 секунд
+- Property-based тесты: ~1-5 минут (100+ итераций на тест)
+- Integration тесты: ~30-60 секунд
+- Полный набор: ~2-7 минут
+
+**Если тесты выполняются дольше 10 минут** - это может указывать на проблему, но всё равно дождись завершения для получения полной информации.
 
 ### Building
 

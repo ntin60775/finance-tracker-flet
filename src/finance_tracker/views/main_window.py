@@ -100,7 +100,8 @@ class MainWindow(ft.Row):
     def init_ui(self):
         # Создаем HomeView один раз с persistent Session
         # HomeView получает Session через Dependency Injection и не управляет его жизненным циклом
-        self.home_view = HomeView(self.page, self.home_view_session)
+        # Передаем navigate_callback для возможности программной навигации из HomeView
+        self.home_view = HomeView(self.page, self.home_view_session, navigate_callback=self.navigate)
 
         # Боковая панель навигации
         self.rail = ft.NavigationRail(
@@ -233,9 +234,17 @@ class MainWindow(ft.Row):
         Возвращает содержимое для выбранного раздела.
 
         HomeView переиспользуется (создан в init_ui), остальные view создаются заново.
+        При возврате на HomeView данные обновляются для отображения актуальной информации.
         """
         if index == 0:
             # Переиспользуем созданный HomeView (не создаем новый)
+            # Обновляем данные при возврате на главный экран
+            if self.home_view and hasattr(self.home_view, 'presenter'):
+                try:
+                    self.home_view.presenter.load_initial_data()
+                    logger.info("Данные HomeView обновлены при возврате на главный экран")
+                except Exception as e:
+                    logger.error(f"Ошибка обновления данных HomeView: {e}")
             return self.home_view
         if index == 1:
             return PlannedTransactionsView(self.page)

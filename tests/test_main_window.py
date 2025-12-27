@@ -120,8 +120,8 @@ class TestMainWindow(ViewTestBase):
         self.assertIsNotNone(self.page.appbar)
 
         # Проверяем, что начальный View загружен (HomeView по умолчанию)
-        # HomeView теперь получает page и session через DI
-        self.mock_home_view.assert_called_once_with(self.page, ANY)
+        # HomeView теперь получает page, session и navigate_callback через DI
+        self.mock_home_view.assert_called_once_with(self.page, ANY, navigate_callback=ANY)
         
         # Проверяем, что rail содержит все пункты меню
         self.assertEqual(len(self.window.rail.destinations), 8)
@@ -431,7 +431,7 @@ class TestMainWindow(ViewTestBase):
         Validates: Requirements 5.4
         """
         # HomeView уже создан в init_ui (в setUp), проверяем, что был вызван
-        self.mock_home_view.assert_called_once_with(self.page, ANY)
+        self.mock_home_view.assert_called_once_with(self.page, ANY, navigate_callback=ANY)
 
         # Сбрасываем счетчик для других view
         self.mock_planned_transactions_view.reset_mock()
@@ -508,6 +508,40 @@ class TestMainWindow(ViewTestBase):
         # Проверяем, что navigate был вызван с индексом 2
         self.mock_loans_view.assert_called_once_with(self.page)
         self.assertEqual(self.window.rail.selected_index, 2)
+
+    def test_home_view_receives_navigate_callback(self):
+        """
+        Тест передачи navigate callback в HomeView.
+        
+        Проверяет:
+        - HomeView создается с параметром navigate_callback
+        - navigate_callback является callable (метод navigate из MainWindow)
+        
+        Validates: Requirements 2.1
+        """
+        # Проверяем, что HomeView был создан с navigate_callback
+        # HomeView вызывается в init_ui() с параметрами (page, session, navigate_callback)
+        self.mock_home_view.assert_called_once()
+        
+        # Получаем аргументы вызова HomeView
+        call_args = self.mock_home_view.call_args
+        
+        # Проверяем, что передано 3 аргумента (page, session, navigate_callback)
+        # call_args[0] - позиционные аргументы, call_args[1] - именованные аргументы
+        if call_args[1]:  # Если есть именованные аргументы
+            # Проверяем наличие navigate_callback в именованных аргументах
+            self.assertIn('navigate_callback', call_args[1])
+            navigate_callback = call_args[1]['navigate_callback']
+        else:
+            # Если передано позиционно, это третий аргумент
+            self.assertEqual(len(call_args[0]), 3)
+            navigate_callback = call_args[0][2]
+        
+        # Проверяем, что navigate_callback является callable
+        self.assertTrue(callable(navigate_callback))
+        
+        # Проверяем, что это метод navigate из MainWindow
+        self.assertEqual(navigate_callback, self.window.navigate)
 
 
 if __name__ == '__main__':

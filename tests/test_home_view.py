@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch, ANY
 import datetime
 
+import pytest
 from hypothesis import given, strategies as st, settings
 
 from finance_tracker.views.home_view import HomeView
@@ -26,7 +27,7 @@ class TestHomeView(unittest.TestCase):
         self.mock_session = Mock()
 
         # Создаем экземпляр HomeView с передачей Session через DI
-        self.view = HomeView(self.page, self.mock_session)
+        self.view = HomeView(self.page, self.mock_session, navigate_callback=Mock())
 
     def tearDown(self):
         self.mock_presenter_patcher.stop()
@@ -399,6 +400,176 @@ class TestHomeViewProperties:
         # Проверяем, что дата остается объектом date
         assert isinstance(passed_date, datetime.date), \
             f"Переданная дата должна быть объектом datetime.date, получено {type(passed_date)}"
+
+    @given(
+        navigate_callbacks=st.one_of(
+            st.just(Mock()),  # Обычный mock callback
+            st.just(Mock(side_effect=None)),  # Mock без побочных эффектов
+        )
+    )
+    @settings(max_examples=100, deadline=None)
+    @patch('finance_tracker.views.home_view.HomePresenter')
+    @patch('finance_tracker.views.home_view.TransactionsPanel')
+    def test_property_1_navigation_called_on_show_all_occurrences(self, mock_transactions_panel, mock_presenter, navigate_callbacks):
+        """
+        **Feature: planned-transaction-show-all-button, Property 1: Навигация вызывается при нажатии кнопки**
+        **Validates: Requirements 1.1, 2.2**
+        
+        Property: Для любого HomeView с заданным navigate_callback, при вызове метода on_show_all_occurrences 
+        callback должен быть вызван ровно один раз с индексом 1.
+        """
+        # Arrange - создаем mock объекты
+        mock_page = MagicMock()
+        mock_session = Mock()
+        
+        # Создаем HomeView с navigate_callback
+        view = HomeView(mock_page, mock_session, navigate_callback=navigate_callbacks)
+        
+        # Act - вызываем on_show_all_occurrences
+        view.on_show_all_occurrences()
+        
+        # Assert - проверяем вызов callback с индексом 1
+        # 1. Callback должен быть вызван ровно один раз
+        navigate_callbacks.assert_called_once()
+        
+        # 2. Callback должен быть вызван с аргументом 1
+        call_args = navigate_callbacks.call_args
+        assert call_args is not None, "Callback должен быть вызван с аргументами"
+        
+        # 3. Проверяем, что первый аргумент - это индекс 1
+        passed_index = call_args[0][0]
+        assert passed_index == 1, \
+            f"Callback должен быть вызван с индексом 1, получено: {passed_index}"
+        
+        # 4. Проверяем, что индекс - это целое число
+        assert isinstance(passed_index, int), \
+            f"Индекс должен быть целым числом, получено: {type(passed_index)}"
+        
+        # 5. Проверяем, что индекс находится в разумных пределах (0-7 для навигации)
+        assert 0 <= passed_index <= 7, \
+            f"Индекс должен быть в пределах [0, 7], получено: {passed_index}"
+        
+        # 6. Проверяем, что не было передано лишних аргументов
+        assert len(call_args[0]) == 1, \
+            f"Callback должен быть вызван с одним аргументом, получено: {len(call_args[0])}"
+        
+        # 7. Проверяем, что не было передано keyword аргументов
+        assert len(call_args[1]) == 0, \
+            f"Callback не должен получать keyword аргументы, получено: {call_args[1]}"
+
+    @given(
+        call_count=st.integers(min_value=1, max_value=100)
+    )
+    @settings(max_examples=100, deadline=None)
+    @patch('finance_tracker.views.home_view.HomePresenter')
+    @patch('finance_tracker.views.home_view.TransactionsPanel')
+    def test_property_2_safety_without_navigation(self, mock_transactions_panel, mock_presenter, call_count):
+        """
+        **Feature: planned-transaction-show-all-button, Property 2: Безопасность при отсутствии навигации**
+        **Validates: Requirements 3.1, 3.3**
+        
+        Property: Для любого HomeView без navigate_callback (None), при вызове метода on_show_all_occurrences 
+        множество раз не должно возникать необработанных исключений.
+        """
+        # Arrange - создаем mock объекты
+        mock_page = MagicMock()
+        mock_session = Mock()
+        
+        # Создаем HomeView БЕЗ navigate_callback (None)
+        view = HomeView(mock_page, mock_session, navigate_callback=None)
+        
+        # Act & Assert - вызываем on_show_all_occurrences множество раз
+        # Каждый вызов должен быть безопасным и не выбрасывать исключений
+        with patch('finance_tracker.views.home_view.logger') as mock_logger:
+            for i in range(call_count):
+                try:
+                    # Вызываем метод
+                    view.on_show_all_occurrences()
+                    
+                    # Проверяем, что исключение не возникло
+                    # (если мы дошли до этой точки, значит исключений не было)
+                except Exception as e:
+                    pytest.fail(
+                        f"on_show_all_occurrences вызвал исключение при вызове {i+1}: {e}"
+                    )
+            
+            # Проверяем, что warning был залогирован для каждого вызова
+            assert mock_logger.warning.call_count == call_count, \
+                f"Warning должен быть залогирован {call_count} раз, получено: {mock_logger.warning.call_count}"
+            
+            # Проверяем, что каждый warning содержит правильное сообщение
+            for call in mock_logger.warning.call_args_list:
+                warning_message = call[0][0]
+                assert "Метод навигации не доступен в HomeView" in warning_message, \
+                    f"Warning должен содержать сообщение о недоступности навигации, получено: {warning_message}"
+            
+            # Проверяем, что error НЕ был залогирован (так как нет callback для выброса исключения)
+            mock_logger.error.assert_not_called()
+
+    @given(
+        exception_types=st.sampled_from([
+            ValueError("Test ValueError"),
+            RuntimeError("Test RuntimeError"),
+            TypeError("Test TypeError"),
+            Exception("Test Exception"),
+            KeyError("Test KeyError"),
+            AttributeError("Test AttributeError"),
+        ])
+    )
+    @settings(max_examples=100, deadline=None)
+    @patch('finance_tracker.views.home_view.HomePresenter')
+    @patch('finance_tracker.views.home_view.TransactionsPanel')
+    def test_property_3_error_logging_on_navigation_failure(self, mock_transactions_panel, mock_presenter, exception_types):
+        """
+        **Feature: planned-transaction-show-all-button, Property 3: Логирование при ошибках навигации**
+        **Validates: Requirements 3.2**
+        
+        Property: Для любого HomeView с navigate_callback, который выбрасывает исключение, 
+        при вызове on_show_all_occurrences ошибка должна быть залогирована и не распространяться.
+        """
+        # Arrange - создаем mock объекты
+        mock_page = MagicMock()
+        mock_session = Mock()
+        
+        # Создаем mock callback, который выбрасывает исключение
+        mock_navigate = Mock(side_effect=exception_types)
+        
+        # Создаем HomeView с navigate_callback, который выбрасывает исключение
+        view = HomeView(mock_page, mock_session, navigate_callback=mock_navigate)
+        
+        # Act & Assert - вызываем on_show_all_occurrences
+        with patch('finance_tracker.views.home_view.logger') as mock_logger:
+            try:
+                # Вызываем метод
+                view.on_show_all_occurrences()
+                
+                # Проверяем, что исключение НЕ распространилось
+                # (если мы дошли до этой точки, значит исключение было обработано)
+            except Exception as e:
+                pytest.fail(
+                    f"on_show_all_occurrences не должен распространять исключения, получено: {type(e).__name__}: {e}"
+                )
+            
+            # Проверяем, что callback был вызван
+            mock_navigate.assert_called_once_with(1)
+            
+            # Проверяем, что ошибка была залогирована
+            mock_logger.error.assert_called_once()
+            
+            # Проверяем содержимое сообщения об ошибке
+            error_call = mock_logger.error.call_args[0][0]
+            assert "Ошибка при навигации к плановым транзакциям" in error_call, \
+                f"Сообщение об ошибке должно содержать описание проблемы, получено: {error_call}"
+            
+            # Проверяем, что в сообщении есть информация об исключении
+            assert str(exception_types) in error_call or type(exception_types).__name__ in error_call, \
+                f"Сообщение об ошибке должно содержать информацию об исключении, получено: {error_call}"
+            
+            # Проверяем, что warning НЕ был залогирован (так как callback был передан)
+            mock_logger.warning.assert_not_called()
+            
+            # Проверяем, что info НЕ был залогирован (так как навигация завершилась с ошибкой)
+            mock_logger.info.assert_not_called()
 
 
 class TestHomeViewPendingPaymentIntegration(unittest.TestCase):
@@ -951,6 +1122,66 @@ class TestHomeViewPlannedTransactionIntegration(unittest.TestCase):
         # Проверяем, что callback - это метод on_add_planned_transaction
         self.assertEqual(on_add_callback, self.view.on_add_planned_transaction)
 
+    def test_on_show_all_occurrences_calls_navigate_with_index_1(self):
+        """
+        Тест вызова navigate_callback с индексом 1 при нажатии кнопки "Показать все".
+        
+        Requirements: 1.1, 2.2
+        """
+        # Arrange - создаем mock navigate_callback
+        mock_navigate = Mock()
+        
+        # Создаем HomeView с navigate_callback
+        view = HomeView(self.page, self.mock_session, navigate_callback=mock_navigate)
+        
+        # Act - вызываем on_show_all_occurrences
+        view.on_show_all_occurrences()
+        
+        # Assert - проверяем вызов navigate_callback с аргументом 1
+        mock_navigate.assert_called_once_with(1)
+
+    def test_on_show_all_occurrences_without_callback_logs_warning(self):
+        """
+        Тест логирования предупреждения при отсутствии navigate_callback.
+        
+        Requirements: 3.1, 3.3
+        """
+        # Arrange - создаем HomeView без navigate_callback
+        view = HomeView(self.page, self.mock_session, navigate_callback=None)
+        
+        # Act & Assert - вызов не должен вызывать исключений
+        with patch('finance_tracker.views.home_view.logger') as mock_logger:
+            view.on_show_all_occurrences()
+            
+            # Проверяем логирование предупреждения
+            mock_logger.warning.assert_called_once_with("Метод навигации не доступен в HomeView")
+
+    def test_on_show_all_occurrences_handles_navigation_error(self):
+        """
+        Тест обработки ошибок при навигации.
+        
+        Requirements: 3.2
+        """
+        # Arrange - создаем mock navigate_callback, который выбрасывает исключение
+        mock_navigate = Mock(side_effect=Exception("Navigation error"))
+        
+        # Создаем HomeView с navigate_callback
+        view = HomeView(self.page, self.mock_session, navigate_callback=mock_navigate)
+        
+        # Act & Assert - вызов не должен распространять исключение
+        with patch('finance_tracker.views.home_view.logger') as mock_logger:
+            try:
+                view.on_show_all_occurrences()
+                # Проверяем, что исключение не распространилось
+            except Exception:
+                self.fail("on_show_all_occurrences не должен распространять исключения")
+            
+            # Проверяем логирование ошибки
+            mock_logger.error.assert_called_once()
+            error_message = mock_logger.error.call_args[0][0]
+            self.assertIn("Ошибка при навигации к плановым транзакциям", error_message)
+
 
 if __name__ == '__main__':
     unittest.main()
+

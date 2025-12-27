@@ -647,7 +647,7 @@ class TransactionsPanel(ft.Container):
                     )
                 ],
                 spacing=2,
-                main_axis_alignment=ft.MainAxisAlignment.END,
+                alignment=ft.MainAxisAlignment.END,
                 width=100
             )
         else:

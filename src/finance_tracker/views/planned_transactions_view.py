@@ -23,8 +23,10 @@ from finance_tracker.database import get_db_session
 from finance_tracker.services.planned_transaction_service import (
     get_all_planned_transactions,
     deactivate_planned_transaction,
-    delete_planned_transaction
+    delete_planned_transaction,
+    create_planned_transaction
 )
+from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -100,8 +102,8 @@ class PlannedTransactionsView(ft.Column):
             animation_duration=300,
             tabs=[
                 ft.Tab(text="Все"),
-                ft.Tab(text="Расходы", icon=ft.Icons.ARROW_CIRCLE_DOWN),
-                ft.Tab(text="Доходы", icon=ft.Icons.ARROW_CIRCLE_UP),
+                ft.Tab(text="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
+                ft.Tab(text="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
             ],
             on_change=self.on_type_filter_change
         )
@@ -584,12 +586,40 @@ class PlannedTransactionsView(ft.Column):
     def open_create_dialog(self, e):
         """Открытие диалога создания плановой транзакции."""
         logger.info("Открытие диалога создания плановой транзакции")
-        # TODO: Реализовать PlannedTransactionModal и интегрировать
-        if self.page:
-            snack = ft.SnackBar(
-                content=ft.Text("Создание плановых транзакций будет реализовано")
-            )
-            self.page.open(snack)
+        
+        modal = PlannedTransactionModal(
+            session=self.session,
+            on_save=self._on_planned_transaction_saved
+        )
+        modal.open(self.page)
+
+    def _on_planned_transaction_saved(self, planned_tx_data):
+        """
+        Callback при сохранении плановой транзакции из модального окна.
+        
+        Args:
+            planned_tx_data: Данные плановой транзакции (PlannedTransactionCreate)
+        """
+        try:
+            create_planned_transaction(self.session, planned_tx_data)
+            
+            logger.info("Плановая транзакция успешно создана")
+            
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("Плановая транзакция создана")
+                )
+                self.page.open(snack)
+            
+            self.refresh_data()
+            
+        except Exception as ex:
+            logger.error(f"Ошибка создания плановой транзакции: {ex}")
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text(f"Ошибка: {ex}")
+                )
+                self.page.open(snack)
 
     def edit_planned_transaction(self, tx: PlannedTransactionDB):
         """

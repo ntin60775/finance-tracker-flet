@@ -158,7 +158,7 @@ class TestInterfaceTypeSafety(ViewTestBase):
         Validates: Requirements 3.2
         """
         # Создаем HomeView (который реализует IHomeViewCallbacks)
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Патчим set_payments для изоляции теста
         with patch.object(home_view.pending_payments_widget, 'set_payments') as mock_set_payments:
@@ -251,7 +251,7 @@ class TestInterfaceTypeSafety(ViewTestBase):
         Validates: Requirements 3.4
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Создаем корректные данные
         payments = self.create_mock_pending_payments()
@@ -373,7 +373,7 @@ class TestInterfaceTypeSafety(ViewTestBase):
         Validates: Requirements 3.4, 3.5
         """
         # Создаем HomeView для тестирования
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         payments = self.create_mock_pending_payments()
         
         # Тест 1: Корректный формат должен работать
@@ -709,7 +709,7 @@ class TestInterfaceTypeSafety(ViewTestBase):
         Validates: Requirements 3.1, 3.2, 3.3
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Патчим set_payments для контроля поведения
         with patch.object(home_view.pending_payments_widget, 'set_payments') as mock_set_payments:
@@ -801,7 +801,7 @@ class TestInterfaceTypeSafety(ViewTestBase):
         Validates: Requirements 3.2, 3.3, 3.4
         """
         # Создаем полную цепочку: Presenter -> HomeView -> PendingPaymentsWidget
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         presenter = home_view.presenter
         
         # Настраиваем моки сервисов
@@ -869,7 +869,7 @@ def test_property_3_interface_type_consistency(statistics_dict, payment_count, u
          patch('finance_tracker.views.home_view.PendingPaymentsWidget') as MockPendingWidget:
         
         # Создаем HomeView
-        home_view = HomeView(mock_page, mock_session)
+        home_view = HomeView(mock_page, mock_session, navigate_callback=Mock())
         
         # Создаем mock payments
         mock_payments = []

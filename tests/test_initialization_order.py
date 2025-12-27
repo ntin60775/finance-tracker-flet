@@ -157,7 +157,7 @@ class TestInitializationOrder(ViewTestBase):
         Validates: Requirements 6.2, 6.3, 6.4
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Проверяем начальное состояние - компонент создан, но не смонтирован
         self.assertIsNotNone(home_view)
@@ -221,7 +221,7 @@ class TestInitializationOrder(ViewTestBase):
         # Патчим HomePresenter для отслеживания вызовов
         with patch('finance_tracker.views.home_view.HomePresenter') as MockPresenter:
             # Создаем HomeView
-            home_view = HomeView(self.mock_page, self.mock_session)
+            home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
             
             # Проверяем, что load_initial_data НЕ вызван в конструкторе
             MockPresenter.return_value.load_initial_data.assert_not_called()
@@ -255,7 +255,7 @@ class TestInitializationOrder(ViewTestBase):
         Validates: Requirements 6.4
         """
         # Создаем HomeView
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Добавляем на страницу
         self.mock_page.add(home_view)
@@ -296,7 +296,7 @@ class TestInitializationOrder(ViewTestBase):
         # Патчим HomePresenter для отслеживания вызовов
         with patch('finance_tracker.views.home_view.HomePresenter') as MockPresenter:
             # Создаем HomeView
-            home_view = HomeView(self.mock_page, self.mock_session)
+            home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
             
             # Проверяем, что load_initial_data НЕ вызван в конструкторе
             MockPresenter.return_value.load_initial_data.assert_not_called()
@@ -355,7 +355,7 @@ class TestInitializationOrder(ViewTestBase):
              patch('finance_tracker.views.home_view.PendingPaymentsWidget') as MockPendingWidget:
             
             # Создаем HomeView
-            home_view = HomeView(self.mock_page, self.mock_session)
+            home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
             
             # Проверяем, что компоненты созданы правильно
             self.assertIsNotNone(home_view)
@@ -399,30 +399,65 @@ class TestInitializationOrder(ViewTestBase):
         
         Validates: Requirements 6.1, 6.2
         """
-        # Создаем MainWindow
-        main_window = MainWindow(self.mock_page)
-        
-        # Проверяем, что MainWindow создан
-        self.assertIsNotNone(main_window)
-        
-        # Проверяем, что HomeView создан, но данные не загружены
-        self.assertIsNotNone(main_window.home_view)
-        
-        # Добавляем MainWindow на страницу
-        self.mock_page.add(main_window)
-        
-        # Проверяем последовательность lifecycle событий
-        events = self.mock_page._lifecycle_events
-        
-        # Должны быть события add и did_mount для MainWindow
-        main_window_events = [e for e in events if e[1] == main_window]
-        
-        add_events = [e for e in main_window_events if e[0] == 'add']
-        did_mount_events = [e for e in main_window_events if e[0] == 'did_mount']
-        
-        self.assertEqual(len(add_events), 1, "MainWindow должен быть добавлен один раз")
-        self.assertEqual(len(did_mount_events), 1, "did_mount должен быть вызван один раз")
-        
+        # Патчим все View для изоляции теста
+        with patch('finance_tracker.views.main_window.HomeView') as MockHomeView, \
+             patch('finance_tracker.views.main_window.CategoriesView') as MockCategoriesView, \
+             patch('finance_tracker.views.main_window.PlanFactView') as MockPlanFactView, \
+             patch('finance_tracker.views.main_window.PendingPaymentsView') as MockPendingPaymentsView, \
+             patch('finance_tracker.views.main_window.PlannedTransactionsView') as MockPlannedTransactionsView, \
+             patch('finance_tracker.views.main_window.LendersView') as MockLendersView, \
+             patch('finance_tracker.views.main_window.LoansView') as MockLoansView, \
+             patch('finance_tracker.views.main_window.SettingsView') as MockSettingsView:
+            
+            # Создаем mock экземпляры для всех View
+            mock_home_view = Mock()
+            mock_categories_view = Mock()
+            mock_plan_fact_view = Mock()
+            mock_pending_payments_view = Mock()
+            mock_planned_transactions_view = Mock()
+            mock_lenders_view = Mock()
+            mock_loans_view = Mock()
+            mock_settings_view = Mock()
+            
+            MockHomeView.return_value = mock_home_view
+            MockCategoriesView.return_value = mock_categories_view
+            MockPlanFactView.return_value = mock_plan_fact_view
+            MockPendingPaymentsView.return_value = mock_pending_payments_view
+            MockPlannedTransactionsView.return_value = mock_planned_transactions_view
+            MockLendersView.return_value = mock_lenders_view
+            MockLoansView.return_value = mock_loans_view
+            MockSettingsView.return_value = mock_settings_view
+            
+            # Создаем MainWindow
+            main_window = MainWindow(self.mock_page)
+            
+            # Проверяем, что MainWindow создан
+            self.assertIsNotNone(main_window)
+            
+            # Проверяем, что HomeView создан, но данные не загружены
+            self.assertIsNotNone(main_window.home_view)
+            
+            # Добавляем MainWindow на страницу
+            self.mock_page.add(main_window)
+            
+            # Проверяем последовательность lifecycle событий
+            events = self.mock_page._lifecycle_events
+            
+            # Должны быть события add и did_mount для MainWindow
+            main_window_events = [e for e in events if e[1] == main_window]
+            
+            add_events = [e for e in main_window_events if e[0] == 'add']
+            did_mount_events = [e for e in main_window_events if e[0] == 'did_mount']
+            
+            self.assertEqual(len(add_events), 1, "MainWindow должен быть добавлен один раз")
+            self.assertEqual(len(did_mount_events), 1, "did_mount должен быть вызван один раз")
+            
+            # Проверяем порядок
+            add_index = events.index(add_events[0])
+            did_mount_index = events.index(did_mount_events[0])
+            
+            self.assertLess(add_index, did_mount_index,
+                           "add должен происходить перед did_mount")
         # Проверяем порядок
         add_index = events.index(add_events[0])
         did_mount_index = events.index(did_mount_events[0])
@@ -528,7 +563,7 @@ class TestInitializationOrder(ViewTestBase):
         Validates: Requirements 6.1, 6.2, 6.3, 6.4
         """
         # Создаем несколько View
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         with patch('finance_tracker.views.categories_view.get_all_categories') as mock_get_all_categories, \
              patch('finance_tracker.views.categories_view.get_db_session') as mock_get_db:
@@ -580,7 +615,7 @@ class TestInitializationOrder(ViewTestBase):
         Validates: Requirements 6.1, 6.2
         """
         # Создаем View с ошибкой в did_mount
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Патчим did_mount для вызова ошибки
         original_did_mount = home_view.did_mount if hasattr(home_view, 'did_mount') else None
@@ -609,7 +644,7 @@ class TestInitializationOrder(ViewTestBase):
         Validates: Requirements 6.1
         """
         # Создаем различные View
-        home_view = HomeView(self.mock_page, self.mock_session)
+        home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         with patch('finance_tracker.views.categories_view.get_all_categories') as mock_get_all_categories, \
              patch('finance_tracker.views.categories_view.get_db_session') as mock_get_db:

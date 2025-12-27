@@ -158,8 +158,8 @@ class CategoriesView(ft.Column):
             animation_duration=300,
             tabs=[
                 ft.Tab(text="Все"),
-                ft.Tab(text="Расходы", icon=ft.Icons.ARROW_CIRCLE_DOWN),
-                ft.Tab(text="Доходы", icon=ft.Icons.ARROW_CIRCLE_UP),
+                ft.Tab(text="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
+                ft.Tab(text="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
             ],
             on_change=self.on_filter_change
         )

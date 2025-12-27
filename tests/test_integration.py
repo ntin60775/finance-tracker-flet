@@ -4,7 +4,7 @@
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -23,7 +23,7 @@ def test_create_transaction_flow(db_session, mock_page):
     """
     # 1. Инициализация View
     # HomeView теперь получает Session через Dependency Injection
-    view = HomeView(mock_page, db_session)
+    view = HomeView(mock_page, db_session, navigate_callback=Mock())
 
     # 2. Имитация создания транзакции через модальное окно
     # Вместо реального клика по кнопке, вызываем callback сохранения напрямую,
@@ -886,3 +886,116 @@ def test_complete_pending_payment_creation_flow(db_session, sample_categories, m
         for payment in final_payments:
             assert payment.status == PendingPaymentStatus.ACTIVE, \
                 f"Все платежи должны быть активны, платёж {payment.id} имеет статус {payment.status}"
+
+
+def test_show_all_planned_transactions_button_navigation_flow(db_session, mock_page):
+    """
+    Интеграционный тест: полный сценарий навигации при нажатии кнопки "Показать все" 
+    в виджете плановых транзакций.
+    
+    Сценарий:
+    1. Создание MainWindow с реальными компонентами
+    2. Получение HomeView из content_area
+    3. Вызов on_show_all_occurrences() (имитация нажатия кнопки "Показать все")
+    4. Проверка переключения rail.selected_index на 1
+    5. Проверка, что content_area.content является PlannedTransactionsView
+    6. Проверка сохранения settings.last_selected_index = 1
+    
+    Validates: Requirements 1.1, 1.2, 1.3, 1.4
+    """
+    from finance_tracker.views.main_window import MainWindow
+    from finance_tracker.views.home_view import HomeView
+    from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
+    from finance_tracker.config import settings
+    
+    # Arrange - подготовка тестовых данных
+    
+    # Патчим get_db_session для ВСЕХ компонентов, чтобы они использовали тестовую сессию
+    # Используем тот же паттерн, что и в test_navigation_flow
+    with patch('finance_tracker.views.main_window.settings') as mock_settings, \
+         patch('finance_tracker.views.main_window.get_db_session') as mock_main_session, \
+         patch('finance_tracker.views.categories_view.get_db_session') as mock_cat_session, \
+         patch('finance_tracker.views.planned_transactions_view.get_db_session') as mock_planned_session:
+        
+        # Настраиваем начальные настройки
+        mock_settings.last_selected_index = 0  # Начинаем с главного экрана
+        mock_settings.theme_mode = "light"
+        mock_settings.window_width = 1200
+        mock_settings.window_height = 800
+        mock_settings.window_top = None
+        mock_settings.window_left = None
+        
+        # Настраиваем моки сессий (как в test_navigation_flow)
+        for mock_session in [mock_main_session, mock_cat_session, mock_planned_session]:
+            mock_session.return_value.__enter__.return_value = db_session
+            mock_session.return_value.__exit__.return_value = None
+        
+        # Создаем MainWindow с реальными компонентами
+        main_window = MainWindow(mock_page)
+        
+        # Проверяем начальное состояние
+        assert main_window.rail.selected_index == 0, \
+            "Начальный индекс навигации должен быть 0 (главный экран)"
+        
+        # Получаем HomeView из content_area
+        home_view = main_window.content_area.content
+        assert isinstance(home_view, HomeView), \
+            f"Контент должен быть HomeView, получено {type(home_view)}"
+        
+        # Проверяем, что HomeView имеет navigate_callback
+        assert home_view.navigate_callback is not None, \
+            "HomeView должен иметь navigate_callback"
+        assert callable(home_view.navigate_callback), \
+            "navigate_callback должен быть вызываемым"
+        
+        # Act - выполнение сценария навигации
+        
+        # Патчим update методы для избежания ошибок рендеринга в тестах
+        with patch.object(main_window.content_area, 'update'):
+            
+            # Вызываем on_show_all_occurrences() (имитация нажатия кнопки "Показать все")
+            home_view.on_show_all_occurrences()
+            
+            # Assert - проверка результатов навигации
+            
+            # 1. Проверяем, что rail.selected_index изменился на 1 (Requirement 1.2)
+            assert main_window.rail.selected_index == 1, \
+                f"После навигации rail.selected_index должен быть 1, получено {main_window.rail.selected_index}"
+            
+            # 2. Проверяем, что content_area.content является PlannedTransactionsView (Requirement 1.3)
+            current_content = main_window.content_area.content
+            assert isinstance(current_content, PlannedTransactionsView), \
+                f"После навигации контент должен быть PlannedTransactionsView, получено {type(current_content)}"
+            
+            # 3. Проверяем, что settings.last_selected_index сохранён как 1 (Requirement 1.4)
+            assert mock_settings.last_selected_index == 1, \
+                f"settings.last_selected_index должен быть 1, получено {mock_settings.last_selected_index}"
+            
+            # 4. Проверяем, что метод save() был вызван для сохранения настроек
+            mock_settings.save.assert_called(), \
+                "settings.save() должен быть вызван для сохранения состояния"
+            
+            # 5. Проверяем, что navigate_callback указывает на метод navigate MainWindow
+            assert home_view.navigate_callback == main_window.navigate, \
+                "navigate_callback должен указывать на метод navigate MainWindow"
+            
+            # 6. Проверяем, что можно вернуться обратно на главный экран
+            main_window.navigate(0)
+            
+            assert main_window.rail.selected_index == 0, \
+                "После навигации обратно rail.selected_index должен быть 0"
+            
+            # Проверяем, что контент снова HomeView (переиспользуется тот же экземпляр)
+            back_content = main_window.content_area.content
+            assert isinstance(back_content, HomeView), \
+                f"После возврата контент должен быть HomeView, получено {type(back_content)}"
+            
+            # Проверяем, что это тот же экземпляр HomeView (переиспользование)
+            assert back_content is home_view, \
+                "HomeView должен переиспользоваться, а не создаваться заново"
+        
+        # Cleanup - очистка ресурсов
+        try:
+            main_window.cleanup()
+        except Exception as e:
+            logger.error(f"Ошибка при очистке MainWindow: {e}")

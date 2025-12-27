@@ -127,8 +127,8 @@ class PendingPaymentsView(ft.Column):
             animation_duration=300,
             tabs=[
                 ft.Tab(text="Все"),
-                ft.Tab(text="С датой", icon=ft.Icons.CALENDAR_TODAY),
-                ft.Tab(text="Без даты", icon=ft.Icons.EVENT_BUSY),
+                ft.Tab(text="С датой", icon=ft.Icon(ft.Icons.CALENDAR_TODAY)),
+                ft.Tab(text="Без даты", icon=ft.Icon(ft.Icons.EVENT_BUSY)),
             ],
             on_change=self.on_date_filter_change
         )

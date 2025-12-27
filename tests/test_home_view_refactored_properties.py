@@ -31,7 +31,7 @@ def test_property_3_view_delegation_consistency(date_obj):
         mock_presenter_instance = MockPresenter.return_value
 
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Действие: выбор даты пользователем
         view.on_date_selected(date_obj)
@@ -57,7 +57,7 @@ def test_property_4_presenter_callback_consistency(transactions, occurrences):
 
     with patch('finance_tracker.views.home_view.HomePresenter') as MockPresenter:
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Получаем переданный callback интерфейс (это сам view)
         presenter_call_args = MockPresenter.call_args
@@ -99,7 +99,7 @@ def test_property_5_session_lifecycle_management(session_active):
 
     with patch('finance_tracker.views.home_view.HomePresenter'):
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Сохраняем ссылку на session
         session_before = view.session
@@ -134,7 +134,7 @@ def test_property_8_date_selection_callback_consistency(selected_date):
         mock_presenter_instance = MockPresenter.return_value
 
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Действие: пользователь выбирает дату
         view.on_date_selected(selected_date)
@@ -160,7 +160,7 @@ def test_property_9_data_update_callback_consistency(payments, statistics):
 
     with patch('finance_tracker.views.home_view.HomePresenter'):
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Вызываем callback для обновления данных
         with patch.object(view.pending_payments_widget, 'set_payments'):
@@ -187,7 +187,7 @@ def test_property_20_ui_component_compatibility(has_calendar):
 
     with patch('finance_tracker.views.home_view.HomePresenter'):
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Проверка: все UI компоненты существуют и имеют правильные типы
         assert hasattr(view, 'calendar_widget')
@@ -221,7 +221,7 @@ def test_property_21_presenter_ui_isolation(message):
 
     with patch('finance_tracker.views.home_view.HomePresenter') as MockPresenter:
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session)
+        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Получаем переданный callback интерфейс
         presenter_call_args = MockPresenter.call_args
