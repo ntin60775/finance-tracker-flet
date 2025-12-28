@@ -423,7 +423,7 @@ class TransactionHistoryView(ft.Container):
                             ft.Text(f"Баланс: {day_balance:+,.2f} ₽".replace(",", " "), size=12, weight=ft.FontWeight.BOLD)
                         ]
                     ),
-                    bgcolor=ft.Colors.SURFACE_VARIANT,
+                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
                     border_radius=5
                 )
@@ -461,7 +461,7 @@ class TransactionHistoryView(ft.Container):
                             ft.Text(f"Операций: {len(transactions)}", size=12)
                         ]
                     ),
-                    bgcolor=ft.Colors.SURFACE_VARIANT,
+                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
                     border_radius=5
                 )
@@ -512,7 +512,7 @@ class TransactionHistoryView(ft.Container):
                             ft.Text(f"Баланс: {month_balance:+,.2f} ₽".replace(",", " "), size=12, weight=ft.FontWeight.BOLD)
                         ]
                     ),
-                    bgcolor=ft.Colors.SURFACE_VARIANT,
+                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
                     border_radius=5
                 )
@@ -581,7 +581,7 @@ class TransactionHistoryView(ft.Container):
 
     def _on_card_hover(self, e):
         """Подсветка карточки при наведении."""
-        e.control.bgcolor = ft.Colors.SURFACE_VARIANT if e.data == "true" else None
+        e.control.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST if e.data == "true" else None
         e.control.update()
 
     def _show_transaction_details(self, transaction: TransactionDB):
