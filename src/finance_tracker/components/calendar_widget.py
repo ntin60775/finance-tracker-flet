@@ -243,21 +243,57 @@ class CalendarWidget(ft.Container):
         Args:
             date_obj: Дата для выбора
         """
+        logger.debug(
+            f"select_date вызван с датой: {date_obj}, "
+            f"текущая selected_date: {self.selected_date}, "
+            f"текущий месяц: {self.current_date}"
+        )
+        
+        # Проверяем доступность page перед началом обновления
+        if not self.page:
+            logger.warning(
+                f"select_date: self.page недоступен при попытке выбрать дату {date_obj}. "
+                f"Обновление selected_date выполнено, но визуальное обновление отложено."
+            )
+            # Всё равно обновляем selected_date для сохранения состояния
+            self.selected_date = date_obj
+            return
+        
         self.selected_date = date_obj
         
         # Если дата в другом месяце, переключаем месяц
         if date_obj.year != self.current_date.year or date_obj.month != self.current_date.month:
+            logger.debug(
+                f"Дата в другом месяце, переключаем с "
+                f"{self.current_date} на {date_obj.replace(day=1)}"
+            )
             self.current_date = date_obj.replace(day=1)
             # Обновляем данные для нового месяца
             self._update_cash_gaps()
             self._update_pending_payments()
             self._update_loan_payments()
         
+        logger.debug(
+            f"Перед вызовом _update_calendar(), "
+            f"self.page доступен: {self.page is not None}"
+        )
         self._update_calendar()  # Перерисовываем для обновления выделения
+        logger.debug("select_date завершён успешно")
 
     def _update_calendar(self):
         """Перерисовка сетки календаря."""
+        logger.debug(
+            f"_update_calendar вызван, "
+            f"self.page доступен: {self.page is not None}, "
+            f"selected_date: {self.selected_date}"
+        )
+        
         if not self.page:
+            logger.warning(
+                f"_update_calendar: self.page недоступен! "
+                f"Визуальное обновление календаря невозможно. "
+                f"selected_date={self.selected_date}, current_date={self.current_date}"
+            )
             return
 
         # Обновляем заголовок
@@ -314,10 +350,14 @@ class CalendarWidget(ft.Container):
                         else:
                             text_color = "onSurface"
                     
-                    # Рамка для текущего дня или просроченного платежа
+                    # Рамка для выделения
                     if has_overdue_payment:
                         border = ft.border.all(2, ft.Colors.RED_700)  # Красная рамка для просроченных
+                    elif is_selected:
+                        # Выбранная дата - зелёная рамка для отличия от текущего дня
+                        border = ft.border.all(3, ft.Colors.GREEN_700)
                     elif is_today:
+                        # Текущий день - синяя рамка
                         border = ft.border.all(2, "primary")
                     else:
                         border = None
@@ -361,7 +401,9 @@ class CalendarWidget(ft.Container):
             
             self.days_grid.controls.append(week_row)
         
+        logger.debug("Перед вызовом self.update()")
         self.update()
+        logger.debug("_update_calendar завершён успешно, self.update() вызван")
 
     def _has_overdue_payment(self, date_obj: datetime.date) -> bool:
         """

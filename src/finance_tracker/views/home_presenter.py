@@ -70,13 +70,22 @@ class HomePresenter:
     def on_date_selected(self, selected_date: date) -> None:
         """Обработать выбор даты."""
         try:
+            logger.debug(
+                f"[ДИАГНОСТИКА] HomePresenter.on_date_selected вызван с датой: {selected_date}"
+            )
             self.selected_date = selected_date
             transactions = transaction_service.get_transactions_by_date(self.session, selected_date)
             occurrences = planned_transaction_service.get_occurrences_by_date(self.session, selected_date)
             
+            logger.debug(
+                f"[ДИАГНОСТИКА] Загружено {len(transactions)} транзакций и "
+                f"{len(occurrences)} вхождений для даты {selected_date}"
+            )
+            
             # Проверяем, что callback доступен и компоненты готовы
             if hasattr(self.callbacks, 'update_transactions'):
                 try:
+                    logger.debug("[ДИАГНОСТИКА] Вызов callbacks.update_transactions")
                     self.callbacks.update_transactions(selected_date, transactions, occurrences)
                 except Exception as callback_error:
                     # Логируем ошибку, но не прерываем загрузку других данных
@@ -85,9 +94,13 @@ class HomePresenter:
             # Обновляем выделение в календаре
             if hasattr(self.callbacks, 'update_calendar_selection'):
                 try:
+                    logger.debug("[ДИАГНОСТИКА] Вызов callbacks.update_calendar_selection")
                     self.callbacks.update_calendar_selection(selected_date)
+                    logger.debug("[ДИАГНОСТИКА] callbacks.update_calendar_selection завершён")
                 except Exception as callback_error:
                     logger.warning(f"Не удалось обновить выделение в календаре: {callback_error}")
+            
+            logger.debug("[ДИАГНОСТИКА] HomePresenter.on_date_selected завершён")
         except Exception as e:
             self._handle_error("Ошибка загрузки данных для выбранной даты", e)
     

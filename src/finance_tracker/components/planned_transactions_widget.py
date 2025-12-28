@@ -64,6 +64,7 @@ class PlannedTransactionsWidget(ft.Container):
         self.on_add_planned_transaction = on_add_planned_transaction
         self.on_occurrence_click = on_occurrence_click
         self.occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]] = []
+        self.selected_occurrence_id: Optional[str] = None  # ID выбранного вхождения
 
         # UI Components
         self.title_text = ft.Text(
@@ -231,6 +232,9 @@ class PlannedTransactionsWidget(ft.Container):
             ("Неизвестно", ft.Colors.GREY_700)
         )
 
+        # Проверяем, выбрано ли это вхождение
+        is_selected = self.selected_occurrence_id == occurrence.id
+
         return ft.Container(
             content=ft.Column(
                 controls=[
@@ -282,9 +286,12 @@ class PlannedTransactionsWidget(ft.Container):
                 spacing=8,
             ),
             padding=10,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.border.all(
+                2 if is_selected else 1,
+                ft.Colors.PRIMARY if is_selected else ft.Colors.OUTLINE_VARIANT
+            ),
             border_radius=8,
-            bgcolor=ft.Colors.SURFACE if is_overdue else None,
+            bgcolor=ft.Colors.PRIMARY_CONTAINER if is_selected else (ft.Colors.SURFACE if is_overdue else None),
             on_click=lambda _: self._on_card_click(occurrence),
             ink=True,  # Эффект ripple при клике
             on_hover=self._on_card_hover,  # Hover-эффект для индикации кликабельности
@@ -315,12 +322,23 @@ class PlannedTransactionsWidget(ft.Container):
         Args:
             occurrence: Плановое вхождение, на которое кликнули.
         """
+        # Обновляем выбранное вхождение
+        self.selected_occurrence_id = occurrence.id
+        
+        # Перерисовываем список для обновления выделения
+        self._update_occurrences_list()
+        
         if self.on_occurrence_click:
             try:
                 logger.debug(
-                    f"Клик на вхождение: {occurrence.id}, дата: {occurrence.occurrence_date}"
+                    f"[ДИАГНОСТИКА] PlannedTransactionsWidget._on_card_click: "
+                    f"Клик на вхождение {occurrence.id}, дата: {occurrence.occurrence_date}"
                 )
                 self.on_occurrence_click(occurrence)
+                logger.debug(
+                    f"[ДИАГНОСТИКА] PlannedTransactionsWidget._on_card_click: "
+                    f"Callback on_occurrence_click вызван успешно"
+                )
             except Exception as e:
                 logger.error(f"Ошибка при обработке клика на вхождение: {e}")
         else:
@@ -336,6 +354,10 @@ class PlannedTransactionsWidget(ft.Container):
         Args:
             e: Событие hover от Flet.
         """
+        # Получаем occurrence из контекста карточки
+        # Проверяем, является ли карточка выбранной
+        is_selected = hasattr(e.control, 'data') and e.control.data == self.selected_occurrence_id
+        
         if e.data == "true":  # Курсор наведён
             e.control.border = ft.border.all(2, ft.Colors.PRIMARY)
             e.control.shadow = ft.BoxShadow(
@@ -345,7 +367,11 @@ class PlannedTransactionsWidget(ft.Container):
                 offset=ft.Offset(0, 2),
             )
         else:  # Курсор убран
-            e.control.border = ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
+            # Восстанавливаем стиль в зависимости от того, выбрана ли карточка
+            if is_selected:
+                e.control.border = ft.border.all(2, ft.Colors.PRIMARY)
+            else:
+                e.control.border = ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
             e.control.shadow = None
 
         if self.page:

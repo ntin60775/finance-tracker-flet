@@ -286,8 +286,30 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.page.open(ft.SnackBar(content=ft.Text(error), bgcolor=ft.Colors.ERROR))
     
     def update_calendar_selection(self, date_obj: datetime.date) -> None:
-        """Обновить выделение даты в календаре."""
-        self.calendar_widget.select_date(date_obj)
+        """
+        Обновить выделение даты в календаре.
+        
+        Программно обновляет выделение даты в календаре без вызова callback.
+        Используется для синхронизации календаря при выборе даты из других компонентов.
+        
+        Args:
+            date_obj: Дата для выделения в календаре
+        """
+        try:
+            logger.debug(f"update_calendar_selection вызван с датой: {date_obj}")
+            
+            # Делегируем в calendar_widget для программного обновления выделения
+            self.calendar_widget.select_date(date_obj)
+            
+            logger.debug(
+                f"update_calendar_selection завершён успешно, "
+                f"calendar_widget.select_date() вызван для даты {date_obj}"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Ошибка при обновлении выделения календаря для даты {date_obj}: {e}",
+                exc_info=True
+            )
 
     # ========== UI Event Handlers (делегируют в Presenter) ==========
 
@@ -485,13 +507,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """
         try:
             logger.debug(
-                f"Обработка клика на вхождение: {occurrence.id}, "
+                f"[ДИАГНОСТИКА] on_occurrence_clicked вызван для вхождения: {occurrence.id}, "
                 f"дата: {occurrence.occurrence_date}"
             )
             # Делегируем в Presenter для обновления выбранной даты
             self.presenter.on_date_selected(occurrence.occurrence_date)
             logger.info(
-                f"Календарь переключён на дату вхождения: {occurrence.occurrence_date}"
+                f"[ДИАГНОСТИКА] Календарь переключён на дату вхождения: {occurrence.occurrence_date}"
             )
         except Exception as e:
             logger.error(

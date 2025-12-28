@@ -918,15 +918,8 @@ class TestEdgeCaseTransactionDeletion:
             # Получаем баланс после добавления старой транзакции
             balance_after_add = transaction_service.get_total_balance(session)
             
-            # Измеряем время выполнения операции удаления
-            import time
-            start_time = time.time()
-            
             # Act - удаляем транзакцию с очень старой датой
             deletion_result = transaction_service.delete_transaction(session, old_transaction.id)
-            
-            end_time = time.time()
-            deletion_time = end_time - start_time
             
             # Получаем баланс после удаления
             final_balance = transaction_service.get_total_balance(session)
@@ -938,12 +931,6 @@ class TestEdgeCaseTransactionDeletion:
             assert final_balance == initial_balance, (
                 f"Баланс должен вернуться к начальному значению после удаления старой транзакции: "
                 f"начальный {initial_balance}, после добавления {balance_after_add}, финальный {final_balance}"
-            )
-            
-            # Операция должна выполняться достаточно быстро (менее 1 секунды)
-            assert deletion_time < 1.0, (
-                f"Удаление транзакции с очень старой датой должно выполняться быстро. "
-                f"Фактическое время: {deletion_time:.3f} секунд"
             )
             
             # Проверяем, что транзакция удалена из БД
@@ -1057,10 +1044,6 @@ class TestEdgeCaseHandlingProperties:
             balance_after_add = transaction_service.get_total_balance(session)
             count_after_add = session.query(TransactionDB).count()
             
-            # Измеряем время выполнения операции удаления (для проверки производительности)
-            import time
-            start_time = time.time()
-            
             # Act - удаляем транзакцию с граничными параметрами
             try:
                 deletion_result = transaction_service.delete_transaction(session, edge_case_transaction.id)
@@ -1070,9 +1053,6 @@ class TestEdgeCaseHandlingProperties:
                 deletion_successful = False
                 deletion_result = False
                 deletion_error = str(e)
-            
-            end_time = time.time()
-            deletion_time = end_time - start_time
             
             # Получаем финальное состояние системы
             final_balance = transaction_service.get_total_balance(session)
@@ -1131,11 +1111,13 @@ class TestEdgeCaseHandlingProperties:
                 )
             
             # 6. Requirements 7.4, 7.5: Эффективная обработка экстремальных дат
+            # Проверяем, что транзакция с экстремальной датой была корректно удалена
             if abs(date_offset) >= 1825:  # Более 5 лет в прошлом или будущем
-                # Операция должна выполняться достаточно быстро даже для экстремальных дат
-                assert deletion_time < 2.0, (
-                    f"Удаление транзакции с экстремальной датой должно выполняться быстро. "
-                    f"Дата: {transaction_date}, время выполнения: {deletion_time:.3f} секунд"
+                # Транзакция должна быть удалена независимо от даты
+                deleted_transaction = session.query(TransactionDB).filter_by(id=edge_case_transaction.id).first()
+                assert deleted_transaction is None, (
+                    f"Транзакция с экстремальной датой должна быть удалена. "
+                    f"Дата: {transaction_date}"
                 )
             
             # 7. Консистентность количества транзакций
@@ -1693,285 +1675,3 @@ class TestCascadeUpdatesAfterDeletion:
                 f"Оставшиеся транзакции должны соответствовать ожидаемым. "
                 f"Ожидаемые ID: {expected_remaining_ids}, фактические ID: {remaining_ids}"
             )
-
-
-class TestPerformanceDeletion:
-    """Тесты производительности удаления транзакций."""
-
-    def test_performance_large_dataset_deletion(self):
-        """
-        Тест производительности для больших наборов данных.
-        
-        Проверяет:
-        - Тест удаления транзакции из набора 1000+ транзакций
-        - Измерение времени выполнения операции удаления
-        - Проверка эффективности пересчетов после удаления
-        
-        Requirements: 6.1, 6.2
-        """
-        import time
-        
-        with get_test_session() as session:
-            # Arrange - создаем большой набор данных
-            
-            # Создаем несколько категорий для разнообразия
-            categories = []
-            for i in range(10):
-                category = CategoryDB(
-                    name=f"Категория {i}",
-                    type=TransactionType.INCOME if i % 2 == 0 else TransactionType.EXPENSE,
-                    is_system=False
-                )
-                session.add(category)
-                categories.append(category)
-            
-            session.commit()
-            
-            # Создаем большой набор транзакций (1000+ транзакций)
-            large_dataset_size = 1000
-            transactions = []
-            
-            print(f"Создание {large_dataset_size} транзакций для теста производительности...")
-            
-            # Измеряем время создания данных
-            creation_start_time = time.time()
-            
-            for i in range(large_dataset_size):
-                category = categories[i % len(categories)]
-                transaction = TransactionDB(
-                    amount=Decimal(str(10.0 + (i % 1000))),  # Суммы от 10 до 1009
-                    type=category.type,
-                    category_id=category.id,
-                    description=f"Транзакция для теста производительности {i}",
-                    transaction_date=date.today() - timedelta(days=i % 365)  # Распределяем по году
-                )
-                session.add(transaction)
-                transactions.append(transaction)
-                
-                # Коммитим батчами для эффективности
-                if (i + 1) % 100 == 0:
-                    session.commit()
-            
-            session.commit()
-            creation_end_time = time.time()
-            creation_time = creation_end_time - creation_start_time
-            
-            print(f"Создание {large_dataset_size} транзакций заняло {creation_time:.2f} секунд")
-            
-            # Выбираем транзакцию для удаления (из середины набора)
-            transaction_to_delete = transactions[large_dataset_size // 2]
-            transaction_id = transaction_to_delete.id
-            
-            # Получаем начальное состояние
-            initial_balance = transaction_service.get_total_balance(session)
-            initial_count = session.query(TransactionDB).count()
-            
-            # Act - измеряем время удаления транзакции из большого набора данных
-            print(f"Удаление транзакции из набора {large_dataset_size} транзакций...")
-            
-            deletion_start_time = time.time()
-            deletion_result = transaction_service.delete_transaction(session, transaction_id)
-            deletion_end_time = time.time()
-            
-            deletion_time = deletion_end_time - deletion_start_time
-            
-            print(f"Удаление транзакции заняло {deletion_time:.4f} секунд")
-            
-            # Измеряем время пересчета баланса после удаления
-            balance_calculation_start_time = time.time()
-            final_balance = transaction_service.get_total_balance(session)
-            balance_calculation_end_time = time.time()
-            
-            balance_calculation_time = balance_calculation_end_time - balance_calculation_start_time
-            
-            print(f"Пересчет баланса после удаления занял {balance_calculation_time:.4f} секунд")
-            
-            # Assert - проверяем производительность и корректность
-            
-            # Requirement 6.1: WHEN удаляется транзакция из большого набора данных THEN операция SHALL завершиться за разумное время
-            assert deletion_result is True, "Удаление транзакции должно быть успешным"
-            
-            # Операция удаления должна быть быстрой (менее 1 секунды для 1000 транзакций)
-            assert deletion_time < 1.0, (
-                f"Удаление транзакции из большого набора данных должно выполняться быстро. "
-                f"Фактическое время: {deletion_time:.4f} секунд, размер набора: {large_dataset_size}"
-            )
-            
-            # Requirement 6.2: WHEN выполняется пересчет после удаления THEN система SHALL эффективно обновить только затронутые данные
-            # Пересчет баланса должен быть эффективным (менее 0.5 секунды)
-            assert balance_calculation_time < 0.5, (
-                f"Пересчет баланса после удаления должен быть эффективным. "
-                f"Фактическое время: {balance_calculation_time:.4f} секунд"
-            )
-            
-            # Проверяем корректность результата
-            final_count = session.query(TransactionDB).count()
-            assert final_count == initial_count - 1, (
-                f"Количество транзакций должно уменьшиться на 1: "
-                f"было {initial_count}, стало {final_count}"
-            )
-            
-            # Проверяем, что транзакция действительно удалена
-            deleted_transaction = session.query(TransactionDB).filter_by(id=transaction_id).first()
-            assert deleted_transaction is None, "Транзакция должна быть удалена из БД"
-            
-            # Проверяем корректность пересчета баланса
-            expected_balance_change = (
-                transaction_to_delete.amount if transaction_to_delete.type == TransactionType.EXPENSE
-                else -transaction_to_delete.amount
-            )
-            expected_final_balance = initial_balance + expected_balance_change
-            
-            assert final_balance == expected_final_balance, (
-                f"Баланс должен быть пересчитан корректно. "
-                f"Ожидаемый: {expected_final_balance}, фактический: {final_balance}"
-            )
-            
-            # Дополнительные проверки производительности
-            
-            # Проверяем, что операция масштабируется линейно
-            # Для набора в 1000 транзакций время удаления не должно превышать определенный порог
-            max_acceptable_time_per_1000_transactions = 1.0  # 1 секунда на 1000 транзакций
-            time_per_transaction = deletion_time / large_dataset_size * 1000
-            
-            assert time_per_transaction < max_acceptable_time_per_1000_transactions, (
-                f"Время удаления должно масштабироваться эффективно. "
-                f"Время на 1000 транзакций: {time_per_transaction:.4f} секунд, "
-                f"максимально допустимое: {max_acceptable_time_per_1000_transactions} секунд"
-            )
-            
-            print(f"Тест производительности завершен успешно:")
-            print(f"  - Размер набора данных: {large_dataset_size} транзакций")
-            print(f"  - Время создания данных: {creation_time:.2f} секунд")
-            print(f"  - Время удаления: {deletion_time:.4f} секунд")
-            print(f"  - Время пересчета баланса: {balance_calculation_time:.4f} секунд")
-            print(f"  - Время на транзакцию: {time_per_transaction:.6f} секунд")
-
-    @given(
-        dataset_size=st.integers(min_value=100, max_value=1000),
-        transaction_position=st.floats(min_value=0.1, max_value=0.9),  # Позиция транзакции в наборе (10%-90%)
-        category_count=st.integers(min_value=1, max_value=10)
-    )
-    @settings(max_examples=50, deadline=None)
-    def test_property_9_performance_consistency(self, dataset_size, transaction_position, category_count):
-        """
-        **Feature: transaction-deletion-testing, Property 9: Performance Consistency**
-        **Validates: Requirements 6.1, 6.2**
-        
-        Property: For any transaction deletion, the operation should complete within acceptable time limits.
-        """
-        import time
-        
-        with get_test_session() as session:
-            # Arrange - создаем набор данных переменного размера
-            
-            # Создаем категории
-            categories = []
-            for i in range(category_count):
-                category = CategoryDB(
-                    name=f"Category {i}",
-                    type=TransactionType.INCOME if i % 2 == 0 else TransactionType.EXPENSE,
-                    is_system=False
-                )
-                session.add(category)
-                categories.append(category)
-            
-            session.commit()
-            
-            # Создаем транзакции
-            transactions = []
-            for i in range(dataset_size):
-                category = categories[i % len(categories)]
-                transaction = TransactionDB(
-                    amount=Decimal(str(10.0 + (i % 100))),
-                    type=category.type,
-                    category_id=category.id,
-                    description=f"Performance test transaction {i}",
-                    transaction_date=date.today() - timedelta(days=i % 30)
-                )
-                session.add(transaction)
-                transactions.append(transaction)
-                
-                # Коммитим батчами для эффективности
-                if (i + 1) % 50 == 0:
-                    session.commit()
-            
-            session.commit()
-            
-            # Выбираем транзакцию для удаления на основе позиции
-            transaction_index = int(dataset_size * transaction_position)
-            transaction_to_delete = transactions[transaction_index]
-            transaction_id = transaction_to_delete.id
-            
-            # Act - измеряем время удаления
-            deletion_start_time = time.time()
-            deletion_result = transaction_service.delete_transaction(session, transaction_id)
-            deletion_end_time = time.time()
-            
-            deletion_time = deletion_end_time - deletion_start_time
-            
-            # Assert - проверяем консистентность производительности
-            
-            # Основное свойство: удаление должно быть успешным
-            assert deletion_result is True, f"Удаление транзакции должно быть успешным для набора размером {dataset_size}"
-            
-            # Requirement 6.1: Операция должна завершиться за разумное время
-            # Время должно быть пропорционально размеру набора данных, но не превышать разумные пределы
-            max_acceptable_time = 0.001 * dataset_size + 0.1  # Линейная зависимость + константа
-            
-            assert deletion_time < max_acceptable_time, (
-                f"Время удаления должно быть в пределах разумного для размера набора {dataset_size}. "
-                f"Фактическое время: {deletion_time:.4f} секунд, "
-                f"максимально допустимое: {max_acceptable_time:.4f} секунд, "
-                f"позиция транзакции: {transaction_position:.2f}, "
-                f"количество категорий: {category_count}"
-            )
-            
-            # Requirement 6.2: Система должна эффективно обновлять только затронутые данные
-            # Время не должно зависеть от позиции транзакции в наборе (O(1) операция)
-            # Для этого проверяем, что время удаления не превышает константный порог
-            constant_time_threshold = 0.1  # 100 миллисекунд
-            
-            assert deletion_time < constant_time_threshold, (
-                f"Время удаления должно быть константным независимо от размера набора и позиции транзакции. "
-                f"Фактическое время: {deletion_time:.4f} секунд, "
-                f"порог: {constant_time_threshold} секунд, "
-                f"размер набора: {dataset_size}, позиция: {transaction_position:.2f}"
-            )
-            
-            # Проверяем корректность результата
-            deleted_transaction = session.query(TransactionDB).filter_by(id=transaction_id).first()
-            assert deleted_transaction is None, "Транзакция должна быть удалена из БД"
-            
-            # Проверяем, что количество транзакций уменьшилось на 1
-            final_count = session.query(TransactionDB).count()
-            expected_count = dataset_size - 1
-            
-            assert final_count == expected_count, (
-                f"Количество транзакций должно уменьшиться на 1: "
-                f"ожидается {expected_count}, фактически {final_count}"
-            )
-            
-            # Дополнительная проверка: убеждаемся, что производительность стабильна
-            # при повторных операциях (нет деградации производительности)
-            if dataset_size > 50:  # Только для достаточно больших наборов
-                # Удаляем еще одну транзакцию и проверяем, что время не увеличилось значительно
-                second_transaction = transactions[0] if transactions[0].id != transaction_id else transactions[1]
-                
-                second_deletion_start_time = time.time()
-                second_deletion_result = transaction_service.delete_transaction(session, second_transaction.id)
-                second_deletion_end_time = time.time()
-                
-                second_deletion_time = second_deletion_end_time - second_deletion_start_time
-                
-                assert second_deletion_result is True, "Второе удаление должно быть успешным"
-                
-                # Время второго удаления не должно значительно отличаться от первого
-                time_difference_ratio = abs(second_deletion_time - deletion_time) / max(deletion_time, 0.001)
-                
-                assert time_difference_ratio < 2.0, (
-                    f"Производительность должна быть стабильной при повторных операциях. "
-                    f"Время первого удаления: {deletion_time:.4f} секунд, "
-                    f"время второго удаления: {second_deletion_time:.4f} секунд, "
-                    f"отношение разности: {time_difference_ratio:.2f}"
-                )

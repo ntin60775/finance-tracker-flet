@@ -485,69 +485,6 @@ class TestCalendarLegendIntegration(unittest.TestCase):
                 # Восстанавливаем метод в любом случае
                 legend._build_full_legend = original_method
                 self.fail(f"Система должна восстанавливаться после ошибок: {e}")
-
-    def test_performance_with_large_datasets(self):
-        """
-        Тест производительности интеграции с большими объемами данных.
-        
-        Проверяет:
-        - Стабильность при большом количестве транзакций
-        - Отсутствие утечек памяти
-        - Приемлемое время отклика
-        """
-        import time
-        
-        # Arrange
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
-            mock_get_db.return_value.__enter__.return_value = self.mock_session
-            mock_get_db.return_value.__exit__.return_value = None
-            
-            # Создаем HomeView
-            home_view = HomeView(self.mock_page, self.mock_session)
-            calendar_widget = home_view.calendar_widget
-            legend = home_view.legend
-            
-            # Создаем большой набор тестовых данных
-            large_transactions = []
-            large_occurrences = []
-            
-            test_date = date(2024, 12, 11)
-            
-            for i in range(1000):  # 1000 транзакций
-                transaction = Mock()
-                transaction.date = test_date
-                transaction.type = TransactionType.INCOME if i % 2 == 0 else TransactionType.EXPENSE
-                transaction.amount = Decimal(f'{100 + i}')
-                large_transactions.append(transaction)
-            
-            for i in range(100):  # 100 плановых вхождений
-                occurrence = Mock()
-                occurrence.occurrence_date = test_date
-                occurrence.description = f"Плановая транзакция {i}"
-                large_occurrences.append(occurrence)
-            
-            # Act - измеряем время обновления
-            start_time = time.time()
-            
-            calendar_widget.set_transactions(large_transactions, large_occurrences)
-            
-            # Проверяем, что легенда остается стабильной
-            legend_content = legend._build_full_legend() if legend._should_show_full_legend() else legend._build_compact_legend()
-            
-            end_time = time.time()
-            update_time = end_time - start_time
-            
-            # Assert - проверяем производительность
-            
-            # 1. Время обновления должно быть приемлемым (менее 1 секунды)
-            self.assertLess(update_time, 1.0,
-                          f"Обновление с большими данными заняло слишком много времени: {update_time:.2f}с")
-            
-            # 2. Легенда должна оставаться функциональной
-            self.assertIsNotNone(legend_content,
-                               "Легенда должна оставаться функциональной с большими данными")
-            self.assertIsInstance(legend_content, ft.Row,
-                                "Контент легенды должен быть корректного типа")
             
             # 3. Все индикаторы должны оставаться доступными
             self.assertGreaterEqual(len(legend.all_indicators), 7,

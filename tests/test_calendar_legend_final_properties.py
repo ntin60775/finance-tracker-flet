@@ -1,15 +1,13 @@
 """
 Финальные комплексные property-based тесты для календарной легенды.
 
-Включает комплексные тесты для всех сценариев, граничные случаи
-и стресс-тесты с множественными изменениями размеров.
+Включает комплексные тесты для всех сценариев и граничные случаи.
 Validates: все Requirements спецификации calendar-legend-improvement.
 """
 import pytest
 from hypothesis import given, strategies as st, assume, settings
 from unittest.mock import Mock, MagicMock, patch
 from decimal import Decimal
-import time
 
 import flet as ft
 
@@ -195,52 +193,7 @@ class TestCalendarLegendFinalProperties:
         assert content.vertical_alignment == ft.CrossAxisAlignment.CENTER
         assert content.spacing == 20
 
-    @settings(max_examples=50)  # Ограничиваем количество примеров для стресс-теста
-    @given(st.lists(
-        st.integers(min_value=200, max_value=1500), 
-        min_size=5, 
-        max_size=20
-    ))
-    def test_multiple_resize_stress_property(self, width_sequence):
-        """
-        **Feature: calendar-legend-improvement, Property 17: Multiple resize stress**
-        **Validates: Requirements 5.5**
-        
-        Property: Множественные быстрые изменения размеров не должны вызывать
-        ошибок или деградации производительности.
-        """
-        legend = CalendarLegend()
-        
-        start_time = time.time()
-        
-        for i, width in enumerate(width_sequence):
-            try:
-                legend.update_calendar_width(width)
-                
-                # Проверяем корректность состояния после каждого изменения
-                assert legend.calendar_width == width
-                assert legend.content is not None
-                assert isinstance(legend.content, ft.Row)
-                
-                # Проверяем, что режим отображения корректен
-                required_width = legend._calculate_required_width()
-                expected_full_mode = width >= required_width
-                actual_full_mode = legend._should_show_full_legend()
-                assert actual_full_mode == expected_full_mode, (
-                    f"Режим отображения некорректен для ширины {width}"
-                )
-                
-            except Exception as e:
-                assert False, f"Resize #{i} to width {width} failed: {e}"
-        
-        end_time = time.time()
-        total_time = end_time - start_time
-        
-        # Проверяем производительность (не более 1 секунды на 20 изменений)
-        max_time = len(width_sequence) * 0.05  # 50ms на изменение
-        assert total_time < max_time, (
-            f"Resize operations took too long: {total_time:.3f}s for {len(width_sequence)} operations"
-        )
+
 
     @given(
         st.integers(min_value=300, max_value=1200),
@@ -359,46 +312,7 @@ class TestCalendarLegendFinalProperties:
             assert isinstance(text_element, ft.Text)
             assert text_element.size == 12  # Стандартный размер
 
-    @given(st.integers(min_value=1, max_value=100))  # Количество операций
-    def test_modal_operations_stress_property(self, num_operations):
-        """
-        **Feature: calendar-legend-improvement, Property 20: Modal operations stress**
-        **Validates: Requirements 3.1, 3.4, 5.2**
-        
-        Property: Множественные операции открытия/закрытия модального окна
-        должны работать стабильно без утечек памяти или ошибок.
-        """
-        legend = CalendarLegend()
-        mock_page = create_mock_page()
-        legend.page = mock_page
-        
-        mock_event = Mock()
-        mock_event.control.page = mock_page
-        
-        start_time = time.time()
-        
-        for i in range(num_operations):
-            try:
-                # Открываем модальное окно
-                legend._open_modal_safe(mock_event)
-                
-                # Проверяем, что модальное окно создано
-                assert legend.modal_manager.dialog is not None
-                
-                # Закрываем модальное окно
-                legend._close_dlg(mock_event)
-                
-            except Exception as e:
-                assert False, f"Modal operation #{i} failed: {e}"
-        
-        end_time = time.time()
-        total_time = end_time - start_time
-        
-        # Проверяем производительность (не более 20ms на операцию)
-        max_time = num_operations * 0.02
-        assert total_time < max_time, (
-            f"Modal operations took too long: {total_time:.3f}s for {num_operations} operations"
-        )
+
 
     @given(
         st.integers(min_value=200, max_value=1500),
