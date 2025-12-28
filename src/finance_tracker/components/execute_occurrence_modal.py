@@ -35,6 +35,7 @@ class ExecuteOccurrenceModal:
         session: Session,
         on_execute: Callable[[str, Decimal, datetime.date], None],
         on_skip: Callable[[str, Optional[str]], None],
+        on_reschedule: Optional[Callable[[str, datetime.date], None]] = None,
     ):
         """
         Инициализация модального окна.
@@ -45,13 +46,17 @@ class ExecuteOccurrenceModal:
                         Принимает (occurrence_id, actual_amount, actual_date).
             on_skip: Callback для пропуска вхождения.
                      Принимает (occurrence_id, skip_reason).
+            on_reschedule: Callback для переноса вхождения на другую дату.
+                          Принимает (occurrence_id, new_date).
         """
         self.session = session
         self.on_execute = on_execute
         self.on_skip = on_skip
+        self.on_reschedule = on_reschedule
         self.page: Optional[ft.Page] = None
         self.occurrence: Optional[PlannedOccurrence] = None
         self.current_date = datetime.date.today()
+        self.reschedule_mode = False  # Флаг режима переноса
 
         # UI Controls
         self.date_button = ft.ElevatedButton(
@@ -104,10 +109,24 @@ class ExecuteOccurrenceModal:
             on_click=self._show_skip_form
         )
 
+        self.reschedule_button = ft.TextButton(
+            "Перенести",
+            icon=ft.Icons.EVENT_REPEAT,
+            on_click=self._show_reschedule_form,
+            visible=True  # Будет скрыта если on_reschedule не передан
+        )
+
         self.confirm_skip_button = ft.ElevatedButton(
             "Подтвердить пропуск",
             icon=ft.Icons.CHECK,
             on_click=self._confirm_skip,
+            visible=False
+        )
+
+        self.confirm_reschedule_button = ft.ElevatedButton(
+            "Подтвердить перенос",
+            icon=ft.Icons.CHECK,
+            on_click=self._confirm_reschedule,
             visible=False
         )
 
@@ -137,9 +156,11 @@ class ExecuteOccurrenceModal:
             ),
             actions=[
                 self.skip_button,
+                self.reschedule_button,
                 self.cancel_skip_button,
                 self.execute_button,
                 self.confirm_skip_button,
+                self.confirm_reschedule_button,
                 ft.TextButton("Закрыть", on_click=self.close),
             ],
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -189,6 +210,10 @@ class ExecuteOccurrenceModal:
             f"Плановая сумма: {occurrence.amount:.2f} ₽"
         )
 
+        # Скрываем кнопку переноса если callback не передан
+        if self.reschedule_button:
+            self.reschedule_button.visible = self.on_reschedule is not None
+
         self.page.open(self.dialog)
 
     def close(self, e=None):
@@ -215,28 +240,53 @@ class ExecuteOccurrenceModal:
 
     def _show_execute_form(self):
         """Показать форму исполнения."""
+        self.reschedule_mode = False
         self.date_button.visible = True
         self.amount_field.visible = True
         self.skip_reason_field.visible = False
 
         self.execute_button.visible = True
         self.skip_button.visible = True
+        self.reschedule_button.visible = self.on_reschedule is not None
         self.confirm_skip_button.visible = False
+        self.confirm_reschedule_button.visible = False
         self.cancel_skip_button.visible = False
 
+        self.dialog.title = ft.Text("Исполнение планового вхождения")
         self.page.update()
 
     def _show_skip_form(self, e=None):
         """Показать форму пропуска."""
+        self.reschedule_mode = False
         self.date_button.visible = False
         self.amount_field.visible = False
         self.skip_reason_field.visible = True
 
         self.execute_button.visible = False
         self.skip_button.visible = False
+        self.reschedule_button.visible = False
         self.confirm_skip_button.visible = True
+        self.confirm_reschedule_button.visible = False
         self.cancel_skip_button.visible = True
 
+        self.dialog.title = ft.Text("Пропуск планового вхождения")
+        self.page.update()
+
+    def _show_reschedule_form(self, e=None):
+        """Показать форму переноса."""
+        self.reschedule_mode = True
+        self.date_button.visible = True
+        self.amount_field.visible = False
+        self.skip_reason_field.visible = False
+
+        self.execute_button.visible = False
+        self.skip_button.visible = False
+        self.reschedule_button.visible = False
+        self.confirm_skip_button.visible = False
+        self.confirm_reschedule_button.visible = True
+        self.cancel_skip_button.visible = True
+
+        self.dialog.title = ft.Text("Перенос планового вхождения")
         self.page.update()
 
     def _hide_skip_form(self, e=None):
@@ -289,4 +339,28 @@ class ExecuteOccurrenceModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка пропуска: {ex}"
+            self.page.update()
+
+    def _confirm_reschedule(self, e):
+        """
+        Подтверждение переноса вхождения на новую дату.
+        """
+        try:
+            if not self.on_reschedule:
+                self.error_text.value = "Функция переноса недоступна"
+                self.page.update()
+                return
+
+            # Проверяем, что выбранная дата отличается от текущей
+            if self.current_date == self.occurrence.occurrence_date:
+                self.error_text.value = "Выберите другую дату для переноса"
+                self.page.update()
+                return
+
+            # Call reschedule callback
+            self.on_reschedule(self.occurrence.id, self.current_date)
+            self.close()
+
+        except Exception as ex:
+            self.error_text.value = f"Ошибка переноса: {ex}"
             self.page.update()

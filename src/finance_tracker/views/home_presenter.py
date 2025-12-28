@@ -22,6 +22,7 @@ from finance_tracker.models.models import (
     PendingPaymentExecute, # for execute_pending_payment
     PendingPaymentCancel, # for cancel_pending_payment
     PendingPaymentCreate, # for create_pending_payment
+    PendingPaymentUpdate, # for update_pending_payment
     PlannedTransactionCreate, # for create_planned_transaction
 )
 
@@ -267,13 +268,27 @@ class HomePresenter:
     def skip_occurrence(self, occurrence: Any) -> None: # reason parameter removed as it's not in service
         """Пропустить плановое вхождение."""
         try:
-            planned_transaction_service.skip_occurrence(self.session, occurrence.id) 
+            planned_transaction_service.skip_occurrence(self.session, occurrence.id)
             self.session.commit()
             self._refresh_data()
             self.callbacks.show_message("Плановая операция пропущена")
         except Exception as e:
             self.session.rollback()
             self._handle_error("Ошибка пропуска плановой операции", e)
+
+    def reschedule_occurrence(self, occurrence_id: str, new_date: date) -> None:
+        """Перенести плановое вхождение на другую дату."""
+        try:
+            planned_transaction_service.reschedule_occurrence(self.session, occurrence_id, new_date)
+            self.session.commit()
+            self._refresh_data()
+            self.callbacks.show_message(f"Плановая операция перенесена на {new_date.strftime('%d.%m.%Y')}")
+        except ValueError as ve:
+            self.session.rollback()
+            self.callbacks.show_error(str(ve))
+        except Exception as e:
+            self.session.rollback()
+            self._handle_error("Ошибка переноса плановой операции", e)
     
     # Pending Payment Operations
     def create_pending_payment(self, payment_data: PendingPaymentCreate) -> None:
@@ -336,6 +351,33 @@ class HomePresenter:
         except Exception as e:
             self.session.rollback()
             self._handle_error("Ошибка удаления отложенного платежа", e)
+
+    def update_pending_payment(self, payment_id: str, payment_data: PendingPaymentUpdate) -> None:
+        """
+        Обновить существующий отложенный платёж.
+
+        Args:
+            payment_id: ID платежа для обновления.
+            payment_data: Данные для обновления.
+        """
+        try:
+            logger.debug(f"Обновление отложенного платежа ID: {payment_id}")
+
+            pending_payment_service.update_pending_payment(self.session, payment_id, payment_data)
+            self.session.commit()
+
+            logger.info(f"Отложенный платёж {payment_id} успешно обновлён")
+            self._refresh_data()
+            self.callbacks.show_message("Отложенный платёж успешно обновлён")
+
+        except ValueError as ve:
+            self.session.rollback()
+            logger.error(f"Ошибка валидации при обновлении платежа: {ve}")
+            self.callbacks.show_error(f"Ошибка валидации: {str(ve)}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Ошибка обновления отложенного платежа {payment_id}: {e}", exc_info=True)
+            self._handle_error("Ошибка обновления отложенного платежа", e)
     
     # Loan Payment Operations
     def execute_loan_payment(self, payment: Any, amount: Decimal, execution_date: date) -> None: # amount should be Decimal

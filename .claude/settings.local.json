@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(python -m finance_tracker:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(then echo \"Missing tests for: $comp\")",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(xargs:*)",
+      "Bash(while read comp)",
+      "Bash(do if ! ls tests/test_$comp*.py)",
+      "Bash(then echo '  MISSING: $comp')",
+      "Bash(while read view)",
+      "Bash(do if ! ls tests/test_$view*.py)",
+      "Bash(then echo '  MISSING: $view')",
+      "Bash(wc:*)",
+      "Bash(for file in test_execute_occurrence_modal.py test_execute_pending_payment_modal.py test_early_repayment_modal.py test_occurrence_details_modal.py)",
+      "Bash(git push:*)",
+      "Bash(pytest:*)"
+    ]
+  }
+}

@@ -71,16 +71,12 @@ class MainWindow(ft.Row):
         except Exception as e:
             logger.error(f"Ошибка при установке иконки окна: {e}")
         
-        # Разворачиваем окно на весь экран
+        # ВСЕГДА разворачиваем окно на весь экран при запуске
         self.page.window.maximized = True
-        
-        # Восстановление размера и положения окна (для случая, если пользователь выйдет из полноэкранного режима)
-        self.page.window.width = settings.window_width
-        self.page.window.height = settings.window_height
-        if settings.window_top is not None:
-            self.page.window.top = settings.window_top
-        if settings.window_left is not None:
-            self.page.window.left = settings.window_left
+
+        # Примечание: width/height/top/left не устанавливаем, так как окно maximized
+        # Эти значения будут использованы, если пользователь выйдет из полноэкранного режима
+        # и сохранены при закрытии приложения
 
     # Removed did_mount as it is not automatically called for Row subclass
 
@@ -222,6 +218,10 @@ class MainWindow(ft.Row):
     def navigate(self, index: int):
         """Переключение между разделами"""
         self.rail.selected_index = index
+        # Обновляем NavigationRail для отображения активного раздела
+        # Проверяем, что rail уже добавлен на страницу перед вызовом update()
+        if hasattr(self.rail, 'page') and self.rail.page:
+            self.rail.update()
         self.content_area.content = self.get_view(index)
         self.content_area.update()
         self.save_state()

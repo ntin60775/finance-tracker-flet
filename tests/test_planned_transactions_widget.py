@@ -245,7 +245,7 @@ class TestPlannedTransactionsWidgetAddButton(unittest.TestCase):
         
         # Вторая кнопка - показать все
         show_all_button = buttons_row.controls[1]
-        self.assertIsInstance(show_all_button, ft.TextButton, "Вторая кнопка должна быть TextButton")
+        self.assertIsInstance(show_all_button, ft.IconButton, "Вторая кнопка должна быть IconButton")
 
     def test_header_layout_without_add_button_when_callback_none(self):
         """
@@ -285,7 +285,7 @@ class TestPlannedTransactionsWidgetAddButton(unittest.TestCase):
         
         # Единственная кнопка - показать все
         show_all_button = buttons_row.controls[0]
-        self.assertIsInstance(show_all_button, ft.TextButton, "Кнопка должна быть TextButton")
+        self.assertIsInstance(show_all_button, ft.IconButton, "Кнопка должна быть IconButton")
 
     def test_callback_storage_in_widget(self):
         """

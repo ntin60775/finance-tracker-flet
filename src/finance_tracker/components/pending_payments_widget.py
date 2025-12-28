@@ -44,6 +44,7 @@ class PendingPaymentsWidget(ft.Container):
         on_delete: Callable[[int], None],
         on_show_all: Callable[[], None],
         on_add_payment: Callable[[], None] = None,
+        on_edit: Callable[[PendingPaymentDB], None] = None,
     ):
         """
         Инициализация виджета отложенных платежей.
@@ -55,6 +56,7 @@ class PendingPaymentsWidget(ft.Container):
             on_delete: Callback для удаления платежа.
             on_show_all: Callback для перехода в полный раздел отложенных платежей.
             on_add_payment: Callback для добавления нового отложенного платежа.
+            on_edit: Callback для редактирования платежа.
         """
         super().__init__()
         self.session = session
@@ -63,6 +65,7 @@ class PendingPaymentsWidget(ft.Container):
         self.on_delete = on_delete
         self.on_show_all = on_show_all
         self.on_add_payment = on_add_payment
+        self.on_edit = on_edit
         self.payments: List[PendingPaymentDB] = []
         self.statistics: Dict[str, Any] = {}
         self.current_filter = "all"  # all, with_date, without_date
@@ -116,9 +119,10 @@ class PendingPaymentsWidget(ft.Container):
             on_click=lambda _: self._safe_add_payment()
         )
 
-        self.show_all_button = ft.TextButton(
-            "Показать все",
-            icon=ft.Icons.ARROW_FORWARD,
+        self.show_all_button = ft.IconButton(
+            icon=ft.Icons.MENU,
+            tooltip="Показать все",
+            icon_color=ft.Colors.PRIMARY,
             on_click=lambda _: self.on_show_all()
         )
 
@@ -204,7 +208,7 @@ class PendingPaymentsWidget(ft.Container):
     def _safe_add_payment(self):
         """
         Безопасный вызов callback для добавления платежа.
-        
+
         Обрабатывает случай, когда callback не установлен.
         """
         try:
@@ -215,6 +219,22 @@ class PendingPaymentsWidget(ft.Container):
                 logger.warning("Callback для добавления платежа не установлен")
         except Exception as e:
             logger.error(f"Ошибка при вызове callback добавления платежа: {e}", exc_info=True)
+
+    def _safe_edit_payment(self, payment: PendingPaymentDB):
+        """
+        Безопасный вызов callback для редактирования платежа.
+
+        Args:
+            payment: Платёж для редактирования.
+        """
+        try:
+            if self.on_edit:
+                logger.debug(f"Вызов callback для редактирования платежа: {payment.id}")
+                self.on_edit(payment)
+            else:
+                logger.warning("Callback для редактирования платежа не установлен")
+        except Exception as e:
+            logger.error(f"Ошибка при вызове callback редактирования платежа: {e}", exc_info=True)
 
     def _update_statistics(self):
         """Обновление статистики."""
@@ -300,6 +320,13 @@ class PendingPaymentsWidget(ft.Container):
             on_click=lambda _, p=payment: self.on_execute(p)
         )
 
+        edit_button = ft.IconButton(
+            icon=ft.Icons.EDIT_OUTLINED,
+            tooltip="Редактировать",
+            icon_size=20,
+            on_click=lambda _, p=payment: self._safe_edit_payment(p)
+        )
+
         cancel_button = ft.IconButton(
             icon=ft.Icons.CANCEL_OUTLINED,
             tooltip="Отменить",
@@ -351,6 +378,7 @@ class PendingPaymentsWidget(ft.Container):
                     ft.Row(
                         controls=[
                             execute_button,
+                            edit_button,
                             cancel_button,
                             delete_button,
                         ],

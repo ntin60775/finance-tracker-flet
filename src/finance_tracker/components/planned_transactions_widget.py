@@ -82,9 +82,10 @@ class PlannedTransactionsWidget(ft.Container):
             italic=True
         )
 
-        self.show_all_button = ft.TextButton(
-            "Показать все",
-            icon=ft.Icons.ARROW_FORWARD,
+        self.show_all_button = ft.IconButton(
+            icon=ft.Icons.MENU,
+            tooltip="Показать все",
+            icon_color=ft.Colors.PRIMARY,
             on_click=lambda _: self.on_show_all()
         )
 

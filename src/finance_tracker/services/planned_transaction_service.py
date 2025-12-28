@@ -620,24 +620,82 @@ def skip_occurrence(
 ) -> PlannedOccurrenceDB:
     """
     Пропускает плановое вхождение.
-    
+
     Args:
         session: Активная сессия БД
         occurrence_id: ID вхождения (UUID)
-        
+
     Returns:
         Обновленное вхождение
     """
     validate_uuid_format(occurrence_id, "occurrence_id")
-    
+
     occurrence = session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
     if not occurrence:
         raise ValueError(f"Вхождение {occurrence_id} не найдено")
-        
+
     occurrence.status = OccurrenceStatus.SKIPPED
     occurrence.skipped_date = date.today()
-    
+
     logger.info(f"Пропущено плановое вхождение {occurrence_id}")
+    return occurrence
+
+
+def reschedule_occurrence(
+    session: Session,
+    occurrence_id: str,
+    new_date: date
+) -> PlannedOccurrenceDB:
+    """
+    Переносит плановое вхождение на новую дату.
+
+    Ограничения:
+    - Новая дата не может быть больше даты следующего вхождения
+    - Вхождение должно быть в статусе PENDING
+
+    Args:
+        session: Активная сессия БД
+        occurrence_id: ID вхождения (UUID)
+        new_date: Новая дата вхождения
+
+    Returns:
+        Обновленное вхождение
+
+    Raises:
+        ValueError: Если вхождение не найдено, уже исполнено или новая дата некорректна
+    """
+    validate_uuid_format(occurrence_id, "occurrence_id")
+
+    occurrence = session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
+    if not occurrence:
+        raise ValueError(f"Вхождение {occurrence_id} не найдено")
+
+    if occurrence.status != OccurrenceStatus.PENDING:
+        raise ValueError(f"Можно переносить только ожидающие вхождения (текущий статус: {occurrence.status.value})")
+
+    # Проверяем, что новая дата не позже следующего вхождения
+    planned_tx = occurrence.planned_transaction
+    if planned_tx.recurrence_rule:
+        # Находим следующее вхождение для этой плановой транзакции
+        next_occurrence = session.query(PlannedOccurrenceDB).filter(
+            PlannedOccurrenceDB.planned_transaction_id == planned_tx.id,
+            PlannedOccurrenceDB.occurrence_date > occurrence.occurrence_date,
+            PlannedOccurrenceDB.id != occurrence.id
+        ).order_by(PlannedOccurrenceDB.occurrence_date).first()
+
+        if next_occurrence and new_date >= next_occurrence.occurrence_date:
+            raise ValueError(
+                f"Новая дата не может быть позже или равна дате следующего вхождения "
+                f"({next_occurrence.occurrence_date.strftime('%d.%m.%Y')})"
+            )
+
+    old_date = occurrence.occurrence_date
+    occurrence.occurrence_date = new_date
+
+    logger.info(
+        f"Вхождение {occurrence_id} перенесено с {old_date.strftime('%d.%m.%Y')} "
+        f"на {new_date.strftime('%d.%m.%Y')}"
+    )
     return occurrence
 
 

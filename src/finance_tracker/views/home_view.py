@@ -19,6 +19,8 @@ from finance_tracker.utils.logger import get_logger
 from finance_tracker.models.models import (
     PendingPaymentExecute,
     PendingPaymentCancel,
+    PendingPaymentUpdate,
+    PendingPaymentDB,
     LoanPaymentDB
 )
 from finance_tracker.views.home_presenter import HomePresenter
@@ -32,14 +34,15 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     """
     Главный экран приложения (Календарь + Транзакции + Плановые операции).
 
-    Состоит из трёх колонок:
-    - Левая (2/7 ширины): Виджет плановых транзакций
-    - Центральная (3/7 ширины): Календарь вверху, легенда и отложенные платежи внизу
-    - Правая (2/7 ширины): Список транзакций выбранного дня и кнопка добавления
+    Состоит из четырёх колонок с пропорциями 2:2:4:3 (всего 11 частей):
+    - Первая (2/11 ширины): Виджет плановых транзакций
+    - Вторая (2/11 ширины): Виджет отложенных платежей
+    - Третья (4/11 ширины): Вертикальный календарь и легенда
+    - Четвёртая (3/11 ширины): Список транзакций выбранного дня
 
     Реализует паттерн MVP: View делегирует бизнес-логику в Presenter,
     получает обновления через IHomeViewCallbacks.
-    
+
     Args:
         page: Объект страницы Flet для управления UI
         session: Активная сессия БД для работы с данными
@@ -62,10 +65,14 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         # Создаем Presenter с инжекцией зависимостей
         self.presenter = HomePresenter(session, self)
         
+        # Получаем высоту страницы для адаптивных размеров календаря
+        page_height = self.page.height if hasattr(self.page, 'height') and self.page.height else None
+
         # UI Components
         self.calendar_widget = CalendarWidget(
             on_date_selected=self.on_date_selected,
-            initial_date=self.selected_date
+            initial_date=self.selected_date,
+            page_height=page_height
         )
         
         self.transactions_panel = TransactionsPanel(
@@ -101,7 +108,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_cancel=self.on_cancel_payment,
             on_delete=self.on_delete_payment,
             on_show_all=self.on_show_all_payments,
-            on_add_payment=self.on_add_pending_payment
+            on_add_payment=self.on_add_pending_payment,
+            on_edit=self.on_edit_pending_payment
         )
 
         # Modals
@@ -114,7 +122,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.execute_occurrence_modal = ExecuteOccurrenceModal(
             session=self.session,
             on_execute=self.on_occurrence_executed_confirm,
-            on_skip=self.on_occurrence_skipped_confirm
+            on_skip=self.on_occurrence_skipped_confirm,
+            on_reschedule=self.on_occurrence_rescheduled_confirm
         )
 
         self.execute_payment_modal = ExecutePendingPaymentModal(
@@ -125,7 +134,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.payment_modal = PendingPaymentModal(
             session=self.session,
             on_save=self.on_pending_payment_saved,
-            on_update=lambda _, __: None  # Не используется на главном экране
+            on_update=self.on_pending_payment_updated
         )
 
         self.planned_transaction_modal = PlannedTransactionModal(
@@ -133,11 +142,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_save=self.on_planned_transaction_saved
         )
 
-        # Layout
+        # Layout с новыми пропорциями 2:2:4:3 (всего 11 частей)
         self.controls = [
             ft.Row(
                 controls=[
-                    # Левая колонка (2/7): Плановые транзакции
+                    # Колонка 1 (2/11): Плановые транзакции
                     ft.Column(
                         controls=[
                             self.planned_widget
@@ -148,25 +157,35 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                         alignment=ft.MainAxisAlignment.START
                     ),
                     ft.VerticalDivider(width=1),
-                    # Центральная колонка (3/7): Календарь вверху, легенда и отложенные платежи внизу
+                    # Колонка 2 (2/11): Отложенные платежи (НОВАЯ ПОЗИЦИЯ)
                     ft.Column(
                         controls=[
-                            self.calendar_widget,
-                            self.legend,
                             self.pending_payments_widget
                         ],
-                        expand=3,
+                        expand=2,
                         spacing=20,
                         scroll=ft.ScrollMode.AUTO,
                         alignment=ft.MainAxisAlignment.START
                     ),
                     ft.VerticalDivider(width=1),
-                    # Правая колонка (2/7): Панель транзакций
+                    # Колонка 3 (4/11): Вертикальный календарь и легенда
+                    ft.Column(
+                        controls=[
+                            self.calendar_widget,
+                            self.legend,
+                        ],
+                        expand=4,
+                        spacing=20,
+                        scroll=ft.ScrollMode.AUTO,
+                        alignment=ft.MainAxisAlignment.START
+                    ),
+                    ft.VerticalDivider(width=1),
+                    # Колонка 4 (3/11): Панель транзакций
                     ft.Column(
                         controls=[
                             self.transactions_panel
                         ],
-                        expand=2,
+                        expand=3,
                         scroll=ft.ScrollMode.AUTO,
                         alignment=ft.MainAxisAlignment.START
                     )
@@ -183,7 +202,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def _calculate_calendar_width(self) -> int:
         """
         Вычисляет ширину календаря на основе размеров страницы и layout.
-        
+
         Returns:
             Приблизительная ширина календаря в пикселях
         """
@@ -194,33 +213,35 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             else:
                 # Fallback к стандартной ширине
                 page_width = 1200
-            
-            # Центральная колонка занимает 3/7 от общей ширины
-            # Левая колонка: expand=2, Центральная: expand=3, Правая: expand=2
-            # Общий expand = 2 + 3 + 2 = 7
-            center_column_ratio = 3 / 7
-            
+
+            # Колонка календаря занимает 4/11 от общей ширины
+            # Колонки: expand=2, expand=2, expand=4, expand=3
+            # Общий expand = 2 + 2 + 4 + 3 = 11
+            calendar_column_ratio = 4 / 11
+
             # Вычитаем отступы и разделители
-            # spacing между колонками: 20px * 2 = 40px
-            # VerticalDivider: width=1 * 2 = 2px
+            # spacing между колонками: 20px * 3 = 60px (3 промежутка между 4 колонками)
+            # VerticalDivider: width=1 * 3 = 3px
             # padding контейнера: примерно 20px с каждой стороны = 40px
-            total_spacing = 40 + 2 + 40  # 82px
-            
+            total_spacing = 60 + 3 + 40  # 103px
+
             # Вычисляем доступную ширину для колонок
             available_width = page_width - total_spacing
-            
-            # Ширина центральной колонки
-            center_column_width = int(available_width * center_column_ratio)
-            
-            # Календарь занимает почти всю ширину центральной колонки
+
+            # Ширина колонки календаря
+            calendar_column_width = int(available_width * calendar_column_ratio)
+
+            # Календарь занимает почти всю ширину колонки
             # Вычитаем внутренние отступы колонки (примерно 20px)
-            calendar_width = center_column_width - 20
-            
-            logger.debug(f"Вычислена ширина календаря: {calendar_width}px "
-                        f"(страница: {page_width}px, центральная колонка: {center_column_width}px)")
-            
+            calendar_width = calendar_column_width - 20
+
+            logger.debug(
+                f"Вычислена ширина календаря: {calendar_width}px "
+                f"(страница: {page_width}px, колонка календаря: {calendar_column_width}px)"
+            )
+
             return max(calendar_width, 300)  # Минимальная ширина 300px
-            
+
         except Exception as e:
             logger.error(f"Ошибка при вычислении ширины календаря: {e}")
             return 500  # Fallback к безопасному значению
@@ -481,19 +502,31 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_execute_occurrence(self, occurrence: PlannedOccurrence):
         """Открытие модального окна для исполнения планового вхождения."""
-        self.execute_occurrence_modal.open_execute(self.page, occurrence)
+        self.execute_occurrence_modal.open(self.page, occurrence)
 
     def on_skip_occurrence(self, occurrence: PlannedOccurrence):
         """Открытие модального окна для пропуска планового вхождения."""
-        self.execute_occurrence_modal.open_skip(self.page, occurrence)
+        self.execute_occurrence_modal.open(self.page, occurrence)
 
-    def on_occurrence_executed_confirm(self, occurrence: PlannedOccurrence, date: datetime.date, amount: float):
+    def on_occurrence_executed_confirm(self, occurrence_id: str, amount: Decimal, execution_date: datetime.date):
         """Подтверждение исполнения вхождения - делегирует в Presenter."""
-        self.presenter.execute_occurrence(occurrence, date, amount)
+        # Получаем occurrence из БД
+        from finance_tracker.models import PlannedOccurrenceDB
+        occurrence = self.session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
+        if occurrence:
+            self.presenter.execute_occurrence(occurrence, execution_date, amount)
 
-    def on_occurrence_skipped_confirm(self, occurrence: PlannedOccurrence, reason: str):
+    def on_occurrence_skipped_confirm(self, occurrence_id: str, reason: Optional[str]):
         """Подтверждение пропуска вхождения - делегирует в Presenter."""
-        self.presenter.skip_occurrence(occurrence, reason)
+        # Получаем occurrence из БД
+        from finance_tracker.models import PlannedOccurrenceDB
+        occurrence = self.session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
+        if occurrence:
+            self.presenter.skip_occurrence(occurrence)
+
+    def on_occurrence_rescheduled_confirm(self, occurrence_id: str, new_date: datetime.date):
+        """Подтверждение переноса вхождения - делегирует в Presenter."""
+        self.presenter.reschedule_occurrence(occurrence_id, new_date)
 
     def on_occurrence_clicked(self, occurrence: PlannedOccurrence):
         """
@@ -604,45 +637,15 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_show_all_payments(self):
         """Переход к разделу всех отложенных платежей."""
-        try:
-            logger.info("Переход к разделу отложенных платежей")
-            
-            # Проверяем наличие page
-            if not self.page:
-                logger.error("Page не инициализирована")
-                return
-            
-            # Проверяем наличие метода навигации в MainWindow
-            # MainWindow должен быть доступен через page.controls
-            main_window = None
-            if hasattr(self.page, 'controls') and self.page.controls:
-                for control in self.page.controls:
-                    if hasattr(control, 'navigate'):
-                        main_window = control
-                        break
-            
-            if main_window and hasattr(main_window, 'navigate'):
-                # Вызываем метод навигации MainWindow
+        if self.navigate_callback:
+            try:
                 # Индекс 3 соответствует разделу "Отложенные платежи"
-                main_window.navigate(3)
-                logger.info("Навигация к разделу отложенных платежей выполнена")
-            else:
-                # Fallback: показываем SnackBar если навигация не реализована
-                logger.warning("Навигация к разделу отложенных платежей не реализована")
-                self.page.open(ft.SnackBar(
-                    content=ft.Text("Раздел 'Отложенные платежи' в разработке")
-                ))
-                
-        except Exception as e:
-            logger.error(f"Ошибка при переходе к разделу отложенных платежей: {e}", exc_info=True)
-            if self.page:
-                try:
-                    self.page.open(ft.SnackBar(
-                        content=ft.Text("Ошибка при переходе к разделу"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
-                except Exception as snack_error:
-                    logger.error(f"Не удалось показать SnackBar: {snack_error}")
+                self.navigate_callback(3)
+                logger.info("Переход к разделу отложенных платежей")
+            except Exception as e:
+                logger.error(f"Ошибка при навигации к отложенным платежам: {e}")
+        else:
+            logger.warning("Метод навигации не доступен в HomeView")
 
     def on_add_pending_payment(self):
         """Открытие модального окна добавления отложенного платежа."""
@@ -671,6 +674,45 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_pending_payment_saved(self, data: PendingPaymentCreate):
         """Обработка сохранения нового отложенного платежа."""
         self.presenter.create_pending_payment(data)
+
+    def on_edit_pending_payment(self, payment: PendingPaymentDB):
+        """
+        Открытие модального окна редактирования отложенного платежа.
+
+        Args:
+            payment: Платёж для редактирования.
+        """
+        try:
+            logger.debug(f"Открытие модального окна редактирования платежа: {payment.id}")
+
+            if not self.page:
+                logger.error("Page не инициализирована")
+                return
+
+            if not self.payment_modal:
+                logger.error("PendingPaymentModal не инициализирован")
+                return
+
+            self.payment_modal.open(self.page, payment=payment)
+            logger.info("Модальное окно редактирования отложенного платежа открыто")
+
+        except Exception as e:
+            logger.error(f"Ошибка при открытии модального окна редактирования: {e}", exc_info=True)
+            if self.page:
+                self.page.open(ft.SnackBar(
+                    content=ft.Text("Не удалось открыть форму редактирования платежа"),
+                    bgcolor=ft.Colors.ERROR
+                ))
+
+    def on_pending_payment_updated(self, payment_id: str, data: PendingPaymentUpdate):
+        """
+        Обработка сохранения изменений отложенного платежа.
+
+        Args:
+            payment_id: ID платежа.
+            data: Данные для обновления.
+        """
+        self.presenter.update_pending_payment(payment_id, data)
 
     def on_add_planned_transaction(self):
         """

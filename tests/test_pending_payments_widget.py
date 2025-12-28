@@ -167,7 +167,7 @@ class TestPendingPaymentsWidget(unittest.TestCase):
         
         # Вторая кнопка - показать все
         show_all_button = buttons_row.controls[1]
-        self.assertIsInstance(show_all_button, ft.TextButton, "Вторая кнопка должна быть TextButton")
+        self.assertIsInstance(show_all_button, ft.IconButton, "Вторая кнопка должна быть IconButton")
 
     def test_add_payment_button_with_none_callback(self):
         """
@@ -256,10 +256,10 @@ class TestPendingPaymentsWidget(unittest.TestCase):
     def test_button_attributes_consistency(self):
         """
         Тест консистентности атрибутов кнопки при разных условиях.
-        
+
         Проверяет:
         - Одинаковые атрибуты кнопки независимо от callback
-        
+
         Requirements: 4.2, 4.3, 4.4
         """
         # Arrange - создаем два виджета: с callback и без
@@ -271,7 +271,7 @@ class TestPendingPaymentsWidget(unittest.TestCase):
             on_show_all=self.mock_on_show_all,
             on_add_payment=self.mock_on_add_payment
         )
-        
+
         widget_without_callback = PendingPaymentsWidget(
             session=self.mock_session,
             on_execute=self.mock_on_execute,
@@ -289,6 +289,164 @@ class TestPendingPaymentsWidget(unittest.TestCase):
         self.assertEqual(button_with_callback.icon, button_without_callback.icon)
         self.assertEqual(button_with_callback.tooltip, button_without_callback.tooltip)
         self.assertEqual(button_with_callback.icon_color, button_without_callback.icon_color)
+
+
+class TestPendingPaymentsWidgetEditButton(unittest.TestCase):
+    """Unit тесты для кнопки редактирования в PendingPaymentsWidget."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.mock_session = Mock()
+        self.mock_on_execute = Mock()
+        self.mock_on_cancel = Mock()
+        self.mock_on_delete = Mock()
+        self.mock_on_show_all = Mock()
+        self.mock_on_add_payment = Mock()
+        self.mock_on_edit = Mock()
+
+    def test_on_edit_callback_storage(self):
+        """
+        Тест сохранения callback для редактирования в виджете.
+
+        Проверяет:
+        - Сохранение on_edit callback в атрибуте виджета.
+        """
+        # Arrange & Act
+        widget = PendingPaymentsWidget(
+            session=self.mock_session,
+            on_execute=self.mock_on_execute,
+            on_cancel=self.mock_on_cancel,
+            on_delete=self.mock_on_delete,
+            on_show_all=self.mock_on_show_all,
+            on_add_payment=self.mock_on_add_payment,
+            on_edit=self.mock_on_edit
+        )
+
+        # Assert
+        self.assertEqual(widget.on_edit, self.mock_on_edit, "on_edit callback должен быть сохранён")
+
+    def test_on_edit_callback_none_by_default(self):
+        """
+        Тест значения по умолчанию для on_edit callback.
+
+        Проверяет:
+        - on_edit равен None если не передан.
+        """
+        # Arrange & Act
+        widget = PendingPaymentsWidget(
+            session=self.mock_session,
+            on_execute=self.mock_on_execute,
+            on_cancel=self.mock_on_cancel,
+            on_delete=self.mock_on_delete,
+            on_show_all=self.mock_on_show_all
+        )
+
+        # Assert
+        self.assertIsNone(widget.on_edit, "on_edit должен быть None по умолчанию")
+
+    def test_edit_button_in_payment_card(self):
+        """
+        Тест наличия кнопки редактирования в карточке платежа.
+
+        Проверяет:
+        - Кнопка редактирования присутствует в карточке платежа.
+        - Кнопка имеет правильную иконку и tooltip.
+        """
+        # Arrange
+        widget = PendingPaymentsWidget(
+            session=self.mock_session,
+            on_execute=self.mock_on_execute,
+            on_cancel=self.mock_on_cancel,
+            on_delete=self.mock_on_delete,
+            on_show_all=self.mock_on_show_all,
+            on_edit=self.mock_on_edit
+        )
+
+        # Создаём mock платежа
+        mock_payment = Mock(spec=PendingPaymentDB)
+        mock_payment.id = 1
+        mock_payment.amount = Decimal("100.00")
+        mock_payment.description = "Тестовый платёж"
+        mock_payment.priority = PendingPaymentPriority.MEDIUM
+        mock_payment.planned_date = None
+
+        # Act
+        card = widget._build_payment_card(mock_payment)
+
+        # Assert - ищем кнопку редактирования в структуре карточки
+        # Карточка содержит Column -> последний элемент Row с кнопками
+        card_column = card.content
+        buttons_row = card_column.controls[-1]  # Последний элемент - Row с кнопками
+
+        # Проверяем, что есть 4 кнопки (execute, edit, cancel, delete)
+        self.assertEqual(len(buttons_row.controls), 4, "Должно быть 4 кнопки действий")
+
+        # Вторая кнопка должна быть кнопкой редактирования
+        edit_button = buttons_row.controls[1]
+        self.assertIsInstance(edit_button, ft.IconButton, "Вторая кнопка должна быть IconButton")
+        self.assertEqual(edit_button.icon, ft.Icons.EDIT_OUTLINED, "Кнопка должна иметь иконку EDIT_OUTLINED")
+        self.assertEqual(edit_button.tooltip, "Редактировать", "Кнопка должна иметь tooltip 'Редактировать'")
+
+    def test_edit_button_callback_invocation(self):
+        """
+        Тест вызова callback при нажатии кнопки редактирования.
+
+        Проверяет:
+        - Вызов on_edit callback с правильным платежом.
+        """
+        # Arrange
+        widget = PendingPaymentsWidget(
+            session=self.mock_session,
+            on_execute=self.mock_on_execute,
+            on_cancel=self.mock_on_cancel,
+            on_delete=self.mock_on_delete,
+            on_show_all=self.mock_on_show_all,
+            on_edit=self.mock_on_edit
+        )
+
+        mock_payment = Mock(spec=PendingPaymentDB)
+        mock_payment.id = 1
+        mock_payment.amount = Decimal("100.00")
+        mock_payment.description = "Тестовый платёж"
+        mock_payment.priority = PendingPaymentPriority.MEDIUM
+        mock_payment.planned_date = None
+
+        card = widget._build_payment_card(mock_payment)
+        card_column = card.content
+        buttons_row = card_column.controls[-1]
+        edit_button = buttons_row.controls[1]
+
+        # Act - симулируем нажатие кнопки
+        edit_button.on_click(None)
+
+        # Assert
+        self.mock_on_edit.assert_called_once_with(mock_payment)
+
+    def test_safe_edit_payment_with_none_callback(self):
+        """
+        Тест безопасного вызова _safe_edit_payment без callback.
+
+        Проверяет:
+        - Отсутствие исключений при вызове без callback.
+        """
+        # Arrange
+        widget = PendingPaymentsWidget(
+            session=self.mock_session,
+            on_execute=self.mock_on_execute,
+            on_cancel=self.mock_on_cancel,
+            on_delete=self.mock_on_delete,
+            on_show_all=self.mock_on_show_all,
+            on_edit=None  # Без callback
+        )
+
+        mock_payment = Mock(spec=PendingPaymentDB)
+        mock_payment.id = 1
+
+        # Act & Assert - не должно быть исключений
+        try:
+            widget._safe_edit_payment(mock_payment)
+        except Exception as e:
+            self.fail(f"_safe_edit_payment не должен вызывать исключения без callback: {e}")
 
 
 if __name__ == '__main__':
