@@ -7,6 +7,7 @@ from finance_tracker.services.transaction_service import get_total_balance
 from finance_tracker.views.home_view import HomeView
 from finance_tracker.views.categories_view import CategoriesView
 from finance_tracker.views.plan_fact_view import PlanFactView
+from finance_tracker.views.transaction_history_view import TransactionHistoryView
 from finance_tracker.views.pending_payments_view import PendingPaymentsView
 from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
 from finance_tracker.views.lenders_view import LendersView
@@ -128,9 +129,14 @@ class MainWindow(ft.Row):
                     label="Отложенные",
                 ),
                 ft.NavigationRailDestination(
-                    icon=ft.Icons.SCHEDULE_OUTLINED,
-                    selected_icon=ft.Icons.SCHEDULE,
-                    label="План",
+                    icon=ft.Icons.HISTORY_OUTLINED,
+                    selected_icon=ft.Icons.HISTORY,
+                    label="История",
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.ANALYTICS_OUTLINED,
+                    selected_icon=ft.Icons.ANALYTICS,
+                    label="План-факт",
                 ),
                 ft.NavigationRailDestination(
                     icon=ft.Icons.ACCOUNT_BALANCE_OUTLINED,
@@ -253,12 +259,14 @@ class MainWindow(ft.Row):
         if index == 3:
             return PendingPaymentsView(self.page)
         if index == 4:
-            return PlanFactView()
+            return TransactionHistoryView()
         if index == 5:
-            return LendersView(self.page)
+            return PlanFactView()
         if index == 6:
-            return CategoriesView(self.page)
+            return LendersView(self.page)
         if index == 7:
+            return CategoriesView(self.page)
+        if index == 8:
             return SettingsView(self.page)
 
         return ft.Text("Раздел не найден")
