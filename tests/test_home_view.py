@@ -1185,3 +1185,148 @@ class TestHomeViewPlannedTransactionIntegration(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
+
+
+class TestHomeViewPlannedWidgetIntegration(unittest.TestCase):
+    """Тесты интеграции PlannedTransactionsWidget с HomeView для обзорного режима."""
+
+    def setUp(self):
+        """Настройка перед каждым тестом."""
+        self.mock_presenter_patcher = patch('finance_tracker.views.home_view.HomePresenter')
+        self.mock_planned_widget_patcher = patch('finance_tracker.views.home_view.PlannedTransactionsWidget')
+
+        self.mock_presenter = self.mock_presenter_patcher.start()
+        self.mock_planned_widget_class = self.mock_planned_widget_patcher.start()
+
+        self.page = MagicMock()
+        self.page.open = Mock()
+        self.mock_session = Mock()
+
+        # Создаем mock экземпляр виджета
+        self.mock_planned_widget_instance = Mock()
+        self.mock_planned_widget_class.return_value = self.mock_planned_widget_instance
+
+        # Создаем экземпляр HomeView
+        self.view = HomeView(self.page, self.mock_session)
+
+    def tearDown(self):
+        """Очистка после каждого теста."""
+        self.mock_presenter_patcher.stop()
+        self.mock_planned_widget_patcher.stop()
+
+    def test_planned_widget_initialization_with_occurrence_click_callback(self):
+        """
+        Тест инициализации PlannedTransactionsWidget с callback on_occurrence_click.
+        
+        Requirements: 2.1
+        """
+        # Проверяем, что PlannedTransactionsWidget был создан
+        self.mock_planned_widget_class.assert_called_once()
+        
+        # Получаем аргументы вызова конструктора
+        call_args = self.mock_planned_widget_class.call_args
+        
+        # Проверяем, что on_occurrence_click callback установлен
+        self.assertIn('on_occurrence_click', call_args.kwargs)
+        on_click_callback = call_args.kwargs['on_occurrence_click']
+        
+        # Проверяем, что callback - это метод on_occurrence_clicked
+        self.assertEqual(on_click_callback, self.view.on_occurrence_clicked)
+
+    def test_on_occurrence_clicked_calls_presenter_on_date_selected(self):
+        """
+        Тест что клик на вхождение вызывает presenter.on_date_selected.
+        
+        Requirements: 2.1, 2.2
+        """
+        # Arrange - создаем mock вхождение
+        mock_occurrence = Mock()
+        mock_occurrence.id = "test-occurrence-id"
+        mock_occurrence.occurrence_date = datetime.date(2024, 12, 15)
+        
+        # Act - вызываем on_occurrence_clicked
+        self.view.on_occurrence_clicked(mock_occurrence)
+        
+        # Assert - проверяем вызов presenter.on_date_selected с правильной датой
+        self.mock_presenter.return_value.on_date_selected.assert_called_once_with(
+            mock_occurrence.occurrence_date
+        )
+
+    def test_on_occurrence_clicked_updates_calendar(self):
+        """
+        Тест что календарь обновляется при клике на вхождение.
+        
+        Requirements: 2.2
+        """
+        # Arrange - создаем mock вхождение
+        mock_occurrence = Mock()
+        mock_occurrence.id = "test-occurrence-id"
+        mock_occurrence.occurrence_date = datetime.date(2024, 12, 20)
+        
+        # Act - вызываем on_occurrence_clicked
+        self.view.on_occurrence_clicked(mock_occurrence)
+        
+        # Assert - проверяем, что presenter.on_date_selected был вызван
+        # Это приведет к обновлению календаря и панели транзакций
+        self.mock_presenter.return_value.on_date_selected.assert_called_once()
+        
+        # Проверяем, что дата передана корректно
+        call_args = self.mock_presenter.return_value.on_date_selected.call_args
+        passed_date = call_args[0][0]
+        self.assertEqual(passed_date, mock_occurrence.occurrence_date)
+
+    def test_on_occurrence_clicked_handles_errors_gracefully(self):
+        """
+        Тест обработки ошибок при клике на вхождение.
+        
+        Requirements: 2.1
+        """
+        # Arrange - создаем mock вхождение
+        mock_occurrence = Mock()
+        mock_occurrence.id = "test-occurrence-id"
+        mock_occurrence.occurrence_date = datetime.date(2024, 12, 25)
+        
+        # Настраиваем presenter для выброса исключения
+        self.mock_presenter.return_value.on_date_selected.side_effect = Exception("Test error")
+        
+        # Act & Assert - вызов не должен распространять исключение
+        with patch('finance_tracker.views.home_view.logger') as mock_logger:
+            try:
+                self.view.on_occurrence_clicked(mock_occurrence)
+                # Проверяем, что исключение не распространилось
+            except Exception:
+                self.fail("on_occurrence_clicked не должен распространять исключения")
+            
+            # Проверяем логирование ошибки
+            mock_logger.error.assert_called_once()
+            error_message = mock_logger.error.call_args[0][0]
+            self.assertIn("Ошибка при обработке клика на вхождение", error_message)
+
+    def test_on_occurrence_clicked_with_various_dates(self):
+        """
+        Тест клика на вхождения с различными датами.
+        
+        Requirements: 2.1, 2.2
+        """
+        # Arrange - создаем список вхождений с разными датами
+        test_dates = [
+            datetime.date(2024, 1, 1),   # Начало года
+            datetime.date(2024, 6, 15),  # Середина года
+            datetime.date(2024, 12, 31), # Конец года
+            datetime.date.today(),       # Сегодня
+        ]
+        
+        for test_date in test_dates:
+            # Сбрасываем mock для чистого тестирования
+            self.mock_presenter.return_value.on_date_selected.reset_mock()
+            
+            # Создаем mock вхождение с тестовой датой
+            mock_occurrence = Mock()
+            mock_occurrence.id = f"occurrence-{test_date}"
+            mock_occurrence.occurrence_date = test_date
+            
+            # Act - вызываем on_occurrence_clicked
+            self.view.on_occurrence_clicked(mock_occurrence)
+            
+            # Assert - проверяем вызов с правильной датой
+            self.mock_presenter.return_value.on_date_selected.assert_called_once_with(test_date)

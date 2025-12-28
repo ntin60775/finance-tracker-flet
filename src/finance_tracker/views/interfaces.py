@@ -68,3 +68,13 @@ class IHomeViewCallbacks(ABC):
             error: Текст ошибки
         """
         pass
+    
+    @abstractmethod
+    def update_calendar_selection(self, date_obj: date) -> None:
+        """
+        Обновить выделение даты в календаре.
+        
+        Args:
+            date_obj: Дата для выделения
+        """
+        pass

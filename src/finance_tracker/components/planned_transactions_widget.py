@@ -40,6 +40,7 @@ class PlannedTransactionsWidget(ft.Container):
         on_skip: Callable[[PlannedOccurrence], None],
         on_show_all: Callable[[], None],
         on_add_planned_transaction: Optional[Callable[[], None]] = None,
+        on_occurrence_click: Optional[Callable[[PlannedOccurrence], None]] = None,
     ):
         """
         Инициализация виджета плановых транзакций.
@@ -51,6 +52,9 @@ class PlannedTransactionsWidget(ft.Container):
             on_show_all: Callback для перехода в полный раздел плановых транзакций.
             on_add_planned_transaction: Callback для добавления новой плановой транзакции.
                                         Если None, кнопка добавления не отображается.
+            on_occurrence_click: Callback для обработки клика на вхождение.
+                                 Вызывается при клике на карточку вхождения для навигации.
+                                 Если None, клик на карточку не обрабатывается.
         """
         super().__init__()
         self.session = session
@@ -58,6 +62,7 @@ class PlannedTransactionsWidget(ft.Container):
         self.on_skip = on_skip
         self.on_show_all = on_show_all
         self.on_add_planned_transaction = on_add_planned_transaction
+        self.on_occurrence_click = on_occurrence_click
         self.occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]] = []
 
         # UI Components
@@ -175,7 +180,10 @@ class PlannedTransactionsWidget(ft.Container):
         tx_type: TransactionType
     ) -> ft.Container:
         """
-        Создание карточки вхождения.
+        Создание карточки вхождения в обзорном режиме.
+
+        Карточка кликабельна - при клике вызывается callback on_occurrence_click
+        для навигации к дате вхождения в календаре.
 
         Args:
             occurrence: Плановое вхождение.
@@ -183,7 +191,7 @@ class PlannedTransactionsWidget(ft.Container):
             tx_type: Тип транзакции.
 
         Returns:
-            Container с информацией о вхождении и кнопками действий.
+            Container с информацией о вхождении, кликабельный для навигации.
         """
         # Определение цвета и иконки по типу
         if tx_type == TransactionType.INCOME:
@@ -267,11 +275,8 @@ class PlannedTransactionsWidget(ft.Container):
                                 padding=ft.padding.symmetric(horizontal=8, vertical=2),
                                 border_radius=5,
                             ),
-                            ft.Container(expand=True),
-                            # Показываем кнопки только для PENDING статуса
-                            *self._build_action_buttons(occurrence)
                         ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                 ],
                 spacing=8,
@@ -280,34 +285,68 @@ class PlannedTransactionsWidget(ft.Container):
             border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=8,
             bgcolor=ft.Colors.SURFACE if is_overdue else None,
+            on_click=lambda _: self._on_card_click(occurrence),
+            ink=True,  # Эффект ripple при клике
+            on_hover=self._on_card_hover,  # Hover-эффект для индикации кликабельности
         )
 
     def _build_action_buttons(self, occurrence: PlannedOccurrence) -> List[ft.Control]:
         """
         Создание кнопок действий для вхождения.
 
+        В обзорном режиме кнопки действий не отображаются.
+        Все действия выполняются через панель транзакций.
+
         Args:
             occurrence: Плановое вхождение.
 
         Returns:
-            Список кнопок (исполнить, пропустить) только для PENDING статуса.
+            Пустой список (кнопки действий убраны для обзорного режима).
         """
-        if occurrence.status != OccurrenceStatus.PENDING:
-            return []
+        return []
 
-        return [
-            ft.IconButton(
-                icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
-                icon_color=ft.Colors.GREEN_700,
-                tooltip="Исполнить",
-                on_click=lambda _, occ=occurrence: self.on_execute(occ),
-                icon_size=20,
-            ),
-            ft.IconButton(
-                icon=ft.Icons.SKIP_NEXT,
-                icon_color=ft.Colors.ORANGE_700,
-                tooltip="Пропустить",
-                on_click=lambda _, occ=occurrence: self.on_skip(occ),
-                icon_size=20,
-            ),
-        ]
+    def _on_card_click(self, occurrence: PlannedOccurrence):
+        """
+        Обработка клика на карточку вхождения.
+
+        Вызывает callback on_occurrence_click для навигации к дате вхождения.
+        Если callback не установлен, логирует предупреждение.
+
+        Args:
+            occurrence: Плановое вхождение, на которое кликнули.
+        """
+        if self.on_occurrence_click:
+            try:
+                logger.debug(
+                    f"Клик на вхождение: {occurrence.id}, дата: {occurrence.occurrence_date}"
+                )
+                self.on_occurrence_click(occurrence)
+            except Exception as e:
+                logger.error(f"Ошибка при обработке клика на вхождение: {e}")
+        else:
+            logger.warning("Callback on_occurrence_click не установлен")
+
+    def _on_card_hover(self, e: ft.HoverEvent):
+        """
+        Обработка hover-эффекта на карточке вхождения.
+
+        Изменяет внешний вид карточки при наведении курсора для индикации кликабельности.
+        Добавляет тень и изменяет цвет границы.
+
+        Args:
+            e: Событие hover от Flet.
+        """
+        if e.data == "true":  # Курсор наведён
+            e.control.border = ft.border.all(2, ft.Colors.PRIMARY)
+            e.control.shadow = ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=4,
+                color=ft.Colors.with_opacity(0.3, ft.Colors.PRIMARY),
+                offset=ft.Offset(0, 2),
+            )
+        else:  # Курсор убран
+            e.control.border = ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
+            e.control.shadow = None
+
+        if self.page:
+            e.control.update()

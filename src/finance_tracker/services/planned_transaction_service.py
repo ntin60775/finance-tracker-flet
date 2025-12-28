@@ -517,7 +517,9 @@ def get_pending_occurrences(
     """
     Получает список ближайших ожидающих исполнения вхождений.
     
-    Возвращает вхождения со статусом PENDING, отсортированные по дате (сначала старые).
+    Возвращает вхождения со статусом PENDING, отсортированные по приоритету:
+    1. Просроченные вхождения (дата < сегодня) - сначала старые
+    2. Будущие вхождения (дата >= сегодня) - сначала ближайшие
     
     Args:
         session: Активная сессия БД
@@ -527,10 +529,24 @@ def get_pending_occurrences(
         Список объектов PlannedOccurrenceDB
     """
     try:
+        from datetime import date as date_type
+        from sqlalchemy import case
+        
+        today = date_type.today()
+        
+        # Создаём выражение для сортировки:
+        # - Просроченные (дата < сегодня) получают приоритет 0
+        # - Будущие (дата >= сегодня) получают приоритет 1
+        priority = case(
+            (PlannedOccurrenceDB.occurrence_date < today, 0),
+            else_=1
+        )
+        
         occurrences = session.query(PlannedOccurrenceDB).filter(
             PlannedOccurrenceDB.status == OccurrenceStatus.PENDING
         ).order_by(
-            PlannedOccurrenceDB.occurrence_date
+            priority,  # Сначала просроченные (0), затем будущие (1)
+            PlannedOccurrenceDB.occurrence_date  # Внутри каждой группы - по дате
         ).limit(limit).all()
         
         return occurrences

@@ -233,6 +233,27 @@ class CalendarWidget(ft.Container):
         self._update_calendar()  # Перерисовываем для обновления выделения
         if self.on_date_selected:
             self.on_date_selected(date_obj)
+    
+    def select_date(self, date_obj: datetime.date):
+        """
+        Программный выбор даты (без вызова callback).
+        
+        Используется для синхронизации выделения при выборе даты из других компонентов.
+        
+        Args:
+            date_obj: Дата для выбора
+        """
+        self.selected_date = date_obj
+        
+        # Если дата в другом месяце, переключаем месяц
+        if date_obj.year != self.current_date.year or date_obj.month != self.current_date.month:
+            self.current_date = date_obj.replace(day=1)
+            # Обновляем данные для нового месяца
+            self._update_cash_gaps()
+            self._update_pending_payments()
+            self._update_loan_payments()
+        
+        self._update_calendar()  # Перерисовываем для обновления выделения
 
     def _update_calendar(self):
         """Перерисовка сетки календаря."""

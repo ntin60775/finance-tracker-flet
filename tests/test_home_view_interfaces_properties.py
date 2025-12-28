@@ -22,6 +22,9 @@ class MockHomeView(IHomeViewCallbacks):
     
     def show_error(self, error: str) -> None:
         pass
+    
+    def update_calendar_selection(self, date_obj: date) -> None:
+        pass
 
 @given(
     st.lists(st.integers()), 

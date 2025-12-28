@@ -33,8 +33,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     Главный экран приложения (Календарь + Транзакции + Плановые операции).
 
     Состоит из трёх колонок:
-    - Левая (2/7 ширины): Виджет отложенных платежей
-    - Центральная (3/7 ширины): Календарь вверху, легенда и плановые транзакции внизу
+    - Левая (2/7 ширины): Виджет плановых транзакций
+    - Центральная (3/7 ширины): Календарь вверху, легенда и отложенные платежи внизу
     - Правая (2/7 ширины): Список транзакций выбранного дня и кнопка добавления
 
     Реализует паттерн MVP: View делегирует бизнес-логику в Presenter,
@@ -91,7 +91,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_execute=self.on_execute_occurrence,
             on_skip=self.on_skip_occurrence,
             on_show_all=self.on_show_all_occurrences,
-            on_add_planned_transaction=self.on_add_planned_transaction
+            on_add_planned_transaction=self.on_add_planned_transaction,
+            on_occurrence_click=self.on_occurrence_clicked
         )
 
         self.pending_payments_widget = PendingPaymentsWidget(
@@ -136,10 +137,10 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.controls = [
             ft.Row(
                 controls=[
-                    # Левая колонка (2/7): Отложенные платежи
+                    # Левая колонка (2/7): Плановые транзакции
                     ft.Column(
                         controls=[
-                            self.pending_payments_widget
+                            self.planned_widget
                         ],
                         expand=2,
                         spacing=20,
@@ -147,12 +148,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                         alignment=ft.MainAxisAlignment.START
                     ),
                     ft.VerticalDivider(width=1),
-                    # Центральная колонка (3/7): Календарь вверху, легенда и плановые внизу
+                    # Центральная колонка (3/7): Календарь вверху, легенда и отложенные платежи внизу
                     ft.Column(
                         controls=[
                             self.calendar_widget,
                             self.legend,
-                            self.planned_widget
+                            self.pending_payments_widget
                         ],
                         expand=3,
                         spacing=20,
@@ -283,6 +284,10 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def show_error(self, error: str) -> None:
         """Показать сообщение об ошибке."""
         self.page.open(ft.SnackBar(content=ft.Text(error), bgcolor=ft.Colors.ERROR))
+    
+    def update_calendar_selection(self, date_obj: datetime.date) -> None:
+        """Обновить выделение даты в календаре."""
+        self.calendar_widget.select_date(date_obj)
 
     # ========== UI Event Handlers (делегируют в Presenter) ==========
 
@@ -467,6 +472,33 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_occurrence_skipped_confirm(self, occurrence: PlannedOccurrence, reason: str):
         """Подтверждение пропуска вхождения - делегирует в Presenter."""
         self.presenter.skip_occurrence(occurrence, reason)
+
+    def on_occurrence_clicked(self, occurrence: PlannedOccurrence):
+        """
+        Обработка клика на плановое вхождение в обзорном виджете.
+        
+        Переключает календарь на дату вхождения для отображения
+        связанных транзакций в правой панели.
+        
+        Args:
+            occurrence: Плановое вхождение, на которое кликнули.
+        """
+        try:
+            logger.debug(
+                f"Обработка клика на вхождение: {occurrence.id}, "
+                f"дата: {occurrence.occurrence_date}"
+            )
+            # Делегируем в Presenter для обновления выбранной даты
+            self.presenter.on_date_selected(occurrence.occurrence_date)
+            logger.info(
+                f"Календарь переключён на дату вхождения: {occurrence.occurrence_date}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Ошибка при обработке клика на вхождение: {e}",
+                exc_info=True
+            )
+            self.show_error("Не удалось переключить календарь на дату вхождения")
 
     def on_show_all_occurrences(self):
         """Переход к разделу всех плановых транзакций."""
