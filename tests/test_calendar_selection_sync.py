@@ -173,6 +173,8 @@ class TestCalendarSelectionSync(unittest.TestCase):
 
     def test_home_view_has_update_calendar_selection_method(self):
         """Тест наличия метода update_calendar_selection в HomeView."""
+        self.mock_page.width = 1200
+        self.mock_page.height = 800
         with patch('finance_tracker.views.home_view.HomePresenter'):
             home_view = HomeView(self.mock_page, self.mock_session)
             
@@ -182,6 +184,8 @@ class TestCalendarSelectionSync(unittest.TestCase):
 
     def test_home_view_update_calendar_selection_calls_calendar_select_date(self):
         """Тест вызова calendar.select_date из update_calendar_selection."""
+        self.mock_page.width = 1200
+        self.mock_page.height = 800
         with patch('finance_tracker.views.home_view.HomePresenter'):
             home_view = HomeView(self.mock_page, self.mock_session)
             home_view.calendar_widget.page = self.mock_page

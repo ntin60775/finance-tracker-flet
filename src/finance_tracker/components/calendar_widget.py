@@ -17,12 +17,27 @@ logger = get_logger(__name__)
 class CalendarWidget(ft.Container):
     """
     Виджет календаря для отображения дней месяца и индикаторов транзакций.
+
+    Ячейки имеют квадратную форму (aspect_ratio=1), высота подстраивается под ширину.
+    Размер шрифта и индикаторов адаптируется под разрешение экрана.
     """
+
+    # Константы для адаптивного расчёта размеров шрифта и индикаторов
+    # min_height - минимальная высота окна для применения пресета
+    RESOLUTION_PRESETS = {
+        # 2K (2560x1440): высота окна ~1340px
+        "2k": {"min_height": 1200, "font_size": 16, "indicator_size": 10},
+        # Full HD (1920x1080): высота окна ~980px
+        "fullhd": {"min_height": 800, "font_size": 14, "indicator_size": 8},
+        # Меньшие разрешения
+        "default": {"min_height": 0, "font_size": 12, "indicator_size": 6},
+    }
 
     def __init__(
         self,
         on_date_selected: Callable[[datetime.date], None],
         initial_date: Optional[datetime.date] = None,
+        page_height: Optional[int] = None,
     ):
         """
         Инициализация виджета календаря.
@@ -30,6 +45,7 @@ class CalendarWidget(ft.Container):
         Args:
             on_date_selected: Callback функция, вызываемая при выборе даты.
             initial_date: Начальная дата (по умолчанию сегодня).
+            page_height: Высота страницы для адаптивного расчёта размеров (опционально).
         """
         super().__init__()
         self.on_date_selected = on_date_selected
@@ -42,11 +58,17 @@ class CalendarWidget(ft.Container):
         self.pending_payments: List[PendingPaymentDB] = []
         self.loan_payments: List[LoanPaymentDB] = []
         self.cash_gaps: List[datetime.date] = []
-        
+
+        # Сохраняем начальную высоту страницы
+        self._page_height = page_height
+
+        # Вычисляем размеры для текущего разрешения
+        self._update_cell_dimensions()
+
         # UI Components
         self.header_text = ft.Text(
-            value="", 
-            size=20, 
+            value="",
+            size=20,
             weight=ft.FontWeight.BOLD,
             text_align=ft.TextAlign.CENTER
         )
@@ -67,8 +89,66 @@ class CalendarWidget(ft.Container):
             spacing=10,
         )
 
+    def _update_cell_dimensions(self):
+        """
+        Вычисляет размеры шрифта и индикаторов на основе высоты экрана.
+
+        Определяет пресет разрешения (2K, Full HD, default) и устанавливает
+        соответствующие размеры: размер шрифта, размер индикаторов.
+        Высота ячеек определяется через aspect_ratio=1 (квадратные ячейки).
+        """
+        # Получаем высоту страницы
+        page_height = self._page_height
+        if page_height is None and self.page:
+            page_height = self.page.height
+
+        # Fallback к Full HD если высота неизвестна
+        if not page_height:
+            page_height = 1080
+
+        # Преобразуем в int для безопасности (в тестах может быть MagicMock)
+        try:
+            page_height = int(page_height) if page_height else 1080
+        except (ValueError, TypeError):
+            page_height = 1080
+
+        # Определяем пресет по высоте экрана
+        if page_height >= self.RESOLUTION_PRESETS["2k"]["min_height"]:
+            preset = self.RESOLUTION_PRESETS["2k"]
+            logger.debug(f"Используется пресет 2K для высоты {page_height}px")
+        elif page_height >= self.RESOLUTION_PRESETS["fullhd"]["min_height"]:
+            preset = self.RESOLUTION_PRESETS["fullhd"]
+            logger.debug(f"Используется пресет Full HD для высоты {page_height}px")
+        else:
+            preset = self.RESOLUTION_PRESETS["default"]
+            logger.debug(f"Используется пресет default для высоты {page_height}px")
+
+        # Устанавливаем размеры (высота определяется через aspect_ratio=1)
+        self._font_size = preset["font_size"]
+        self._indicator_size = preset["indicator_size"]
+
+        logger.info(
+            f"Адаптивные размеры календаря: шрифт={self._font_size}px, "
+            f"индикаторы={self._indicator_size}px (экран: {page_height}px)"
+        )
+
+    def update_for_page_height(self, page_height: int):
+        """
+        Обновляет размеры ячеек при изменении высоты страницы.
+
+        Args:
+            page_height: Новая высота страницы в пикселях
+        """
+        self._page_height = page_height
+        self._update_cell_dimensions()
+        self._update_calendar()
+
     def did_mount(self):
         """Вызывается после монтирования контрола на страницу."""
+        # Обновляем размеры на основе реальной высоты страницы
+        if self.page and self.page.height:
+            self._page_height = self.page.height
+            self._update_cell_dimensions()
         self._update_calendar()
 
     def set_transactions(
@@ -188,17 +268,43 @@ class CalendarWidget(ft.Container):
         )
 
     def _build_weekdays_header(self):
-        """Создание заголовка дней недели."""
-        weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        """
+        Создание заголовка с номерами недель (горизонтально).
+
+        В вертикальном календаре вместо дней недели (Пн-Вс) показываем номера недель (Н1, Н2, ...).
+        Первый элемент - пустой контейнер для выравнивания с метками дней недели слева.
+
+        Returns:
+            Row с метками недель
+        """
+        # Определяем количество недель в текущем месяце
+        month_matrix = self.calendar.monthdayscalendar(
+            self.current_date.year,
+            self.current_date.month
+        )
+        num_weeks = len(month_matrix)
+
         return ft.Row(
             controls=[
-                ft.Container(
-                    content=ft.Text(day, weight=ft.FontWeight.BOLD, color="secondary"),
-                    expand=True,
-                    alignment=ft.alignment.center,
-                )
-                for day in weekdays
+                # Пустой контейнер для выравнивания с метками дней недели слева
+                ft.Container(width=40),
+                # Метки недель
+                *[
+                    ft.Container(
+                        content=ft.Text(
+                            f"Н{i+1}",
+                            weight=ft.FontWeight.BOLD,
+                            color="secondary",
+                            text_align=ft.TextAlign.CENTER,
+                            size=12
+                        ),
+                        expand=True,
+                        alignment=ft.alignment.center,
+                    )
+                    for i in range(num_weeks)
+                ]
             ],
+            spacing=2,
         )
 
     def _prev_month(self, _):
@@ -281,13 +387,19 @@ class CalendarWidget(ft.Container):
         logger.debug("select_date завершён успешно")
 
     def _update_calendar(self):
-        """Перерисовка сетки календаря."""
+        """
+        Перерисовка сетки календаря (транспонированная вертикальная версия).
+
+        Создаёт 7 строк (по одной для каждого дня недели),
+        каждая строка содержит ячейки для всех недель месяца.
+        Дни недели отображаются по вертикали (строки), недели - по горизонтали (столбцы).
+        """
         logger.debug(
             f"_update_calendar вызван, "
             f"self.page доступен: {self.page is not None}, "
             f"selected_date: {self.selected_date}"
         )
-        
+
         if not self.page:
             logger.warning(
                 f"_update_calendar: self.page недоступен! "
@@ -306,104 +418,180 @@ class CalendarWidget(ft.Container):
         # Очищаем сетку
         self.days_grid.controls.clear()
 
-        # Генерируем сетку дней
-        month_matrix = self.calendar.monthdayscalendar(self.current_date.year, self.current_date.month)
-        
-        for week in month_matrix:
-            week_row = ft.Row(spacing=2)
-            for day in week:
+        # Генерируем матрицу дней месяца
+        month_matrix = self.calendar.monthdayscalendar(
+            self.current_date.year,
+            self.current_date.month
+        )
+
+        weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+        # Для каждого дня недели создаём строку (транспонирование)
+        for day_index, weekday in enumerate(weekdays):
+            day_row = ft.Row(spacing=2)
+
+            # Добавляем метку дня недели слева
+            is_weekend = weekday in ["Сб", "Вс"]
+            day_row.controls.append(
+                ft.Container(
+                    content=ft.Text(
+                        weekday,
+                        weight=ft.FontWeight.BOLD,
+                        color="secondary",
+                        size=self._font_size - 2  # Адаптивный размер шрифта метки
+                    ),
+                    width=40,
+                    alignment=ft.alignment.center_right,
+                    padding=ft.padding.only(right=5),
+                    # Выделяем выходные светлым фоном
+                    bgcolor=ft.Colors.BLUE_50 if is_weekend else None,
+                    border_radius=5,
+                )
+            )
+
+            # Добавляем ячейки для каждой недели (транспонирование)
+            for week in month_matrix:
+                day = week[day_index]
                 if day == 0:
-                    # Пустая ячейка - квадратная
-                    week_row.controls.append(
+                    # Пустая ячейка - квадратная (aspect_ratio=1)
+                    day_row.controls.append(
                         ft.Container(
                             expand=True,
-                            aspect_ratio=1.0
+                            aspect_ratio=1,  # Квадратная ячейка
                         )
                     )
                 else:
-                    current_day_date = datetime.date(self.current_date.year, self.current_date.month, day)
-                    is_selected = self.selected_date == current_day_date
-                    is_today = current_day_date == datetime.date.today()
-                    is_cash_gap = current_day_date in self.cash_gaps
-                    
-                    # Проверяем наличие просроченных платежей по кредитам
-                    has_overdue_payment = self._has_overdue_payment(current_day_date)
-                    
-                    # Собираем индикаторы для дня
-                    indicators = self._get_indicators_for_date(current_day_date)
-                    
-                    # Стилизация
-                    if has_overdue_payment:
-                        # Просроченный платеж - красный фон (requirements 11.7)
-                        bg_color = ft.Colors.RED_100
-                        text_color = ft.Colors.BLACK
-                    elif is_cash_gap:
-                         # Если кассовый разрыв - желтый/оранжевый фон (requirements 6.3)
-                        bg_color = ft.Colors.AMBER_100
-                        text_color = ft.Colors.BLACK # На желтом фоне лучше черный
-                    else:
-                        bg_color = "primaryContainer" if is_selected else "surfaceVariant"
-                        if is_selected:
-                            text_color = "onPrimaryContainer"
-                        elif is_today:
-                            text_color = "primary"
-                        else:
-                            text_color = "onSurface"
-                    
-                    # Рамка для выделения
-                    if has_overdue_payment:
-                        border = ft.border.all(2, ft.Colors.RED_700)  # Красная рамка для просроченных
-                    elif is_selected:
-                        # Выбранная дата - зелёная рамка для отличия от текущего дня
-                        border = ft.border.all(3, ft.Colors.GREEN_700)
-                    elif is_today:
-                        # Текущий день - синяя рамка
-                        border = ft.border.all(2, "primary")
-                    else:
-                        border = None
-
-                    # Формируем tooltip
-                    tooltip_text = None
-                    if has_overdue_payment:
-                        tooltip_text = "Просроченный платёж по кредиту!"
-                    elif is_cash_gap:
-                        tooltip_text = "Кассовый разрыв!"
-                    
-                    day_container = ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                ft.Text(
-                                    str(day),
-                                    weight=ft.FontWeight.BOLD if is_today or is_selected else ft.FontWeight.NORMAL,
-                                    color=text_color,
-                                    size=14
-                                ),
-                                ft.Row(
-                                    controls=indicators,
-                                    alignment=ft.MainAxisAlignment.CENTER,
-                                    spacing=2,
-                                    height=6
-                                )
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER,
-                            spacing=2
-                        ),
-                        expand=True,
-                        aspect_ratio=1.0,
-                        bgcolor=bg_color,
-                        border_radius=8,
-                        border=border,
-                        on_click=lambda _, d=current_day_date: self._on_day_click(d),
-                        ink=True,
-                        tooltip=tooltip_text
+                    # Ячейка с днём
+                    current_day_date = datetime.date(
+                        self.current_date.year,
+                        self.current_date.month,
+                        day
                     )
-                    week_row.controls.append(day_container)
-            
-            self.days_grid.controls.append(week_row)
-        
-        logger.debug("Перед вызовом self.update()")
-        self.update()
-        logger.debug("_update_calendar завершён успешно, self.update() вызван")
+                    day_row.controls.append(
+                        self._build_day_cell(current_day_date)
+                    )
+
+            self.days_grid.controls.append(day_row)
+
+        # Обновляем заголовок с номерами недель (он зависит от количества недель)
+        if hasattr(self, 'content') and self.content and len(self.content.controls) > 1:
+            self.content.controls[1] = self._build_weekdays_header()
+
+        # Проверяем, добавлен ли контрол на страницу (имеет uid)
+        # Если нет - пропускаем update, т.к. это вызовет AssertionError
+        try:
+            if hasattr(self, '_Control__uid') and self._Control__uid is not None:
+                logger.debug("Перед вызовом self.update()")
+                self.update()
+                logger.debug("_update_calendar завершён успешно, self.update() вызван")
+            else:
+                logger.debug("Пропуск self.update() - контрол ещё не добавлен на страницу")
+        except AssertionError as e:
+            logger.warning(f"AssertionError при update(): {e} - контрол ещё не полностью инициализирован")
+
+    def _build_day_cell(self, date_obj: datetime.date) -> ft.Container:
+        """
+        Создание ячейки для конкретного дня.
+
+        Args:
+            date_obj: Дата для ячейки
+
+        Returns:
+            Container с содержимым ячейки
+        """
+        is_selected = self.selected_date == date_obj
+        is_today = date_obj == datetime.date.today()
+        is_cash_gap = date_obj in self.cash_gaps
+        has_overdue_payment = self._has_overdue_payment(date_obj)
+
+        # Собираем индикаторы для дня
+        indicators = self._get_indicators_for_date(date_obj)
+
+        # Стилизация
+        if has_overdue_payment:
+            # Просроченный платеж - красный фон
+            bg_color = ft.Colors.RED_100
+            text_color = ft.Colors.BLACK
+        elif is_cash_gap:
+            # Кассовый разрыв - желтый/оранжевый фон
+            bg_color = ft.Colors.AMBER_100
+            text_color = ft.Colors.BLACK
+        else:
+            bg_color = "primaryContainer" if is_selected else "surfaceVariant"
+            if is_selected:
+                text_color = "onPrimaryContainer"
+            elif is_today:
+                text_color = "primary"
+            else:
+                text_color = "onSurface"
+
+        # Рамка для выделения
+        if has_overdue_payment:
+            border = ft.border.all(2, ft.Colors.RED_700)
+        elif is_selected:
+            border = ft.border.all(3, ft.Colors.GREEN_700)
+        elif is_today:
+            border = ft.border.all(2, "primary")
+        else:
+            border = None
+
+        # Формируем tooltip
+        tooltip_text = None
+        if has_overdue_payment:
+            tooltip_text = "Просроченный платёж по кредиту!"
+        elif is_cash_gap:
+            tooltip_text = "Кассовый разрыв!"
+
+        # Разбиваем индикаторы на строки, если их больше 3
+        indicator_rows = []
+        if len(indicators) <= 3:
+            indicator_rows.append(
+                ft.Row(
+                    controls=indicators,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=2,
+                )
+            )
+        else:
+            # Разбиваем на строки по 3 индикатора
+            for i in range(0, len(indicators), 3):
+                indicator_rows.append(
+                    ft.Row(
+                        controls=indicators[i:i+3],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=2,
+                    )
+                )
+
+        return ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        str(date_obj.day),
+                        weight=ft.FontWeight.BOLD if is_today or is_selected else ft.FontWeight.NORMAL,
+                        color=text_color,
+                        size=self._font_size  # Адаптивный размер шрифта
+                    ),
+                    ft.Column(
+                        controls=indicator_rows,
+                        spacing=1,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=2,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            expand=True,
+            aspect_ratio=1,  # Квадратная ячейка (высота = ширина)
+            bgcolor=bg_color,
+            border_radius=8,
+            border=border,
+            on_click=lambda _, d=date_obj: self._on_day_click(d),
+            ink=True,
+            tooltip=tooltip_text
+        )
 
     def _has_overdue_payment(self, date_obj: datetime.date) -> bool:
         """
@@ -456,25 +644,39 @@ class CalendarWidget(ft.Container):
                 has_loan_payment = True
                 break
 
+        # Используем адаптивный размер индикаторов
+        dot_size = self._indicator_size - 2  # Точки чуть меньше
+        icon_size = self._indicator_size
+
         if has_income:
             indicators.append(
-                ft.Container(width=6, height=6, border_radius=3, bgcolor=ft.Colors.GREEN)
+                ft.Container(
+                    width=dot_size,
+                    height=dot_size,
+                    border_radius=dot_size // 2,
+                    bgcolor=ft.Colors.GREEN
+                )
             )
         if has_expense:
             indicators.append(
-                ft.Container(width=6, height=6, border_radius=3, bgcolor=ft.Colors.RED)
+                ft.Container(
+                    width=dot_size,
+                    height=dot_size,
+                    border_radius=dot_size // 2,
+                    bgcolor=ft.Colors.RED
+                )
             )
         if has_planned:
             indicators.append(
-                ft.Text("◆", size=8, color=ft.Colors.ORANGE, weight=ft.FontWeight.BOLD)
+                ft.Text("◆", size=icon_size, color=ft.Colors.ORANGE, weight=ft.FontWeight.BOLD)
             )
         if has_pending_payment:
             indicators.append(
-                ft.Text("📋", size=8, weight=ft.FontWeight.BOLD)
+                ft.Text("📋", size=icon_size, weight=ft.FontWeight.BOLD)
             )
         if has_loan_payment:
             indicators.append(
-                ft.Text("💳", size=8, weight=ft.FontWeight.BOLD)
+                ft.Text("💳", size=icon_size, weight=ft.FontWeight.BOLD)
             )
-            
+
         return indicators

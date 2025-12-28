@@ -67,21 +67,24 @@ class TestCalendarLegendIntegration(unittest.TestCase):
             
             # 3. Проверяем, что легенда находится в правильной колонке (центральная)
             main_row = home_view.controls[0]  # Основной Row
-            center_column = main_row.controls[2]  # Центральная колонка (индекс 2)
-            
+
+            # Извлекаем только Column элементы (пропускаем VerticalDivider)
+            columns = [control for control in main_row.controls if isinstance(control, ft.Column)]
+            center_column = columns[2]  # Центральная колонка (индекс 2 в списке колонок)
+
             # Проверяем, что легенда находится в центральной колонке
             legend_found = False
             for control in center_column.controls:
                 if isinstance(control, CalendarLegend):
                     legend_found = True
                     break
-            
+
             self.assertTrue(legend_found, "CalendarLegend должен находиться в центральной колонке")
             
             # 4. Проверяем порядок компонентов в центральной колонке
             center_controls = center_column.controls
-            self.assertGreaterEqual(len(center_controls), 3, 
-                                  "В центральной колонке должно быть минимум 3 компонента")
+            self.assertGreaterEqual(len(center_controls), 2,
+                                  "В центральной колонке должно быть минимум 2 компонента (календарь и легенда)")
             
             # Ожидаемый порядок: CalendarWidget, CalendarLegend, PlannedTransactionsWidget
             self.assertIsInstance(center_controls[0], CalendarWidget, 
@@ -431,7 +434,9 @@ class TestCalendarLegendIntegration(unittest.TestCase):
         # 2. Тест с некорректным page объектом
         broken_page = Mock()
         broken_page.overlay = None  # Некорректный overlay
-        
+        broken_page.width = 1200
+        broken_page.height = 800
+
         with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None

@@ -185,11 +185,13 @@ class TestAddTransactionButtonErrorHandling(unittest.TestCase):
         """
         # Arrange - создаем HomeView с мокированными зависимостями
         mock_page = MagicMock()
+        mock_page.width = 1200
+        mock_page.height = 800
         mock_session = Mock()
-        
+
         with patch('finance_tracker.views.home_view.HomePresenter'), \
              patch('finance_tracker.views.home_view.TransactionsPanel'):
-            
+
             home_view = HomeView(mock_page, mock_session)
             
             # Тест 1: TransactionModal равен None
