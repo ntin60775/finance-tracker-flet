@@ -21,7 +21,9 @@
       "Bash(for file in test_execute_occurrence_modal.py test_execute_pending_payment_modal.py test_early_repayment_modal.py test_occurrence_details_modal.py)",
       "Bash(git push:*)",
       "Bash(pytest:*)",
-      "Bash(timeout 10 python:*)"
+      "Bash(timeout 10 python:*)",
+      "Bash(grep:*)",
+      "Bash(pyinstaller:*)"
     ]
   }
 }
