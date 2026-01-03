@@ -60,6 +60,7 @@ class LenderModal:
                 ft.dropdown.Option(key=LenderType.BANK.value, text="Банк"),
                 ft.dropdown.Option(key=LenderType.MFO.value, text="МФО"),
                 ft.dropdown.Option(key=LenderType.INDIVIDUAL.value, text="Физическое лицо"),
+                ft.dropdown.Option(key=LenderType.COLLECTOR.value, text="Коллектор"),
                 ft.dropdown.Option(key=LenderType.OTHER.value, text="Другое"),
             ],
             on_change=self._clear_error

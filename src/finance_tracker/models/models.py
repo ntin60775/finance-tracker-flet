@@ -353,7 +353,7 @@ class LenderDB(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Связи
-    loans = relationship("LoanDB", back_populates="lender")
+    loans = relationship("LoanDB", foreign_keys="[LoanDB.lender_id]", back_populates="lender")
 
     @property
     def type(self) -> LenderType:
@@ -394,17 +394,24 @@ class LoanDB(Base):
         contract_number: Номер договора (опционально)
         description: Описание (опционально)
         status: Статус кредита
+        original_lender_id: ID исходного кредитора (при первой передаче) (UUID)
+        current_holder_id: ID текущего держателя долга (UUID)
         created_at: Дата создания записи
         updated_at: Дата последнего обновления
         lender: Займодатель
         payments: Список платежей по кредиту
         disbursement_transaction: Транзакция выдачи кредита
+        original_lender: Исходный кредитор
+        current_holder: Текущий держатель долга
+        debt_transfers: История передач долга
 
     Properties (вычисляемые поля):
         calculated_end_date: Вычисляемая дата окончания кредита
             - Если end_date указана явно, возвращает её
             - Если end_date = None, вычисляет как issue_date + term_months
             - Если term_months = None и end_date = None, возвращает None
+        is_transferred: Проверяет, был ли долг передан другому кредитору
+        effective_holder_id: Возвращает ID текущего держателя долга
     """
     __tablename__ = "loans"
 
@@ -421,19 +428,31 @@ class LoanDB(Base):
     contract_number = Column(String, nullable=True)
     description = Column(String, nullable=True)
     status = Column(SQLEnum(LoanStatus), default=LoanStatus.ACTIVE)
+    
+    # НОВЫЕ поля для отслеживания передачи долга
+    original_lender_id = Column(String(36), ForeignKey("lenders.id"), nullable=True)
+    current_holder_id = Column(String(36), ForeignKey("lenders.id"), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Связи
-    lender = relationship("LenderDB", back_populates="loans")
+    lender = relationship("LenderDB", foreign_keys=[lender_id], back_populates="loans")
     payments = relationship("LoanPaymentDB", back_populates="loan", cascade="all, delete-orphan")
     disbursement_transaction = relationship("TransactionDB", foreign_keys=[disbursement_transaction_id])
+    
+    # НОВЫЕ связи для передачи долга
+    original_lender = relationship("LenderDB", foreign_keys=[original_lender_id])
+    current_holder = relationship("LenderDB", foreign_keys=[current_holder_id])
+    debt_transfers = relationship("DebtTransferDB", back_populates="loan", order_by="DebtTransferDB.transfer_date")
 
     # Индексы
     __table_args__ = (
         Index('ix_loans_lender_id', 'lender_id'),
         Index('ix_loans_status', 'status'),
         Index('ix_loans_issue_date', 'issue_date'),
+        Index('ix_loans_original_lender_id', 'original_lender_id'),
+        Index('ix_loans_current_holder_id', 'current_holder_id'),
     )
     
     @property
@@ -476,6 +495,16 @@ class LoanDB(Base):
         
         # Если ничего не указано, возвращаем None
         return None
+    
+    @property
+    def is_transferred(self) -> bool:
+        """Проверяет, был ли долг передан другому кредитору."""
+        return self.current_holder_id is not None and self.current_holder_id != self.lender_id
+    
+    @property
+    def effective_holder_id(self) -> str:
+        """Возвращает ID текущего держателя долга (current_holder_id или lender_id)."""
+        return self.current_holder_id if self.current_holder_id else self.lender_id
 
 
 class LoanPaymentDB(Base):
@@ -485,6 +514,7 @@ class LoanPaymentDB(Base):
     Attributes:
         id: Уникальный идентификатор (UUID)
         loan_id: ID кредита (UUID)
+        holder_id: ID держателя долга на момент платежа (UUID, опционально)
         scheduled_date: Запланированная дата платежа
         principal_amount: Сумма основного долга
         interest_amount: Сумма процентов
@@ -498,6 +528,7 @@ class LoanPaymentDB(Base):
         created_at: Дата создания записи
         updated_at: Дата последнего обновления
         loan: Кредит, к которому относится платеж
+        holder: Держатель долга на момент платежа
         planned_transaction: Плановая транзакция
         actual_transaction: Фактическая транзакция
     """
@@ -505,6 +536,7 @@ class LoanPaymentDB(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     loan_id = Column(String(36), ForeignKey("loans.id"), nullable=False)
+    holder_id = Column(String(36), ForeignKey("lenders.id"), nullable=True)
     scheduled_date = Column(Date, nullable=False)
     principal_amount = Column(Numeric(10, 2), nullable=False)
     interest_amount = Column(Numeric(10, 2), nullable=False)
@@ -520,12 +552,14 @@ class LoanPaymentDB(Base):
 
     # Связи
     loan = relationship("LoanDB", back_populates="payments")
+    holder = relationship("LenderDB", foreign_keys=[holder_id])
     planned_transaction = relationship("PlannedTransactionDB")
     actual_transaction = relationship("TransactionDB", foreign_keys=[actual_transaction_id])
 
     # Индексы для производительности
     __table_args__ = (
         Index('ix_loan_payments_loan_id', 'loan_id'),
+        Index('ix_loan_payments_holder_id', 'holder_id'),
         Index('ix_loan_payments_scheduled_date', 'scheduled_date'),
         Index('ix_loan_payments_status', 'status'),
         Index('ix_loan_payments_loan_id_scheduled_date', 'loan_id', 'scheduled_date'),
@@ -589,6 +623,52 @@ class PendingPaymentDB(Base):
         Index('ix_pending_payments_planned_date', 'planned_date'),
         Index('ix_pending_payments_category_id', 'category_id'),
         Index('ix_pending_payments_status_planned_date', 'status', 'planned_date'),
+    )
+
+
+class DebtTransferDB(Base):
+    """
+    Запись о передаче долга между кредиторами.
+    
+    Attributes:
+        id: Уникальный идентификатор передачи (UUID)
+        loan_id: ID кредита, по которому передаётся долг (UUID)
+        from_lender_id: ID кредитора, от которого передаётся долг (UUID)
+        to_lender_id: ID кредитора, которому передаётся долг (UUID)
+        transfer_date: Дата передачи долга
+        transfer_amount: Сумма долга на момент передачи
+        previous_amount: Сумма долга до передачи (для расчёта разницы)
+        amount_difference: Разница в сумме (пени, штрафы)
+        reason: Причина передачи (опционально)
+        notes: Примечания (опционально)
+        created_at: Дата создания записи
+        updated_at: Дата последнего обновления
+    """
+    __tablename__ = "debt_transfers"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    loan_id = Column(String(36), ForeignKey("loans.id"), nullable=False)
+    from_lender_id = Column(String(36), ForeignKey("lenders.id"), nullable=False)
+    to_lender_id = Column(String(36), ForeignKey("lenders.id"), nullable=False)
+    transfer_date = Column(Date, nullable=False)
+    transfer_amount = Column(Numeric(10, 2), nullable=False)
+    previous_amount = Column(Numeric(10, 2), nullable=False)
+    amount_difference = Column(Numeric(10, 2), nullable=False, default=Decimal('0'))
+    reason = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Связи
+    loan = relationship("LoanDB", back_populates="debt_transfers")
+    from_lender = relationship("LenderDB", foreign_keys=[from_lender_id])
+    to_lender = relationship("LenderDB", foreign_keys=[to_lender_id])
+
+    # Индексы для производительности
+    __table_args__ = (
+        Index('ix_debt_transfers_loan_id', 'loan_id'),
+        Index('ix_debt_transfers_transfer_date', 'transfer_date'),
+        Index('ix_debt_transfers_loan_id_transfer_date', 'loan_id', 'transfer_date'),
     )
 
 
@@ -1206,5 +1286,63 @@ class PendingPayment(PendingPaymentCreate):
     cancel_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DebtTransferCreate(BaseModel):
+    """
+    Pydantic модель для создания передачи долга.
+
+    Attributes:
+        loan_id: ID кредита (UUID)
+        to_lender_id: ID нового держателя долга (UUID)
+        transfer_date: Дата передачи
+        transfer_amount: Сумма долга при передаче (должна быть > 0)
+        reason: Причина передачи (опционально)
+        notes: Примечания (опционально)
+    """
+    loan_id: str = Field(description="ID кредита")
+    to_lender_id: str = Field(description="ID нового держателя долга")
+    transfer_date: date_type = Field(description="Дата передачи")
+    transfer_amount: Decimal = Field(gt=Decimal('0'), description="Сумма долга при передаче")
+    reason: Optional[str] = Field(None, max_length=500, description="Причина передачи")
+    notes: Optional[str] = Field(None, max_length=1000, description="Примечания")
+
+    @field_validator('loan_id', 'to_lender_id')
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        """Валидация формата UUID."""
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f'Невалидный UUID: {v}')
+
+
+class DebtTransfer(DebtTransferCreate):
+    """
+    Pydantic модель для чтения передачи долга из БД.
+
+    Attributes:
+        id: Уникальный идентификатор передачи
+        from_lender_id: ID кредитора, от которого передан долг
+        previous_amount: Сумма долга до передачи
+        amount_difference: Разница в сумме (пени, штрафы)
+        created_at: Дата создания записи
+        updated_at: Дата обновления записи
+        from_lender_name: Имя кредитора, от которого передан долг (для отображения)
+        to_lender_name: Имя кредитора, которому передан долг (для отображения)
+    """
+    id: str
+    from_lender_id: str
+    previous_amount: Decimal
+    amount_difference: Decimal
+    created_at: datetime
+    updated_at: datetime
+    
+    # Вложенные объекты для отображения
+    from_lender_name: Optional[str] = None
+    to_lender_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

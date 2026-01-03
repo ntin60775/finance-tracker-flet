@@ -124,6 +124,40 @@ class TestLenderModal(unittest.TestCase):
         
         self.page.close.assert_called()
 
+    def test_collector_type_option_available(self):
+        """Тест наличия опции 'Коллектор' в dropdown типов кредиторов."""
+        # Проверяем, что опция COLLECTOR присутствует в dropdown
+        collector_option = None
+        for option in self.modal.type_dropdown.options:
+            if option.key == LenderType.COLLECTOR.value:
+                collector_option = option
+                break
+        
+        self.assertIsNotNone(collector_option, "Опция 'Коллектор' должна быть в dropdown")
+        self.assertEqual(collector_option.text, "Коллектор")
+        self.assertEqual(collector_option.key, "collector")
+
+    def test_save_with_collector_type(self):
+        """Тест сохранения кредитора с типом 'Коллектор'."""
+        self.modal.open(self.page)
+        
+        self.modal.name_field.value = "Коллекторское агентство"
+        self.modal.type_dropdown.value = LenderType.COLLECTOR.value
+        self.modal.description_field.value = "Агентство по взысканию долгов"
+        self.modal.contact_field.value = "+7 800 123 45 67"
+        self.modal.notes_field.value = "Работает с просроченными долгами"
+
+        self.modal._save(None)
+
+        self.on_save.assert_called_once_with(
+            "Коллекторское агентство",
+            LenderType.COLLECTOR,
+            "Агентство по взысканию долгов",
+            "+7 800 123 45 67",
+            "Работает с просроченными долгами"
+        )
+        self.page.close.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()

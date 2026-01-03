@@ -554,6 +554,151 @@ class TestLendersView(ViewTestBase):
         # Проверяем, что список содержит элементы
         self.assertGreater(len(self.view.lenders_column.controls), 0)
 
+    def test_collector_type_option_in_filter_dropdown(self):
+        """
+        Тест наличия опции 'Коллектор' в dropdown фильтра типов кредиторов.
+        
+        Проверяет:
+        - Опция COLLECTOR присутствует в dropdown фильтра
+        - Опция имеет правильный текст "Коллектор"
+        - Опция имеет правильный ключ "collector"
+        
+        Validates: Requirements 1.2
+        """
+        # Проверяем, что опция COLLECTOR присутствует в dropdown
+        collector_option = None
+        for option in self.view.type_dropdown.options:
+            if option.key == LenderType.COLLECTOR.value:
+                collector_option = option
+                break
+        
+        self.assertIsNotNone(collector_option, "Опция 'Коллектор' должна быть в dropdown фильтра")
+        self.assertEqual(collector_option.text, "Коллектор")
+        self.assertEqual(collector_option.key, "collector")
+
+    def test_filter_by_collector_type(self):
+        """
+        Тест фильтрации по типу "Коллектор".
+        
+        Проверяет:
+        - При выборе типа "Коллектор" устанавливается фильтр COLLECTOR
+        - Вызывается перезагрузка данных с новым фильтром
+        
+        Validates: Requirements 1.2
+        """
+        # Сбрасываем счетчик вызовов
+        self.mock_get_all_lenders.reset_mock()
+        
+        # Имитируем выбор типа "Коллектор"
+        self.view.type_dropdown.value = LenderType.COLLECTOR.value
+        self.view.on_type_filter_change(None)
+        
+        # Проверяем, что фильтр установлен
+        self.assertEqual(self.view.lender_type_filter, LenderType.COLLECTOR)
+        
+        # Проверяем, что сервис вызван с фильтром COLLECTOR
+        self.assert_service_called(
+            self.mock_get_all_lenders,
+            self.mock_session,
+            lender_type=LenderType.COLLECTOR
+        )
+
+    def test_collector_lender_displays_correct_icon(self):
+        """
+        Тест отображения правильной иконки для типа 'Коллектор'.
+        
+        Проверяет:
+        - Займодатель типа COLLECTOR отображается с иконкой GAVEL
+        - Иконка имеет оранжевый цвет (ORANGE)
+        - Текст типа "Коллектор" отображается корректно
+        
+        Validates: Requirements 1.3
+        """
+        # Создаем тестового займодателя типа COLLECTOR
+        test_lender = create_test_lender(
+            id=1,
+            name="Коллекторское агентство",
+            lender_type=LenderType.COLLECTOR,
+            description="Агентство по взысканию долгов"
+        )
+        
+        # Настраиваем мок для возврата тестового займодателя
+        self.mock_get_all_lenders.return_value = [test_lender]
+        
+        # Загружаем данные
+        self.view.load_lenders()
+        
+        # Получаем карточку займодателя из списка
+        # Первый элемент - это карточка займодателя (если список не пуст)
+        self.assertGreater(len(self.view.lenders_column.controls), 0)
+        
+        lender_card = self.view.lenders_column.controls[0]
+        
+        # Проверяем, что карточка содержит иконку
+        # Карточка - это Container с Row внутри
+        self.assertIsInstance(lender_card, ft.Container)
+        
+        # Получаем Row с содержимым карточки
+        card_row = lender_card.content
+        self.assertIsInstance(card_row, ft.Row)
+        
+        # Первый элемент Row - это иконка
+        icon_control = card_row.controls[0]
+        self.assertIsInstance(icon_control, ft.Icon)
+        
+        # Проверяем, что иконка имеет правильное значение (GAVEL для COLLECTOR)
+        self.assertEqual(icon_control.name, ft.Icons.GAVEL)
+        
+        # Проверяем, что иконка имеет оранжевый цвет
+        self.assertEqual(icon_control.color, ft.Colors.ORANGE)
+
+    def test_all_lender_types_have_icons(self):
+        """
+        Тест отображения иконок для всех типов займодателей.
+        
+        Проверяет:
+        - Каждый тип займодателя имеет соответствующую иконку
+        - Иконки отображаются корректно в карточках
+        
+        Validates: Requirements 1.3
+        """
+        # Создаем займодателей всех типов
+        test_lenders = [
+            create_test_lender(id=1, name="Сбербанк", lender_type=LenderType.BANK),
+            create_test_lender(id=2, name="МФО Быстроденьги", lender_type=LenderType.MFO),
+            create_test_lender(id=3, name="Иванов И.И.", lender_type=LenderType.INDIVIDUAL),
+            create_test_lender(id=4, name="Коллектор", lender_type=LenderType.COLLECTOR),
+            create_test_lender(id=5, name="Другое", lender_type=LenderType.OTHER),
+        ]
+        
+        # Настраиваем мок для возврата всех займодателей
+        self.mock_get_all_lenders.return_value = test_lenders
+        
+        # Загружаем данные
+        self.view.load_lenders()
+        
+        # Проверяем, что все займодатели отображены
+        self.assertEqual(len(self.view.lenders_column.controls), 5)
+        
+        # Проверяем иконки для каждого типа
+        expected_icons = {
+            LenderType.BANK: ft.Icons.ACCOUNT_BALANCE,
+            LenderType.MFO: ft.Icons.STORE,
+            LenderType.INDIVIDUAL: ft.Icons.PERSON,
+            LenderType.COLLECTOR: ft.Icons.GAVEL,
+            LenderType.OTHER: ft.Icons.HELP_OUTLINE,
+        }
+        
+        for idx, lender in enumerate(test_lenders):
+            lender_card = self.view.lenders_column.controls[idx]
+            card_row = lender_card.content
+            icon_control = card_row.controls[0]
+            
+            # Проверяем, что иконка соответствует типу займодателя
+            expected_icon = expected_icons[lender.lender_type]
+            self.assertEqual(icon_control.name, expected_icon,
+                           f"Иконка для типа {lender.lender_type} должна быть {expected_icon}")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -91,11 +91,13 @@ class LenderType(str, Enum):
         BANK: Банк
         MFO: Микрофинансовая организация
         INDIVIDUAL: Физическое лицо
+        COLLECTOR: Коллекторское агентство
         OTHER: Другое
     """
     BANK = "bank"
     MFO = "mfo"
     INDIVIDUAL = "individual"
+    COLLECTOR = "collector"
     OTHER = "other"
 
 

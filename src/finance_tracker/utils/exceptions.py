@@ -17,3 +17,15 @@ class BusinessLogicError(FinanceTrackerError):
 class DatabaseError(FinanceTrackerError):
     """Исключение при ошибках работы с базой данных."""
     pass
+
+class LoanNotFoundError(FinanceTrackerError):
+    """Исключение когда кредит не найден."""
+    pass
+
+class LenderNotFoundError(FinanceTrackerError):
+    """Исключение когда кредитор не найден."""
+    pass
+
+class InvalidTransferError(BusinessLogicError):
+    """Исключение при невалидной передаче долга."""
+    pass

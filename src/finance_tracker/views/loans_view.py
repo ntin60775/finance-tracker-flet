@@ -146,8 +146,8 @@ class LoansView(ft.Column):
             summary = get_summary_statistics(self.session)
             burden = get_monthly_burden_statistics(self.session)
 
-            # Форматируем статистику
-            stats_content = ft.Column(
+            # Форматируем основную статистику
+            main_stats = ft.Column(
                 controls=[
                     ft.Row(
                         controls=[
@@ -184,10 +184,54 @@ class LoansView(ft.Column):
                 spacing=15
             )
 
+            # Добавляем статистику по держателям, если есть переданные кредиты
+            by_holder = summary.get("by_holder", {})
+            if by_holder:
+                # Заголовок секции держателей
+                holder_header = ft.Container(
+                    content=ft.Text(
+                        "Задолженность по текущим держателям",
+                        size=14,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.ON_SURFACE
+                    ),
+                    padding=ft.padding.only(top=15, bottom=5)
+                )
+
+                # Создаём список держателей
+                holder_items = []
+                for holder_id, holder_info in by_holder.items():
+                    holder_items.append(
+                        self._create_holder_stat_item(
+                            holder_name=holder_info["holder_name"],
+                            loan_count=holder_info["loan_count"],
+                            total_debt=holder_info["total_debt"]
+                        )
+                    )
+
+                # Собираем статистику с держателями
+                stats_content = ft.Column(
+                    controls=[
+                        main_stats,
+                        holder_header,
+                        ft.Column(
+                            controls=holder_items,
+                            spacing=8
+                        )
+                    ],
+                    spacing=5
+                )
+            else:
+                # Если нет переданных кредитов, показываем только основную статистику
+                stats_content = main_stats
+
             self.stats_card.content = stats_content
             self.page.update()
 
-            logger.info(f"Загружена статистика: активных кредитов={summary['total_active_loans']}")
+            logger.info(
+                f"Загружена статистика: активных кредитов={summary['total_active_loans']}, "
+                f"держателей={len(by_holder)}"
+            )
 
         except Exception as e:
             logger.error(f"Ошибка при загрузке статистики: {e}")
@@ -238,6 +282,54 @@ class LoansView(ft.Column):
             ),
             padding=10,
             expand=True
+        )
+
+    def _create_holder_stat_item(
+        self,
+        holder_name: str,
+        loan_count: int,
+        total_debt: float
+    ) -> ft.Container:
+        """
+        Создаёт элемент статистики по держателю долга.
+
+        Args:
+            holder_name: Имя держателя
+            loan_count: Количество кредитов
+            total_debt: Общая задолженность
+
+        Returns:
+            Container с информацией о держателе
+        """
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.PERSON, size=18, color=ft.Colors.PRIMARY),
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                holder_name,
+                                size=13,
+                                weight=ft.FontWeight.W_500,
+                                color=ft.Colors.ON_SURFACE
+                            ),
+                            ft.Text(
+                                f"{loan_count} кредит(ов) • {total_debt:,.2f} ₽",
+                                size=11,
+                                color=ft.Colors.GREY_600
+                            ),
+                        ],
+                        spacing=2,
+                        horizontal_alignment=ft.CrossAxisAlignment.START,
+                        expand=True
+                    )
+                ],
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER
+            ),
+            padding=ft.padding.symmetric(horizontal=10, vertical=8),
+            bgcolor=ft.Colors.SURFACE_VARIANT if hasattr(ft.Colors, 'SURFACE_VARIANT') else ft.Colors.SURFACE,
+            border_radius=8
         )
 
     def load_loans(self):
@@ -326,17 +418,53 @@ class LoansView(ft.Column):
         status_name = status_name_map.get(loan.status, loan.status.value)
 
         # Основная информация
+        status_badges = [
+            ft.Container(
+                content=ft.Text(status_name, size=12, color=ft.Colors.WHITE),
+                bgcolor=status_color,
+                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                border_radius=12
+            )
+        ]
+        
+        # Добавляем индикатор передачи, если долг был передан
+        if loan.is_transferred:
+            # Получаем последнюю передачу для tooltip
+            last_transfer = loan.debt_transfers[-1] if loan.debt_transfers else None
+            
+            # Формируем текст tooltip
+            if last_transfer:
+                tooltip_text = (
+                    f"Передан от {loan.original_lender.name if loan.original_lender else loan.lender.name} "
+                    f"к {loan.current_holder.name} "
+                    f"{last_transfer.transfer_date.strftime('%d.%m.%Y')}"
+                )
+            else:
+                tooltip_text = "Долг передан"
+            
+            # Добавляем бейдж с индикатором передачи
+            transfer_badge = ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.SWAP_HORIZ, size=14, color=ft.Colors.WHITE),
+                        ft.Text("Передан", size=12, color=ft.Colors.WHITE),
+                    ],
+                    spacing=4,
+                    tight=True
+                ),
+                bgcolor=ft.Colors.ORANGE,
+                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                border_radius=12,
+                tooltip=tooltip_text
+            )
+            status_badges.append(transfer_badge)
+        
         info_column = ft.Column(
             controls=[
                 ft.Row(
                     controls=[
                         ft.Text(loan.name, size=18, weight=ft.FontWeight.BOLD),
-                        ft.Container(
-                            content=ft.Text(status_name, size=12, color=ft.Colors.WHITE),
-                            bgcolor=status_color,
-                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
-                            border_radius=12
-                        )
+                        *status_badges
                     ],
                     spacing=10
                 ),

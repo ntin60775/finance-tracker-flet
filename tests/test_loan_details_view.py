@@ -60,6 +60,12 @@ class TestLoanDetailsView(ViewTestBase):
             return_value={'new_balance': Decimal('0.00'), 'warning': 'Тест'}
         )
         
+        # Патчим сервис передачи долга
+        self.mock_get_transfer_history = self.add_patcher(
+            'finance_tracker.views.loan_details_view.get_transfer_history',
+            return_value=[]
+        )
+        
         # Патчим EarlyRepaymentModal
         self.mock_early_repayment_modal = self.add_patcher(
             'finance_tracker.views.loan_details_view.EarlyRepaymentModal'
@@ -461,6 +467,182 @@ class TestLoanDetailsView(ViewTestBase):
         # Проверяем, что payment_stats содержит контент
         self.assertIsNotNone(self.view.payment_stats.content)
 
+    def test_load_transfer_history_empty(self):
+        """
+        Тест загрузки пустой истории передач.
+        
+        Проверяет:
+        - При пустой истории передач отображается сообщение "История передач пуста"
+        - Для активного кредита также отображается кнопка "Передать долг"
+        - Количество контролов = 2 (сообщение о пустом состоянии + кнопка)
+        
+        Validates: Requirements 3.1, 3.2
+        """
+        # Настраиваем мок для возврата пустого списка
+        self.mock_get_transfer_history.return_value = []
+        
+        # Убеждаемся, что кредит активен
+        self.test_loan.status = LoanStatus.ACTIVE
+        
+        # Устанавливаем таб на "История передач" (индекс 2)
+        self.view.tabs.selected_index = 2
+        
+        # Загружаем историю передач
+        self.view.load_transfer_history()
+        
+        # Проверяем, что в списке 2 элемента (сообщение о пустом состоянии + кнопка)
+        self.assertEqual(len(self.view.payments_list.controls), 2)
+
+    def test_load_transfer_history_with_transfers(self):
+        """
+        Тест загрузки истории передач с данными.
+        
+        Проверяет:
+        - При наличии передач они отображаются в списке
+        - Для активного кредита также отображается кнопка "Передать долг"
+        - Количество элементов = количество передач + 2 (заголовок + кнопка)
+        - Каждая передача отображается с правильной информацией
+        
+        Validates: Requirements 3.1, 3.2
+        """
+        # Создаем тестовых кредиторов
+        from_lender = create_test_lender(id=1, name="МФО Быстроденьги")
+        to_lender = create_test_lender(id=2, name="Коллекторское агентство")
+        
+        # Создаем тестовую передачу
+        from finance_tracker.models import DebtTransferDB
+        test_transfer = Mock(spec=DebtTransferDB)
+        test_transfer.id = "transfer-1"
+        test_transfer.loan_id = "1"
+        test_transfer.from_lender_id = "1"
+        test_transfer.to_lender_id = "2"
+        test_transfer.transfer_date = date(2025, 1, 15)
+        test_transfer.transfer_amount = Decimal("105000.00")
+        test_transfer.previous_amount = Decimal("100000.00")
+        test_transfer.amount_difference = Decimal("5000.00")
+        test_transfer.reason = "Продажа долга"
+        test_transfer.notes = "Тестовое примечание"
+        test_transfer.from_lender = from_lender
+        test_transfer.to_lender = to_lender
+        
+        # Настраиваем мок для возврата тестовой передачи
+        self.mock_get_transfer_history.return_value = [test_transfer]
+        
+        # Убеждаемся, что кредит активен
+        self.test_loan.status = LoanStatus.ACTIVE
+        
+        # Устанавливаем таб на "История передач" (индекс 2)
+        self.view.tabs.selected_index = 2
+        
+        # Загружаем историю передач
+        self.view.load_transfer_history()
+        
+        # Проверяем, что в списке 3 элемента (заголовок + карточка передачи + кнопка)
+        self.assertEqual(len(self.view.payments_list.controls), 3)
+        
+        # Проверяем, что get_transfer_history был вызван
+        self.assert_service_called(
+            self.mock_get_transfer_history,
+            self.mock_session,
+            1
+        )
+
+    def test_tab_change_to_transfer_history(self):
+        """
+        Тест переключения на таб "История передач".
+        
+        Проверяет:
+        - При переключении на таб "История передач" вызывается load_transfer_history
+        - При переключении на другие табы вызывается load_payments
+        
+        Validates: Requirements 3.1
+        """
+        # Создаем мок события
+        mock_event = Mock()
+        
+        # Переключаемся на таб "История передач" (индекс 2)
+        self.view.tabs.selected_index = 2
+        self.view.on_tab_change(mock_event)
+        
+        # Проверяем, что get_transfer_history был вызван
+        self.mock_get_transfer_history.assert_called()
+        
+        # Переключаемся на таб "График платежей" (индекс 0)
+        self.view.tabs.selected_index = 0
+        self.view.on_tab_change(mock_event)
+        
+        # Проверяем, что get_payments_by_loan был вызван
+        self.mock_get_payments_by_loan.assert_called()
+
+    def test_create_transfer_card_with_positive_difference(self):
+        """
+        Тест создания карточки передачи с положительной разницей (увеличение долга).
+        
+        Проверяет:
+        - Карточка создается с правильной информацией
+        - Разница отображается красным цветом (увеличение долга)
+        - Иконка стрелки вверх для положительной разницы
+        
+        Validates: Requirements 3.2
+        """
+        # Создаем тестовых кредиторов
+        from_lender = create_test_lender(id=1, name="МФО")
+        to_lender = create_test_lender(id=2, name="Коллектор")
+        
+        # Создаем тестовую передачу с положительной разницей
+        from finance_tracker.models import DebtTransferDB
+        test_transfer = Mock(spec=DebtTransferDB)
+        test_transfer.transfer_date = date(2025, 1, 15)
+        test_transfer.transfer_amount = Decimal("105000.00")
+        test_transfer.previous_amount = Decimal("100000.00")
+        test_transfer.amount_difference = Decimal("5000.00")  # Положительная разница
+        test_transfer.reason = "Продажа долга"
+        test_transfer.notes = None
+        test_transfer.from_lender = from_lender
+        test_transfer.to_lender = to_lender
+        
+        # Создаем карточку передачи
+        card = self.view._create_transfer_card(test_transfer)
+        
+        # Проверяем, что карточка создана
+        self.assertIsNotNone(card)
+        # Карточка должна быть Container
+        import flet as ft
+        self.assertIsInstance(card, ft.Container)
+
+    def test_create_transfer_card_with_negative_difference(self):
+        """
+        Тест создания карточки передачи с отрицательной разницей (уменьшение долга).
+        
+        Проверяет:
+        - Карточка создается с правильной информацией
+        - Разница отображается зеленым цветом (уменьшение долга)
+        - Иконка стрелки вниз для отрицательной разницы
+        
+        Validates: Requirements 3.2
+        """
+        # Создаем тестовых кредиторов
+        from_lender = create_test_lender(id=1, name="МФО")
+        to_lender = create_test_lender(id=2, name="Коллектор")
+        
+        # Создаем тестовую передачу с отрицательной разницей
+        from finance_tracker.models import DebtTransferDB
+        test_transfer = Mock(spec=DebtTransferDB)
+        test_transfer.transfer_date = date(2025, 1, 15)
+        test_transfer.transfer_amount = Decimal("95000.00")
+        test_transfer.previous_amount = Decimal("100000.00")
+        test_transfer.amount_difference = Decimal("-5000.00")  # Отрицательная разница
+        test_transfer.reason = None
+        test_transfer.notes = None
+        test_transfer.from_lender = from_lender
+        test_transfer.to_lender = to_lender
+        
+        # Создаем карточку передачи
+        card = self.view._create_transfer_card(test_transfer)
+        
+        # Проверяем, что карточка создана
+        self.assertIsNotNone(card)
+
     def test_will_unmount_closes_session(self):
         """
         Тест закрытия сессии при размонтировании View.
@@ -476,6 +658,297 @@ class TestLoanDetailsView(ViewTestBase):
         # Проверяем, что session была получена
         self.assertIsNotNone(self.view.session)
 
+    def test_transfer_indicator_not_shown_for_non_transferred_loan(self):
+        """
+        Тест отсутствия индикатора передачи для непереданного кредита.
+        
+        Проверяет:
+        - Для кредита без передачи индикатор не отображается
+        - _build_transfer_indicator возвращает None
+        
+        Validates: Requirements 3.4
+        """
+        # Создаем кредит без передачи (original_lender_id и current_holder_id = None)
+        self.test_loan.original_lender_id = None
+        self.test_loan.current_holder_id = None
+        
+        # Вызываем метод построения индикатора
+        indicator = self.view._build_transfer_indicator()
+        
+        # Проверяем, что индикатор не создан
+        self.assertIsNone(indicator)
+
+    def test_transfer_indicator_shown_for_transferred_loan(self):
+        """
+        Тест отображения индикатора передачи для переданного кредита.
+        
+        Проверяет:
+        - Для переданного кредита индикатор отображается
+        - Индикатор содержит правильную информацию (от кого к кому)
+        - Индикатор имеет правильный цвет (AMBER)
+        - Индикатор имеет иконку SWAP_HORIZ
+        
+        Validates: Requirements 3.4
+        """
+        # Создаем кредиторов
+        original_lender = create_test_lender(id=1, name="МФО Быстроденьги")
+        current_holder = create_test_lender(id=2, name="Коллекторское агентство")
+        
+        # Настраиваем кредит как переданный (устанавливаем original_lender_id и current_holder_id)
+        self.test_loan.original_lender_id = "1"
+        self.test_loan.current_holder_id = "2"
+        
+        # Настраиваем моки для возврата кредиторов
+        def get_lender_side_effect(session, lender_id):
+            if lender_id == "1":
+                return original_lender
+            elif lender_id == "2":
+                return current_holder
+            return None
+        
+        self.mock_get_lender_by_id.side_effect = get_lender_side_effect
+        
+        # Вызываем метод построения индикатора
+        indicator = self.view._build_transfer_indicator()
+        
+        # Проверяем, что индикатор создан
+        self.assertIsNotNone(indicator)
+        
+        # Проверяем тип индикатора
+        import flet as ft
+        self.assertIsInstance(indicator, ft.Container)
+        
+        # Проверяем цвет фона (AMBER для индикатора передачи)
+        self.assertEqual(indicator.bgcolor, ft.Colors.AMBER)
+        
+        # Проверяем tooltip
+        expected_tooltip = "Кредит был передан от МФО Быстроденьги к Коллекторское агентство"
+        self.assertEqual(indicator.tooltip, expected_tooltip)
+
+    def test_transfer_indicator_in_info_card(self):
+        """
+        Тест интеграции индикатора передачи в карточку информации.
+        
+        Проверяет:
+        - При обновлении info_card для переданного кредита индикатор добавляется в заголовок
+        - Заголовок содержит 3 элемента: название, статус, индикатор передачи
+        
+        Validates: Requirements 3.4
+        """
+        # Создаем кредиторов
+        original_lender = create_test_lender(id=1, name="МФО")
+        current_holder = create_test_lender(id=2, name="Коллектор")
+        
+        # Настраиваем кредит как переданный (устанавливаем original_lender_id и current_holder_id)
+        self.test_loan.original_lender_id = "1"
+        self.test_loan.current_holder_id = "2"
+        
+        # Настраиваем моки для возврата кредиторов
+        def get_lender_side_effect(session, lender_id):
+            if lender_id == "1":
+                return original_lender
+            elif lender_id == "2":
+                return current_holder
+            elif lender_id == 1:  # Основной займодатель
+                return self.test_lender
+            return None
+        
+        self.mock_get_lender_by_id.side_effect = get_lender_side_effect
+        
+        # Создаем новый View с переданным кредитом
+        # (это вызовет update_info_card в load_loan_details)
+        view = LoanDetailsView(self.page, loan_id=1, on_back=lambda: None)
+        
+        # Проверяем, что info_card содержит контент
+        self.assertIsNotNone(view.info_card.content)
+        
+        # Получаем заголовок (первый Row в Column)
+        header_row = view.info_card.content.controls[0]
+        
+        # Проверяем, что заголовок содержит 3 элемента
+        # (название кредита, статус, индикатор передачи)
+        self.assertEqual(len(header_row.controls), 3)
+
+    def test_debt_transfer_button_shown_for_active_loan(self):
+        """
+        Тест отображения кнопки "Передать долг" для активного кредита.
+        
+        Проверяет:
+        - При загрузке истории передач для активного кредита отображается кнопка "Передать долг"
+        - Кнопка имеет правильный текст и иконку
+        - Кнопка имеет обработчик on_click
+        
+        Validates: Requirements 8.1
+        """
+        # Настраиваем мок для возврата пустого списка передач
+        self.mock_get_transfer_history.return_value = []
+        
+        # Убеждаемся, что кредит активен
+        self.test_loan.status = LoanStatus.ACTIVE
+        
+        # Устанавливаем таб на "История передач" (индекс 2)
+        self.view.tabs.selected_index = 2
+        
+        # Загружаем историю передач
+        self.view.load_transfer_history()
+        
+        # Проверяем, что в списке 2 элемента (сообщение о пустом состоянии + кнопка)
+        self.assertEqual(len(self.view.payments_list.controls), 2)
+        
+        # Получаем последний элемент (контейнер с кнопкой)
+        button_container = self.view.payments_list.controls[-1]
+        
+        # Проверяем, что это Container
+        import flet as ft
+        self.assertIsInstance(button_container, ft.Container)
+        
+        # Получаем кнопку из контейнера
+        button = button_container.content
+        self.assertIsInstance(button, ft.ElevatedButton)
+        
+        # Проверяем атрибуты кнопки
+        self.assertEqual(button.text, "Передать долг")
+        self.assertEqual(button.icon, ft.Icons.SWAP_HORIZ)
+        self.assertIsNotNone(button.on_click)
+
+    def test_debt_transfer_button_not_shown_for_paid_off_loan(self):
+        """
+        Тест отсутствия кнопки "Передать долг" для погашенного кредита.
+        
+        Проверяет:
+        - При загрузке истории передач для погашенного кредита кнопка НЕ отображается
+        - Количество элементов = 1 (только сообщение о пустом состоянии)
+        
+        Validates: Requirements 6.1
+        """
+        # Настраиваем мок для возврата пустого списка передач
+        self.mock_get_transfer_history.return_value = []
+        
+        # Устанавливаем статус кредита как PAID_OFF
+        self.test_loan.status = LoanStatus.PAID_OFF
+        
+        # Устанавливаем таб на "История передач" (индекс 2)
+        self.view.tabs.selected_index = 2
+        
+        # Загружаем историю передач
+        self.view.load_transfer_history()
+        
+        # Проверяем, что в списке только 1 элемент (сообщение о пустом состоянии, без кнопки)
+        self.assertEqual(len(self.view.payments_list.controls), 1)
+
+    def test_open_debt_transfer_modal(self):
+        """
+        Тест открытия модального окна передачи долга.
+        
+        Проверяет:
+        - При нажатии кнопки "Передать долг" открывается DebtTransferModal
+        - Модальное окно создается с правильными параметрами (session, loan, callback)
+        - modal.open вызывается с page
+        
+        Validates: Requirements 8.1
+        """
+        # Патчим DebtTransferModal
+        mock_debt_transfer_modal = self.add_patcher(
+            'finance_tracker.views.loan_details_view.DebtTransferModal'
+        )
+        
+        # Создаем мок события
+        mock_event = Mock()
+        
+        # Вызываем метод открытия модального окна
+        self.view.open_debt_transfer_modal(mock_event)
+        
+        # Проверяем, что DebtTransferModal был создан
+        mock_debt_transfer_modal.assert_called_once()
+        
+        # Проверяем параметры создания
+        call_args = mock_debt_transfer_modal.call_args
+        self.assertEqual(call_args[1]['session'], self.mock_session)
+        self.assertEqual(call_args[1]['loan'], self.test_loan)
+        self.assertIsNotNone(call_args[1]['on_transfer_callback'])
+        
+        # Проверяем, что modal.open был вызван
+        modal_instance = mock_debt_transfer_modal.return_value
+        modal_instance.open.assert_called_once_with(self.page)
+
+    def test_handle_debt_transfer_success(self):
+        """
+        Тест успешной обработки передачи долга.
+        
+        Проверяет:
+        - При вызове handle_debt_transfer вызывается create_debt_transfer сервис
+        - После передачи перезагружаются детали кредита
+        - Отображается уведомление об успехе
+        
+        Validates: Requirements 2.1
+        """
+        # Патчим create_debt_transfer
+        mock_create_debt_transfer = self.add_patcher(
+            'finance_tracker.views.loan_details_view.create_debt_transfer'
+        )
+        
+        # Создаем мок передачи
+        from finance_tracker.models import DebtTransferDB
+        mock_transfer = Mock(spec=DebtTransferDB)
+        mock_transfer.id = "transfer-1"
+        mock_create_debt_transfer.return_value = mock_transfer
+        
+        # Вызываем handle_debt_transfer
+        self.view.handle_debt_transfer(
+            loan_id="1",
+            to_lender_id="2",
+            transfer_date=date(2025, 1, 15),
+            transfer_amount=Decimal("105000.00"),
+            reason="Продажа долга",
+            notes="Тестовое примечание"
+        )
+        
+        # Проверяем, что create_debt_transfer был вызван
+        mock_create_debt_transfer.assert_called_once()
+        
+        # Проверяем параметры вызова
+        call_args = mock_create_debt_transfer.call_args
+        self.assertEqual(call_args[1]['session'], self.mock_session)
+        self.assertEqual(call_args[1]['loan_id'], "1")
+        self.assertEqual(call_args[1]['to_lender_id'], "2")
+        self.assertEqual(call_args[1]['transfer_date'], date(2025, 1, 15))
+        self.assertEqual(call_args[1]['transfer_amount'], Decimal("105000.00"))
+        self.assertEqual(call_args[1]['reason'], "Продажа долга")
+        self.assertEqual(call_args[1]['notes'], "Тестовое примечание")
+
+    def test_handle_debt_transfer_validation_error(self):
+        """
+        Тест обработки ошибки валидации при передаче долга.
+        
+        Проверяет:
+        - При ошибке валидации (ValueError) отображается сообщение об ошибке
+        - Детали кредита не перезагружаются
+        
+        Validates: Requirements 6.1, 6.2, 6.3
+        """
+        # Патчим create_debt_transfer для выброса ValueError
+        mock_create_debt_transfer = self.add_patcher(
+            'finance_tracker.views.loan_details_view.create_debt_transfer'
+        )
+        mock_create_debt_transfer.side_effect = ValueError("Нельзя передать погашенный кредит")
+        
+        # Вызываем handle_debt_transfer
+        self.view.handle_debt_transfer(
+            loan_id="1",
+            to_lender_id="2",
+            transfer_date=date(2025, 1, 15),
+            transfer_amount=Decimal("105000.00"),
+            reason=None,
+            notes=None
+        )
+        
+        # Проверяем, что create_debt_transfer был вызван
+        mock_create_debt_transfer.assert_called_once()
+        
+        # Проверяем, что page.open был вызван для отображения ошибки (SnackBar)
+        self.page.open.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()
+

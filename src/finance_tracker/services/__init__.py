@@ -34,6 +34,10 @@ __all__ = [
     "get_summary_statistics",
     "get_monthly_burden_statistics",
     "get_period_statistics",
+    "validate_transfer",
+    "get_remaining_debt",
+    "create_debt_transfer",
+    "get_transfer_history",
 ]
 
 from finance_tracker.services.transaction_service import (
@@ -87,4 +91,11 @@ from finance_tracker.services.loan_statistics_service import (
     get_summary_statistics,
     get_monthly_burden_statistics,
     get_period_statistics
+)
+
+from finance_tracker.services.debt_transfer_service import (
+    validate_transfer,
+    get_remaining_debt,
+    create_debt_transfer,
+    get_transfer_history
 )

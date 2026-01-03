@@ -66,6 +66,9 @@ class TestMainWindow(ViewTestBase):
         self.mock_planned_transactions_view = self.add_patcher(
             'finance_tracker.views.main_window.PlannedTransactionsView'
         )
+        self.mock_transaction_history_view = self.add_patcher(
+            'finance_tracker.views.main_window.TransactionHistoryView'
+        )
         self.mock_plan_fact_view = self.add_patcher(
             'finance_tracker.views.main_window.PlanFactView'
         )
@@ -123,8 +126,8 @@ class TestMainWindow(ViewTestBase):
         # HomeView теперь получает page, session и navigate_callback через DI
         self.mock_home_view.assert_called_once_with(self.page, ANY, navigate_callback=ANY)
         
-        # Проверяем, что rail содержит все пункты меню
-        self.assertEqual(len(self.window.rail.destinations), 8)
+        # Проверяем, что rail содержит все пункты меню (9 пунктов после добавления "История")
+        self.assertEqual(len(self.window.rail.destinations), 9)
 
     def test_setup_page_configures_page_properties(self):
         """
@@ -227,90 +230,112 @@ class TestMainWindow(ViewTestBase):
         # Проверяем, что selected_index обновлен
         self.assertEqual(self.window.rail.selected_index, 3)
 
+    def test_navigate_to_transaction_history(self):
+        """
+        Тест навигации к TransactionHistoryView.
+        
+        Проверяет:
+        - При выборе пункта меню "История" (индекс 4) открывается TransactionHistoryView
+        
+        Validates: Requirements 5.1, 5.2
+        """
+        # Сбрасываем счетчики
+        self.mock_transaction_history_view.reset_mock()
+        
+        # Навигация к TransactionHistoryView (индекс 4)
+        self.window.navigate(4)
+        
+        # Проверяем, что TransactionHistoryView создан
+        # TransactionHistoryView не принимает page в конструкторе
+        self.mock_transaction_history_view.assert_called_once_with()
+        
+        # Проверяем, что selected_index обновлен
+        self.assertEqual(self.window.rail.selected_index, 4)
+
     def test_navigate_to_plan_fact(self):
         """
         Тест навигации к PlanFactView.
         
         Проверяет:
-        - При выборе пункта меню "План" (индекс 4) открывается PlanFactView
+        - При выборе пункта меню "План-факт" (индекс 5) открывается PlanFactView
         
         Validates: Requirements 5.1, 5.2
         """
         # Сбрасываем счетчики
         self.mock_plan_fact_view.reset_mock()
         
-        # Навигация к PlanFactView (индекс 4)
-        self.window.navigate(4)
+        # Навигация к PlanFactView (индекс 5)
+        self.window.navigate(5)
         
         # Проверяем, что PlanFactView создан
         # PlanFactView не принимает page в конструкторе
         self.mock_plan_fact_view.assert_called_once_with()
         
         # Проверяем, что selected_index обновлен
-        self.assertEqual(self.window.rail.selected_index, 4)
+        self.assertEqual(self.window.rail.selected_index, 5)
 
     def test_navigate_to_lenders(self):
         """
         Тест навигации к LendersView.
         
         Проверяет:
-        - При выборе пункта меню "Займодатели" (индекс 5) открывается LendersView
+        - При выборе пункта меню "Займодатели" (индекс 6) открывается LendersView
         
         Validates: Requirements 5.1, 5.2
         """
         # Сбрасываем счетчики
         self.mock_lenders_view.reset_mock()
         
-        # Навигация к LendersView (индекс 5)
-        self.window.navigate(5)
+        # Навигация к LendersView (индекс 6)
+        self.window.navigate(6)
         
         # Проверяем, что LendersView создан
         self.mock_lenders_view.assert_called_once_with(self.page)
         
         # Проверяем, что selected_index обновлен
-        self.assertEqual(self.window.rail.selected_index, 5)
+        self.assertEqual(self.window.rail.selected_index, 6)
 
     def test_navigate_to_categories(self):
         """
         Тест навигации к CategoriesView.
         
         Проверяет:
-        - При выборе пункта меню "Категории" (индекс 6) открывается CategoriesView
+        - При выборе пункта меню "Категории" (индекс 7) открывается CategoriesView
         
         Validates: Requirements 5.1, 5.2
         """
         # Сбрасываем счетчики
         self.mock_categories_view.reset_mock()
         
-        # Навигация к CategoriesView (индекс 6)
-        self.window.navigate(6)
+        # Навигация к CategoriesView (индекс 7)
+        self.window.navigate(7)
         
         # Проверяем, что CategoriesView создан
         self.mock_categories_view.assert_called_once_with(self.page)
         
         # Проверяем, что selected_index обновлен
-        self.assertEqual(self.window.rail.selected_index, 6)
+        self.assertEqual(self.window.rail.selected_index, 7)
 
     def test_navigate_to_settings(self):
         """
         Тест навигации к SettingsView.
         
         Проверяет:
-        - При выборе пункта меню "Настройки" (индекс 7) открывается SettingsView
+        - При выборе пункта меню "Настройки" (индекс 8) открывается SettingsView
         
         Validates: Requirements 5.1, 5.2
         """
         # Сбрасываем счетчики
         self.mock_settings_view.reset_mock()
         
-        # Навигация к SettingsView (индекс 7)
-        self.window.navigate(7)
+        # Навигация к SettingsView (индекс 8)
+        self.window.navigate(8)
         
         # Проверяем, что SettingsView создан
         self.mock_settings_view.assert_called_once_with(self.page)
         
         # Проверяем, что selected_index обновлен
-        self.assertEqual(self.window.rail.selected_index, 7)
+        self.assertEqual(self.window.rail.selected_index, 8)
 
     def test_navigate_back_to_home(self):
         """
@@ -325,8 +350,8 @@ class TestMainWindow(ViewTestBase):
         # HomeView уже создан в init_ui
         initial_home_view = self.window.home_view
 
-        # Навигация к CategoriesView
-        self.window.navigate(6)
+        # Навигация к CategoriesView (индекс 7 после добавления "История")
+        self.window.navigate(7)
 
         # Сбрасываем счетчики
         self.mock_home_view.reset_mock()
@@ -437,6 +462,7 @@ class TestMainWindow(ViewTestBase):
         self.mock_planned_transactions_view.reset_mock()
         self.mock_loans_view.reset_mock()
         self.mock_pending_payments_view.reset_mock()
+        self.mock_transaction_history_view.reset_mock()
         self.mock_plan_fact_view.reset_mock()
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
@@ -457,15 +483,18 @@ class TestMainWindow(ViewTestBase):
         self.mock_pending_payments_view.assert_called_once_with(self.page)
 
         view_4 = self.window.get_view(4)
-        self.mock_plan_fact_view.assert_called_once_with()
+        self.mock_transaction_history_view.assert_called_once_with()
 
         view_5 = self.window.get_view(5)
-        self.mock_lenders_view.assert_called_once_with(self.page)
+        self.mock_plan_fact_view.assert_called_once_with()
 
         view_6 = self.window.get_view(6)
-        self.mock_categories_view.assert_called_once_with(self.page)
+        self.mock_lenders_view.assert_called_once_with(self.page)
 
         view_7 = self.window.get_view(7)
+        self.mock_categories_view.assert_called_once_with(self.page)
+
+        view_8 = self.window.get_view(8)
         self.mock_settings_view.assert_called_once_with(self.page)
 
     def test_get_view_returns_error_for_invalid_index(self):
@@ -607,6 +636,9 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_planned_transactions_view = self.add_patcher(
             'finance_tracker.views.main_window.PlannedTransactionsView'
         )
+        self.mock_transaction_history_view = self.add_patcher(
+            'finance_tracker.views.main_window.TransactionHistoryView'
+        )
         self.mock_plan_fact_view = self.add_patcher(
             'finance_tracker.views.main_window.PlanFactView'
         )
@@ -628,7 +660,7 @@ class TestMainWindowProperties(ViewTestBase):
         self.page.title = None
 
     @settings(max_examples=100)
-    @given(menu_index=st.integers(min_value=0, max_value=7))
+    @given(menu_index=st.integers(min_value=0, max_value=8))
     def test_property_navigation_between_views(self, menu_index):
         """
         Feature: ui-testing, Property 8: Навигация между View
@@ -650,6 +682,7 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_planned_transactions_view.reset_mock()
         self.mock_loans_view.reset_mock()
         self.mock_pending_payments_view.reset_mock()
+        self.mock_transaction_history_view.reset_mock()
         self.mock_plan_fact_view.reset_mock()
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
@@ -668,6 +701,7 @@ class TestMainWindowProperties(ViewTestBase):
             self.mock_planned_transactions_view,
             self.mock_loans_view,
             self.mock_pending_payments_view,
+            self.mock_transaction_history_view,
             self.mock_plan_fact_view,
             self.mock_lenders_view,
             self.mock_categories_view,
@@ -694,8 +728,8 @@ class TestMainWindowProperties(ViewTestBase):
 
     @settings(max_examples=100)
     @given(
-        first_index=st.integers(min_value=0, max_value=7),
-        second_index=st.integers(min_value=0, max_value=7)
+        first_index=st.integers(min_value=0, max_value=8),
+        second_index=st.integers(min_value=0, max_value=8)
     )
     def test_property_view_closure_on_navigation(self, first_index, second_index):
         """
@@ -718,6 +752,7 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_planned_transactions_view.reset_mock()
         self.mock_loans_view.reset_mock()
         self.mock_pending_payments_view.reset_mock()
+        self.mock_transaction_history_view.reset_mock()
         self.mock_plan_fact_view.reset_mock()
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
@@ -735,6 +770,7 @@ class TestMainWindowProperties(ViewTestBase):
         self.mock_planned_transactions_view.reset_mock()
         self.mock_loans_view.reset_mock()
         self.mock_pending_payments_view.reset_mock()
+        self.mock_transaction_history_view.reset_mock()
         self.mock_plan_fact_view.reset_mock()
         self.mock_lenders_view.reset_mock()
         self.mock_categories_view.reset_mock()
@@ -752,6 +788,7 @@ class TestMainWindowProperties(ViewTestBase):
             self.mock_planned_transactions_view,
             self.mock_loans_view,
             self.mock_pending_payments_view,
+            self.mock_transaction_history_view,
             self.mock_plan_fact_view,
             self.mock_lenders_view,
             self.mock_categories_view,
@@ -777,7 +814,7 @@ class TestMainWindowProperties(ViewTestBase):
     @settings(max_examples=50)
     @given(
         navigation_sequence=st.lists(
-            st.integers(min_value=0, max_value=7),
+            st.integers(min_value=0, max_value=8),
             min_size=2,
             max_size=5
         )

@@ -19,6 +19,7 @@ from finance_tracker.models import (
     LoanDB, LoanPaymentDB, TransactionDB,
     LoanStatus, PaymentStatus, TransactionType
 )
+from finance_tracker.services.loan_service import get_debt_by_holder_statistics
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ def get_summary_statistics(session: Session) -> Dict[str, Any]:
     - Ежемесячную сумму запланированных платежей
     - Общее количество активных кредитов
     - Общее количество закрытых кредитов
+    - Информацию о текущих держателях долга
 
     Args:
         session: Активная сессия БД
@@ -45,7 +47,14 @@ def get_summary_statistics(session: Session) -> Dict[str, Any]:
             "total_closed_loans": количество закрытых,
             "monthly_payments_sum": сумма ежемесячных платежей,
             "total_interest_expected": ожидаемые проценты,
-            "total_overpayment": переплата
+            "total_overpayment": переплата,
+            "by_holder": статистика по текущим держателям {
+                holder_id: {
+                    "holder_name": имя держателя,
+                    "loan_count": количество кредитов,
+                    "total_debt": общая задолженность
+                }
+            }
         }
 
     Raises:
@@ -55,6 +64,8 @@ def get_summary_statistics(session: Session) -> Dict[str, Any]:
         >>> with get_db_session() as session:
         ...     stats = get_summary_statistics(session)
         ...     print(f"Активных кредитов: {stats['total_active_loans']}")
+        ...     for holder_id, holder_info in stats['by_holder'].items():
+        ...         print(f"Держатель {holder_info['holder_name']}: {holder_info['total_debt']}")
     """
     try:
         # <ai:block name="active_loans_stats">
@@ -109,9 +120,27 @@ def get_summary_statistics(session: Session) -> Dict[str, Any]:
 
         # </ai:block>
 
+        # <ai:block name="holder_statistics">
+        #     <ai:purpose>Получение статистики по текущим держателям долга</ai:purpose>
+
+        # Получаем статистику по держателям для активных кредитов
+        holder_stats = get_debt_by_holder_statistics(session, status=LoanStatus.ACTIVE)
+
+        # Форматируем статистику по держателям для возврата
+        by_holder = {}
+        for holder_id, holder_info in holder_stats.items():
+            by_holder[holder_id] = {
+                "holder_name": holder_info["holder_name"],
+                "loan_count": holder_info["loan_count"],
+                "total_debt": round(holder_info["total_debt"], 2)
+            }
+
+        # </ai:block>
+
         logger.info(
             f"Получена общая статистика: активных кредитов={total_active_loans}, "
-            f"сумма={total_active_amount}, ежемесячные платежи={monthly_payments_sum}"
+            f"сумма={total_active_amount}, ежемесячные платежи={monthly_payments_sum}, "
+            f"держателей={len(by_holder)}"
         )
 
         return {
@@ -120,7 +149,8 @@ def get_summary_statistics(session: Session) -> Dict[str, Any]:
             "total_closed_loans": total_closed_loans,
             "monthly_payments_sum": round(monthly_payments_sum, 2),
             "total_interest_expected": round(total_interest_expected, 2),
-            "total_overpayment": round(total_overpayment, 2)
+            "total_overpayment": round(total_overpayment, 2),
+            "by_holder": by_holder
         }
 
     except SQLAlchemyError as e:

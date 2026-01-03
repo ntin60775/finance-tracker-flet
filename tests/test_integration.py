@@ -98,17 +98,17 @@ def test_navigation_flow(mock_page, db_session):
         # запатчить content_area.update, так как она вызывается в navigate
         
         with patch.object(main_window.content_area, 'update'):
-            # Переход на вкладку "План-Факт" (индекс 4)
-            main_window.navigate(4)
+            # Переход на вкладку "План-Факт" (индекс 5 после добавления "История")
+            main_window.navigate(5)
             
-            assert main_window.rail.selected_index == 4
+            assert main_window.rail.selected_index == 5
             # Проверяем, что контент изменился (тип контрола)
             from finance_tracker.views.plan_fact_view import PlanFactView
             assert isinstance(main_window.content_area.content, PlanFactView)
             
-            # Переход на вкладку "Категории" (индекс 6)
-            main_window.navigate(6)
-            assert main_window.rail.selected_index == 6
+            # Переход на вкладку "Категории" (индекс 7 после добавления "История")
+            main_window.navigate(7)
+            assert main_window.rail.selected_index == 7
             from finance_tracker.views.categories_view import CategoriesView
             assert isinstance(main_window.content_area.content, CategoriesView)
 

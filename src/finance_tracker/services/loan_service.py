@@ -664,3 +664,173 @@ def execute_payment(
         error_msg = f"Ошибка при исполнении платежа ID {payment_id}: {e}"
         logger.error(error_msg)
         raise
+
+
+
+def get_loans_by_current_holder(
+    session: Session,
+    holder_id: str,
+    loan_type: Optional[LoanType] = None,
+    status: Optional[LoanStatus] = None
+) -> List[LoanDB]:
+    """
+    Получает кредиты по текущему держателю долга.
+
+    Функция возвращает все кредиты, где указанный кредитор является
+    текущим держателем долга (через current_holder_id или lender_id).
+    Можно дополнительно отфильтровать по типу кредита и статусу.
+
+    Args:
+        session: Активная сессия БД для выполнения запросов
+        holder_id: ID текущего держателя долга (UUID)
+        loan_type: Тип кредита для фильтрации (опциональное)
+        status: Статус кредита для фильтрации (опциональное)
+
+    Returns:
+        Список объектов LoanDB, отсортированных по названию.
+        Список может быть пустым, если кредитов нет.
+
+    Raises:
+        SQLAlchemyError: При ошибках работы с БД
+
+    Example:
+        >>> with get_db_session() as session:
+        ...     # Получить все кредиты текущего держателя
+        ...     holder_loans = get_loans_by_current_holder(session, holder_id="...")
+        ...
+        ...     # Получить активные кредиты держателя
+        ...     active = get_loans_by_current_holder(
+        ...         session, 
+        ...         holder_id="...", 
+        ...         status=LoanStatus.ACTIVE
+        ...     )
+    """
+    try:
+        validate_uuid_format(holder_id, "holder_id")
+
+        # Базовый запрос: кредиты где holder_id является текущим держателем
+        # Это либо current_holder_id = holder_id, либо 
+        # (current_holder_id IS NULL AND lender_id = holder_id)
+        query = session.query(LoanDB).filter(
+            (LoanDB.current_holder_id == holder_id) |
+            ((LoanDB.current_holder_id.is_(None)) & (LoanDB.lender_id == holder_id))
+        )
+
+        # Применяем дополнительные фильтры
+        if loan_type is not None:
+            query = query.filter(LoanDB.loan_type == loan_type)
+        if status is not None:
+            query = query.filter(LoanDB.status == status)
+
+        # Сортируем по названию
+        query = query.order_by(LoanDB.name)
+
+        # Выполняем запрос
+        loans = query.all()
+
+        logger.info(
+            f"Получено {len(loans)} кредитов для текущего держателя ID {holder_id}"
+            f"{f' типа {loan_type.value}' if loan_type else ''}"
+            f"{f' статуса {status.value}' if status else ''}"
+        )
+
+        return loans
+
+    except SQLAlchemyError as e:
+        error_msg = f"Ошибка при получении кредитов держателя ID {holder_id}: {e}"
+        logger.error(error_msg)
+        raise
+
+
+def get_debt_by_holder_statistics(
+    session: Session,
+    status: Optional[LoanStatus] = None
+) -> Dict[str, Dict[str, any]]:
+    """
+    Группирует задолженности по текущим держателям долга.
+
+    Функция возвращает статистику по каждому держателю:
+    - Количество кредитов
+    - Общая сумма задолженности (остаток основного долга)
+    - Список кредитов
+
+    Args:
+        session: Активная сессия БД для выполнения запросов
+        status: Статус кредита для фильтрации (опциональное)
+
+    Returns:
+        Словарь, где ключ - ID держателя, значение - словарь со статистикой:
+        {
+            "holder_id": {
+                "holder_name": str,
+                "loan_count": int,
+                "total_debt": Decimal,
+                "loans": List[LoanDB]
+            }
+        }
+
+    Raises:
+        SQLAlchemyError: При ошибках работы с БД
+
+    Example:
+        >>> with get_db_session() as session:
+        ...     # Получить статистику по всем держателям
+        ...     stats = get_debt_by_holder_statistics(session)
+        ...
+        ...     # Получить статистику только по активным кредитам
+        ...     active_stats = get_debt_by_holder_statistics(
+        ...         session, 
+        ...         status=LoanStatus.ACTIVE
+        ...     )
+    """
+    try:
+        # Базовый запрос всех кредитов
+        query = session.query(LoanDB)
+
+        # Применяем фильтр по статусу
+        if status is not None:
+            query = query.filter(LoanDB.status == status)
+
+        # Получаем все кредиты
+        loans = query.all()
+
+        # Группируем по текущему держателю
+        holder_stats = {}
+
+        for loan in loans:
+            # Определяем текущего держателя
+            effective_holder_id = loan.current_holder_id if loan.current_holder_id else loan.lender_id
+
+            # Инициализируем статистику для держателя, если ещё нет
+            if effective_holder_id not in holder_stats:
+                # Получаем информацию о держателе
+                holder = session.query(LenderDB).filter_by(id=effective_holder_id).first()
+                holder_name = holder.name if holder else "Неизвестный держатель"
+
+                holder_stats[effective_holder_id] = {
+                    "holder_name": holder_name,
+                    "loan_count": 0,
+                    "total_debt": Decimal('0'),
+                    "loans": []
+                }
+
+            # Рассчитываем остаток по кредиту
+            balance = calculate_loan_balance(session, loan.id)
+            principal_balance = balance["principal_balance"]
+
+            # Обновляем статистику
+            holder_stats[effective_holder_id]["loan_count"] += 1
+            holder_stats[effective_holder_id]["total_debt"] += principal_balance
+            holder_stats[effective_holder_id]["loans"].append(loan)
+
+        logger.info(
+            f"Рассчитана статистика по {len(holder_stats)} держателям долга"
+            f"{f' для статуса {status.value}' if status else ''}"
+        )
+
+        return holder_stats
+
+    except SQLAlchemyError as e:
+        error_msg = f"Ошибка при расчёте статистики по держателям: {e}"
+        logger.error(error_msg)
+        raise

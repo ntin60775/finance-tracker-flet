@@ -94,6 +94,7 @@ class LendersView(ft.Column):
                 ft.dropdown.Option(key=LenderType.BANK.value, text="Банк"),
                 ft.dropdown.Option(key=LenderType.MFO.value, text="МФО"),
                 ft.dropdown.Option(key=LenderType.INDIVIDUAL.value, text="Физическое лицо"),
+                ft.dropdown.Option(key=LenderType.COLLECTOR.value, text="Коллектор"),
                 ft.dropdown.Option(key=LenderType.OTHER.value, text="Другое"),
             ],
             value="all",
@@ -169,7 +170,17 @@ class LendersView(ft.Column):
             LenderType.BANK: ft.Icons.ACCOUNT_BALANCE,
             LenderType.MFO: ft.Icons.STORE,
             LenderType.INDIVIDUAL: ft.Icons.PERSON,
+            LenderType.COLLECTOR: ft.Icons.GAVEL,  # Иконка молотка для коллекторов
             LenderType.OTHER: ft.Icons.HELP_OUTLINE,
+        }
+
+        # Цвет иконки по типу займодателя
+        type_color_map = {
+            LenderType.BANK: ft.Colors.PRIMARY,
+            LenderType.MFO: ft.Colors.PRIMARY,
+            LenderType.INDIVIDUAL: ft.Colors.PRIMARY,
+            LenderType.COLLECTOR: ft.Colors.ORANGE,  # Оранжевый цвет для коллекторов
+            LenderType.OTHER: ft.Colors.PRIMARY,
         }
 
         # Название типа на русском
@@ -177,10 +188,12 @@ class LendersView(ft.Column):
             LenderType.BANK: "Банк",
             LenderType.MFO: "МФО",
             LenderType.INDIVIDUAL: "Физлицо",
+            LenderType.COLLECTOR: "Коллектор",
             LenderType.OTHER: "Другое",
         }
 
         lender_icon = type_icon_map.get(lender.lender_type, ft.Icons.HELP_OUTLINE)
+        lender_icon_color = type_color_map.get(lender.lender_type, ft.Colors.PRIMARY)
         lender_type_name = type_name_map.get(lender.lender_type, lender.lender_type.value)
 
         # Основная информация
@@ -246,7 +259,7 @@ class LendersView(ft.Column):
         # Собираем карточку
         card_content = ft.Row(
             controls=[
-                ft.Icon(lender_icon, size=40, color=ft.Colors.PRIMARY),
+                ft.Icon(lender_icon, size=40, color=lender_icon_color),
                 clickable_info,
                 actions_row
             ],

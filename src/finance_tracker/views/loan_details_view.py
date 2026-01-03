@@ -27,7 +27,12 @@ from finance_tracker.services.loan_payment_service import (
     early_repayment_partial
 )
 from finance_tracker.services.lender_service import get_lender_by_id
+from finance_tracker.services.debt_transfer_service import (
+    get_transfer_history,
+    create_debt_transfer
+)
 from finance_tracker.components.early_repayment_modal import EarlyRepaymentModal
+from finance_tracker.components.debt_transfer_modal import DebtTransferModal
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -129,7 +134,8 @@ class LoanDetailsView(ft.Column):
             animation_duration=300,
             tabs=[
                 ft.Tab(text="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
-                ft.Tab(text="История", icon=ft.Icon(ft.Icons.HISTORY)),
+                ft.Tab(text="История платежей", icon=ft.Icon(ft.Icons.HISTORY)),
+                ft.Tab(text="История передач", icon=ft.Icon(ft.Icons.SWAP_HORIZ)),
             ],
             on_change=self.on_tab_change,
             expand=True
@@ -208,23 +214,33 @@ class LoanDetailsView(ft.Column):
         }
         status_color = status_colors.get(self.loan.status, ft.Colors.GREY)
 
+        # Создаем список контролов для заголовка
+        header_controls = [
+            ft.Text(self.loan.name, size=20, weight=ft.FontWeight.BOLD),
+            ft.Container(
+                content=ft.Text(
+                    self.loan.status.value,
+                    size=12,
+                    color=ft.Colors.WHITE
+                ),
+                bgcolor=status_color,
+                padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                border_radius=5
+            )
+        ]
+
+        # Добавляем индикатор передачи, если долг был передан
+        transfer_indicator = self._build_transfer_indicator()
+        if transfer_indicator:
+            header_controls.append(transfer_indicator)
+
         self.info_card.content = ft.Column(
             controls=[
                 ft.Row(
-                    controls=[
-                        ft.Text(self.loan.name, size=20, weight=ft.FontWeight.BOLD),
-                        ft.Container(
-                            content=ft.Text(
-                                self.loan.status.value,
-                                size=12,
-                                color=ft.Colors.WHITE
-                            ),
-                            bgcolor=status_color,
-                            padding=ft.padding.symmetric(horizontal=10, vertical=5),
-                            border_radius=5
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    controls=header_controls,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    wrap=True,
+                    spacing=10
                 ),
                 ft.Divider(height=1),
                 self._create_info_row("Займодатель:", lender_name),
@@ -271,6 +287,65 @@ class LoanDetailsView(ft.Column):
                 ft.Text(value, size=14),
             ],
             spacing=10
+        )
+
+    def _build_transfer_indicator(self) -> Optional[ft.Container]:
+        """
+        Создаёт индикатор передачи долга для заголовка.
+        
+        Возвращает бейдж "Долг передан от X к Y" если кредит был передан.
+        
+        Returns:
+            Container с индикатором передачи или None если долг не передавался
+            
+        Validates: Requirements 3.4
+        """
+        if not self.loan:
+            return None
+            
+        # Проверяем, был ли долг передан
+        if not self.loan.is_transferred:
+            return None
+            
+        # Получаем информацию об исходном кредиторе и текущем держателе
+        original_lender = None
+        current_holder = None
+        
+        if self.loan.original_lender_id:
+            original_lender = get_lender_by_id(self.session, self.loan.original_lender_id)
+        
+        if self.loan.current_holder_id:
+            current_holder = get_lender_by_id(self.session, self.loan.current_holder_id)
+        
+        # Формируем текст бейджа
+        original_name = original_lender.name if original_lender else "Неизвестно"
+        current_name = current_holder.name if current_holder else "Неизвестно"
+        
+        badge_text = f"Долг передан от {original_name} к {current_name}"
+        
+        # Создаём бейдж
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(
+                        ft.Icons.SWAP_HORIZ,
+                        size=16,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        badge_text,
+                        size=12,
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.BOLD
+                    ),
+                ],
+                spacing=5,
+                tight=True
+            ),
+            bgcolor=ft.Colors.AMBER,
+            padding=ft.padding.symmetric(horizontal=10, vertical=5),
+            border_radius=5,
+            tooltip=f"Кредит был передан от {original_name} к {current_name}"
         )
 
     def load_payments(self):
@@ -529,7 +604,10 @@ class LoanDetailsView(ft.Column):
 
     def on_tab_change(self, e):
         """Обработчик изменения таба."""
-        self.load_payments()
+        if self.tabs.selected_index == 2:  # История передач
+            self.load_transfer_history()
+        else:
+            self.load_payments()
 
     def execute_payment_action(self, payment: LoanPaymentDB):
         """
@@ -651,6 +729,315 @@ class LoanDetailsView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка при досрочном погашении кредита: {e}")
             self.show_error(f"Ошибка при досрочном погашении: {e}")
+
+    def load_transfer_history(self):
+        """Загрузка истории передач долга."""
+        try:
+            # Получаем историю передач
+            transfers = get_transfer_history(self.session, self.loan_id)
+
+            self.payments_list.controls.clear()
+
+            if not transfers:
+                self.payments_list.controls.append(
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Icon(
+                                    ft.Icons.INFO_OUTLINE,
+                                    size=48,
+                                    color=ft.Colors.GREY_400
+                                ),
+                                ft.Text(
+                                    "История передач пуста",
+                                    size=16,
+                                    color=ft.Colors.GREY_600
+                                ),
+                                ft.Text(
+                                    "Долг по этому кредиту ещё не передавался другим кредиторам",
+                                    size=14,
+                                    color=ft.Colors.GREY_500,
+                                    text_align=ft.TextAlign.CENTER
+                                ),
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=10
+                        ),
+                        padding=40,
+                        alignment=ft.alignment.center
+                    )
+                )
+            else:
+                # Добавляем заголовок секции
+                self.payments_list.controls.append(
+                    ft.Container(
+                        content=ft.Text(
+                            f"История передач долга ({len(transfers)})",
+                            size=18,
+                            weight=ft.FontWeight.BOLD
+                        ),
+                        padding=ft.padding.only(bottom=10)
+                    )
+                )
+
+                # Добавляем карточки передач
+                for transfer in transfers:
+                    self.payments_list.controls.append(
+                        self._create_transfer_card(transfer)
+                    )
+
+            # Добавляем кнопку "Передать долг" если кредит активен
+            if self.loan and self.loan.status == LoanStatus.ACTIVE:
+                self.payments_list.controls.append(
+                    ft.Container(
+                        content=ft.ElevatedButton(
+                            text="Передать долг",
+                            icon=ft.Icons.SWAP_HORIZ,
+                            on_click=self.open_debt_transfer_modal,
+                            bgcolor=ft.Colors.PRIMARY,
+                            color=ft.Colors.WHITE,
+                        ),
+                        padding=ft.padding.only(top=20),
+                        alignment=ft.alignment.center
+                    )
+                )
+
+            if self.page:
+                self.payments_list.update()
+
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке истории передач: {e}")
+            self.show_error(f"Ошибка при загрузке истории передач: {e}")
+
+    def _create_transfer_card(self, transfer) -> ft.Container:
+        """
+        Создаёт карточку передачи долга.
+
+        Args:
+            transfer: Объект DebtTransferDB
+
+        Returns:
+            Container с карточкой передачи
+        """
+        # Форматирование даты
+        transfer_date_str = transfer.transfer_date.strftime("%d.%m.%Y")
+
+        # Форматирование сумм
+        transfer_amount_str = f"{transfer.transfer_amount:,.2f} ₽".replace(",", " ")
+        previous_amount_str = f"{transfer.previous_amount:,.2f} ₽".replace(",", " ")
+        
+        # Форматирование разницы с цветом
+        difference = transfer.amount_difference
+        if difference > 0:
+            difference_str = f"+{difference:,.2f} ₽".replace(",", " ")
+            difference_color = ft.Colors.RED  # Увеличение долга
+            difference_icon = ft.Icons.ARROW_UPWARD
+        elif difference < 0:
+            difference_str = f"{difference:,.2f} ₽".replace(",", " ")
+            difference_color = ft.Colors.GREEN  # Уменьшение долга
+            difference_icon = ft.Icons.ARROW_DOWNWARD
+        else:
+            difference_str = "0.00 ₽"
+            difference_color = ft.Colors.GREY
+            difference_icon = ft.Icons.REMOVE
+
+        # Получаем имена кредиторов
+        from_lender_name = transfer.from_lender.name if transfer.from_lender else "Неизвестно"
+        to_lender_name = transfer.to_lender.name if transfer.to_lender else "Неизвестно"
+
+        # Основной контент карточки
+        controls = [
+            # Заголовок с датой
+            ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.SWAP_HORIZ, size=24, color=ft.Colors.PRIMARY),
+                    ft.Text(
+                        f"Передача от {transfer_date_str}",
+                        size=16,
+                        weight=ft.FontWeight.BOLD
+                    ),
+                ],
+                spacing=10
+            ),
+            ft.Divider(height=1),
+            
+            # Информация о передаче
+            ft.Row(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text("От кого:", size=12, color=ft.Colors.GREY_700),
+                            ft.Text(from_lender_name, size=14, weight=ft.FontWeight.BOLD),
+                        ],
+                        spacing=2,
+                        expand=True
+                    ),
+                    ft.Icon(ft.Icons.ARROW_FORWARD, size=20, color=ft.Colors.GREY_600),
+                    ft.Column(
+                        controls=[
+                            ft.Text("Кому:", size=12, color=ft.Colors.GREY_700),
+                            ft.Text(to_lender_name, size=14, weight=ft.FontWeight.BOLD),
+                        ],
+                        spacing=2,
+                        expand=True
+                    ),
+                ],
+                spacing=10,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            ),
+            
+            ft.Divider(height=1),
+            
+            # Суммы
+            ft.Row(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text("Остаток до передачи:", size=12, color=ft.Colors.GREY_700),
+                            ft.Text(previous_amount_str, size=14),
+                        ],
+                        spacing=2
+                    ),
+                    ft.Column(
+                        controls=[
+                            ft.Text("Сумма при передаче:", size=12, color=ft.Colors.GREY_700),
+                            ft.Text(transfer_amount_str, size=14, weight=ft.FontWeight.BOLD),
+                        ],
+                        spacing=2
+                    ),
+                    ft.Column(
+                        controls=[
+                            ft.Text("Изменение:", size=12, color=ft.Colors.GREY_700),
+                            ft.Row(
+                                controls=[
+                                    ft.Icon(difference_icon, size=16, color=difference_color),
+                                    ft.Text(
+                                        difference_str,
+                                        size=14,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=difference_color
+                                    ),
+                                ],
+                                spacing=5
+                            ),
+                        ],
+                        spacing=2
+                    ),
+                ],
+                spacing=15,
+                wrap=True
+            ),
+        ]
+
+        # Добавляем причину, если указана
+        if transfer.reason:
+            controls.append(ft.Divider(height=1))
+            controls.append(
+                ft.Column(
+                    controls=[
+                        ft.Text("Причина:", size=12, color=ft.Colors.GREY_700),
+                        ft.Text(transfer.reason, size=13),
+                    ],
+                    spacing=2
+                )
+            )
+
+        # Добавляем примечания, если указаны
+        if transfer.notes:
+            controls.append(
+                ft.Column(
+                    controls=[
+                        ft.Text("Примечания:", size=12, color=ft.Colors.GREY_700),
+                        ft.Text(transfer.notes, size=13, italic=True),
+                    ],
+                    spacing=2
+                )
+            )
+
+        return ft.Container(
+            content=ft.Column(
+                controls=controls,
+                spacing=10
+            ),
+            bgcolor=ft.Colors.SURFACE,
+            padding=15,
+            border_radius=10,
+            border=ft.border.all(1, ft.Colors.PRIMARY),
+        )
+
+    def open_debt_transfer_modal(self, e):
+        """
+        Открыть модальное окно передачи долга.
+        
+        Validates: Requirements 8.1
+        """
+        try:
+            # Создаём и открываем модальное окно
+            modal = DebtTransferModal(
+                session=self.session,
+                loan=self.loan,
+                on_transfer_callback=self.handle_debt_transfer
+            )
+            modal.open(self.page)
+
+        except Exception as ex:
+            logger.error(f"Ошибка при открытии диалога передачи долга: {ex}")
+            self.show_error(f"Ошибка при открытии диалога: {ex}")
+
+    def handle_debt_transfer(
+        self,
+        loan_id: str,
+        to_lender_id: str,
+        transfer_date,
+        transfer_amount,
+        reason,
+        notes
+    ):
+        """
+        Обработчик передачи долга.
+
+        Args:
+            loan_id: ID кредита
+            to_lender_id: ID нового держателя
+            transfer_date: Дата передачи
+            transfer_amount: Сумма передачи
+            reason: Причина передачи
+            notes: Примечания
+        """
+        try:
+            # Создаём передачу долга
+            transfer = create_debt_transfer(
+                session=self.session,
+                loan_id=loan_id,
+                to_lender_id=to_lender_id,
+                transfer_date=transfer_date,
+                transfer_amount=transfer_amount,
+                reason=reason,
+                notes=notes
+            )
+
+            logger.info(
+                f"Передача долга создана: кредит ID {loan_id}, "
+                f"новый держатель ID {to_lender_id}, сумма {transfer_amount}"
+            )
+
+            # Обновляем UI
+            self.load_loan_details()
+
+            # Показываем уведомление
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("Долг успешно передан!"),
+                    bgcolor=ft.Colors.GREEN
+                )
+                self.page.open(snack)
+
+        except ValueError as e:
+            logger.error(f"Ошибка валидации при передаче долга: {e}")
+            self.show_error(str(e))
+        except Exception as e:
+            logger.error(f"Ошибка при передаче долга: {e}")
+            self.show_error(f"Ошибка при передаче долга: {e}")
 
     def show_error(self, message: str):
         """
