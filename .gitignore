@@ -11,6 +11,7 @@ build/
 *.egg-info/
 *.spec
 !finance_tracker.spec
+!finance_tracker_linux.spec
 
 # IDE
 .vscode/

@@ -2,6 +2,33 @@
 
 ## 🚀 Быстрый старт
 
+### Linux (portable)
+
+```bash
+pyinstaller finance_tracker_linux.spec --clean --noconfirm
+```
+
+Запуск собранной версии:
+
+```bash
+dist/finance_tracker/finance_tracker
+```
+
+Создание ярлыка на рабочем столе (MX Linux):
+
+```bash
+cat > ~/Desktop/FinanceTracker.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Finance Tracker
+Exec=/полный/путь/к/папке/dist/finance_tracker/finance_tracker
+Icon=/полный/путь/к/папке/assets/icon.png
+Terminal=false
+Categories=Office;Finance;
+EOF
+chmod +x ~/Desktop/FinanceTracker.desktop
+```
+
 ### 1. Проверка готовности
 ```powershell
 .\build_check.ps1
