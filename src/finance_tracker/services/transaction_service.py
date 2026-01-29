@@ -21,7 +21,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
 
-from finance_tracker.models import TransactionDB, TransactionCreate, TransactionType, TransactionUpdate
+from finance_tracker.models import (
+    CategoryDB,
+    TransactionDB,
+    TransactionCreate,
+    TransactionType,
+    TransactionUpdate,
+)
 from finance_tracker.utils.validation import validate_uuid_format
 
 
@@ -146,7 +152,18 @@ def create_transaction(session: Session, transaction: TransactionCreate) -> Tran
             raise ValueError(error_msg)
         
         validate_uuid_format(transaction.category_id, "category_id")
-        
+
+        category = session.query(CategoryDB).filter_by(id=transaction.category_id).first()
+        if not category:
+            error_msg = "Категория с указанным ID не найдена"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        if category.type != transaction.type:
+            error_msg = "Тип категории не соответствует типу транзакции"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
         # Создаём объект БД из Pydantic модели
         db_transaction = TransactionDB(**transaction.model_dump())
         
