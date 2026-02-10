@@ -175,6 +175,15 @@ class EarlyRepaymentModal:
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
+    @property
+    def page(self) -> Optional[ft.Page]:
+        """Совместимость с тестами и старым API доступа к странице."""
+        return self._page
+
+    @page.setter
+    def page(self, value: Optional[ft.Page]) -> None:
+        self._page = value
+
     def open(self, page: ft.Page):
         """
         Открывает модальное окно.

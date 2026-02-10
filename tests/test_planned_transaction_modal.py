@@ -64,7 +64,7 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
         # Проверяем вызов page.open() с диалогом
         self.page.open.assert_called_once_with(self.modal.dialog)
-        self.assertEqual(self.modal.type_segment.selected, {TransactionType.EXPENSE.value})
+        self.assertEqual(self.modal.type_segment.selected, [TransactionType.EXPENSE.value])
         self.assertEqual(self.modal.recurrence_type_dropdown.value, RecurrenceType.NONE.value)
         self.assertFalse(self.modal.end_condition_dropdown.visible)
         self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)

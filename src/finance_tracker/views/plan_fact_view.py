@@ -210,7 +210,7 @@ class PlanFactView(ft.Container):
                             )
                         ),
                     ],
-                    on_select_changed=lambda _, x=occ: self._show_details(x)
+                    on_select_change=lambda _, x=occ: self._show_details(x)
                 )
             )
         

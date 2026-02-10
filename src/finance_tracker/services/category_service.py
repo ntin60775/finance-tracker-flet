@@ -11,6 +11,7 @@ import logging
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from finance_tracker.models import CategoryDB, TransactionType
 from finance_tracker.utils.cache import cache
@@ -40,6 +41,17 @@ def get_all_categories(
             logger.info(f"Загружено {len(all_categories)} категорий из БД и сохранено в кэш")
         else:
             logger.debug("Категории получены из кэша")
+
+            # ORM-объекты из кэша могут стать detached/expired между сессиями.
+            # В этом случае инвалидируем кэш и перечитываем категории из текущей сессии.
+            try:
+                _ = [c.id for c in all_categories]
+                _ = [c.type for c in all_categories]
+            except DetachedInstanceError:
+                logger.warning("Кэш категорий содержит detached объекты, выполняем перезагрузку")
+                cache.categories.invalidate()
+                all_categories = session.query(CategoryDB).order_by(CategoryDB.name).all()
+                cache.categories.set_all(all_categories, key_extractor=lambda c: c.id)
 
         # Фильтрация (выполняется уже в памяти над закэшированными данными)
         if transaction_type is not None:

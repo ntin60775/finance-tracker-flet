@@ -346,7 +346,7 @@ class PendingPaymentsWidget(ft.Container):
                 controls=[
                     ft.Row(
                         controls=[
-                            ft.Icon(name=icon, color=color, size=16),
+                            ft.Icon(icon=icon, color=color, size=16),
                             ft.Text(
                                 priority_name,
                                 size=12,

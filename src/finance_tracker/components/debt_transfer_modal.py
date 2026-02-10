@@ -69,6 +69,15 @@ class DebtTransferModal:
         self._build_form_controls()
         self._build_dialog()
 
+    @property
+    def page(self) -> Optional[ft.Page]:
+        """Совместимость с тестами и старым API доступа к странице."""
+        return self._page
+
+    @page.setter
+    def page(self, value: Optional[ft.Page]) -> None:
+        self._page = value
+
     def _build_info_section(self):
         """Строит секцию с информацией о кредите и текущем держателе."""
         # Получаем информацию о текущем держателе

@@ -64,7 +64,7 @@ class MainWindow(ft.Row):
                 base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             
             icon_path = os.path.join(base_path, 'assets', 'icon.ico')
-            if os.path.exists(icon_path):
+            if os.path.exists(icon_path) and hasattr(self._page, "window") and self._page.window:
                 self._page.window.icon = icon_path
                 logger.info(f"Иконка окна установлена: {icon_path}")
             else:
@@ -73,7 +73,8 @@ class MainWindow(ft.Row):
             logger.error(f"Ошибка при установке иконки окна: {e}")
         
         # ВСЕГДА разворачиваем окно на весь экран при запуске
-        self._page.window.maximized = True
+        if hasattr(self._page, "window") and self._page.window:
+            self._page.window.maximized = True
 
         # Примечание: width/height/top/left не устанавливаем, так как окно maximized
         # Эти значения будут использованы, если пользователь выйдет из полноэкранного режима
@@ -215,10 +216,11 @@ class MainWindow(ft.Row):
     def save_state(self):
         """Сохраняет текущее состояние приложения"""
         settings.last_selected_index = self.rail.selected_index
-        settings.window_width = self._page.window.width
-        settings.window_height = self._page.window.height
-        settings.window_top = self._page.window.top
-        settings.window_left = self._page.window.left
+        if hasattr(self._page, "window") and self._page.window:
+            settings.window_width = self._page.window.width
+            settings.window_height = self._page.window.height
+            settings.window_top = self._page.window.top
+            settings.window_left = self._page.window.left
         settings.save()
 
     def navigate(self, index: int):

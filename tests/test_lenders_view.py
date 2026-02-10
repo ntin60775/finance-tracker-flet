@@ -647,7 +647,7 @@ class TestLendersView(ViewTestBase):
         self.assertIsInstance(icon_control, ft.Icon)
         
         # Проверяем, что иконка имеет правильное значение (GAVEL для COLLECTOR)
-        self.assertEqual(icon_control.name, ft.Icons.GAVEL)
+        self.assertEqual(icon_control.icon, ft.Icons.GAVEL)
         
         # Проверяем, что иконка имеет оранжевый цвет
         self.assertEqual(icon_control.color, ft.Colors.ORANGE)
@@ -696,7 +696,7 @@ class TestLendersView(ViewTestBase):
             
             # Проверяем, что иконка соответствует типу займодателя
             expected_icon = expected_icons[lender.lender_type]
-            self.assertEqual(icon_control.name, expected_icon,
+            self.assertEqual(icon_control.icon, expected_icon,
                            f"Иконка для типа {lender.lender_type} должна быть {expected_icon}")
 
 

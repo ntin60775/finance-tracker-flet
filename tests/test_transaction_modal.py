@@ -331,7 +331,7 @@ class TestTransactionModal(unittest.TestCase):
         self.assertIsNotNone(self.modal.amount_field, "Поле суммы должно быть создано")
         self.assertIsInstance(self.modal.amount_field, ft.TextField, "Поле суммы должно быть TextField")
         self.assertEqual(self.modal.amount_field.label, "Сумма", "Поле суммы должно иметь правильный label")
-        self.assertEqual(self.modal.amount_field.suffix_text, "₽", "Поле суммы должно иметь суффикс валюты")
+        self.assertEqual(self.modal.amount_field.suffix, "₽", "Поле суммы должно иметь суффикс валюты")
         self.assertEqual(self.modal.amount_field.keyboard_type, ft.KeyboardType.NUMBER, "Поле суммы должно иметь числовую клавиатуру")
         
         # 2. Проверяем dropdown категорий
