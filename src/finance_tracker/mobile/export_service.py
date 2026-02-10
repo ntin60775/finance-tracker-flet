@@ -1,74 +1,33 @@
+"""Сервис экспорта данных в файлы.
+
+Публичный API сохранен, но полноценная реализация экспорта
+запланирована отдельной задачей.
 """
-Сервис экспорта данных в файлы.
 
-Публичный функционал - доступен всем пользователям.
-"""
-
-import json
-from typing import Optional
-from datetime import datetime
-
-from finance_tracker.config import settings
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+EXPORT_IMPORT_ISSUE_URL = "https://github.com/ntin60775/finance-tracker-flet/issues/4"
+
 
 class ExportService:
-    """
-    Сервис для экспорта данных приложения в JSON файлы.
-    
-    Экспортирует:
-    - Транзакции
-    - Категории
-    - Кредиты
-    - Настройки
-    """
-    
+    """API экспорта данных приложения."""
+
     @staticmethod
-    def export_to_file(filepath: Optional[str] = None) -> str:
-        """
-        Экспортирует все данные в JSON файл.
-        
+    def export_to_file(filepath: str | None = None) -> str:
+        """Экспорт временно недоступен.
+
         Args:
-            filepath: Путь к файлу экспорта. Если None - создаётся автоматически
-                     в директории ~/.finance_tracker_data/exports/
-            
-        Returns:
-            str: Путь к созданному файлу
-            
+            filepath: Сигнатура сохранена для совместимости API.
+
         Raises:
-            IOError: Ошибка записи файла
+            NotImplementedError: Полная реализация не завершена.
         """
-        if filepath is None:
-            # Создаём директорию для экспортов (уже создана в config.py, но проверим)
-            export_dir = settings.user_data_dir / "exports"
-            export_dir.mkdir(exist_ok=True)
-            
-            # Генерируем имя файла с датой
-            timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-            filepath = str(export_dir / f"backup_{timestamp}.json")
-        
-        logger.info(f"Начало экспорта данных в {filepath}")
-        
-        # TODO: Реализовать экспорт данных из БД
-        # Пока создаём структуру для будущей реализации
-        data = {
-            "version": "2.0.0",
-            "export_date": datetime.now().isoformat(),
-            "transactions": [],
-            "categories": [],
-            "loans": [],
-            "settings": {},
-        }
-        
-        try:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            
-            logger.info(f"Экспорт завершён: {filepath}")
-            return filepath
-            
-        except IOError as e:
-            logger.error(f"Ошибка при записи файла экспорта {filepath}: {e}")
-            raise
+        _ = filepath
+        message = (
+            "Экспорт данных временно недоступен. "
+            f"Реализация запланирована: {EXPORT_IMPORT_ISSUE_URL}"
+        )
+        logger.warning(message)
+        raise NotImplementedError(message)

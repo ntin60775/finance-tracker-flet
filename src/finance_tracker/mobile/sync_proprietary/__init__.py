@@ -6,6 +6,9 @@
 """
 
 
+EXPORT_IMPORT_ISSUE_URL = "https://github.com/ntin60775/finance-tracker-flet/issues/4"
+
+
 class CloudSyncService:
     """
     Заглушка для облачной синхронизации.
@@ -17,7 +20,7 @@ class CloudSyncService:
     def __init__(self):
         raise NotImplementedError(
             "CloudSyncService доступен только в расширенной версии. "
-            "Используйте ExportService/ImportService для базового функционала."
+            + f"Трекер реализации открытых backup API: {EXPORT_IMPORT_ISSUE_URL}"
         )
 
 
@@ -32,7 +35,7 @@ class RealtimeSyncService:
     def __init__(self):
         raise NotImplementedError(
             "RealtimeSyncService доступен только в расширенной версии. "
-            "Используйте ExportService/ImportService для базового функционала."
+            + f"Трекер реализации открытых backup API: {EXPORT_IMPORT_ISSUE_URL}"
         )
 
 

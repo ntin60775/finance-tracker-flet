@@ -1,63 +1,33 @@
-"""
-Сервис импорта данных из файлов.
+"""Сервис импорта данных из файлов.
 
-Публичный функционал - доступен всем пользователям.
+Публичный API сохранен, но полноценная реализация импорта
+запланирована отдельной задачей.
 """
-
-import json
-from typing import Dict
 
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+EXPORT_IMPORT_ISSUE_URL = "https://github.com/ntin60775/finance-tracker-flet/issues/4"
+
 
 class ImportService:
-    """
-    Сервис для импорта данных из JSON файлов.
-    """
-    
+    """API импорта данных приложения."""
+
     @staticmethod
-    def import_from_file(filepath: str) -> Dict[str, int]:
-        """
-        Импортирует данные из JSON файла.
-        
+    def import_from_file(filepath: str) -> dict[str, int]:
+        """Импорт временно недоступен.
+
         Args:
-            filepath: Путь к файлу импорта
-            
-        Returns:
-            Dict[str, int]: Статистика импорта (количество импортированных записей)
-            
+            filepath: Сигнатура сохранена для совместимости API.
+
         Raises:
-            FileNotFoundError: Файл не найден
-            ValueError: Некорректный формат файла
+            NotImplementedError: Полная реализация не завершена.
         """
-        logger.info(f"Начало импорта данных из {filepath}")
-        
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except FileNotFoundError:
-            logger.error(f"Файл импорта не найден: {filepath}")
-            raise
-        except json.JSONDecodeError as e:
-            logger.error(f"Некорректный формат JSON в файле {filepath}: {e}")
-            raise ValueError(f"Некорректный формат файла: {e}")
-        
-        # Проверка версии
-        file_version = data.get("version")
-        if file_version != "2.0.0":
-            error_msg = f"Неподдерживаемая версия файла: {file_version}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-        
-        # TODO: Реализовать импорт данных в БД
-        # Пока возвращаем пустую статистику
-        stats = {
-            "transactions": 0,
-            "categories": 0,
-            "loans": 0,
-        }
-        
-        logger.info(f"Импорт завершён: {stats}")
-        return stats
+        _ = filepath
+        message = (
+            "Импорт данных временно недоступен. "
+            f"Реализация запланирована: {EXPORT_IMPORT_ISSUE_URL}"
+        )
+        logger.warning(message)
+        raise NotImplementedError(message)
