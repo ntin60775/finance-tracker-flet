@@ -56,7 +56,7 @@ class PlannedTransactionModal:
         """
         self.session = session
         self.on_save = on_save
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.current_start_date = datetime.date.today()
         self.current_end_date: Optional[datetime.date] = None
 
@@ -74,19 +74,19 @@ class PlannedTransactionModal:
                     icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP),
                 ),
             ],
-            selected={TransactionType.EXPENSE.value},
+            selected=[TransactionType.EXPENSE.value],
             on_change=self._on_type_change,
         )
 
         self.start_date_button = ft.ElevatedButton(
-            text=self.current_start_date.strftime("%d.%m.%Y"),
+            content=self.current_start_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_start_date_picker
         )
 
         self.amount_field = ft.TextField(
             label="Сумма",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -99,7 +99,7 @@ class PlannedTransactionModal:
         self.category_dropdown = ft.Dropdown(
             label="Категория",
             options=[],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         self.description_field = ft.TextField(
@@ -120,7 +120,7 @@ class PlannedTransactionModal:
                 ft.dropdown.Option(key=RecurrenceType.CUSTOM.value, text="Кастомная"),
             ],
             value=RecurrenceType.NONE.value,
-            on_change=self._on_recurrence_type_change
+            on_select=self._on_recurrence_type_change
         )
 
         # Custom interval fields (for CUSTOM type)
@@ -154,12 +154,12 @@ class PlannedTransactionModal:
                 ft.dropdown.Option(key=EndConditionType.AFTER_COUNT.value, text="После N повторений"),
             ],
             value=EndConditionType.NEVER.value,
-            on_change=self._on_end_condition_change,
+            on_select=self._on_end_condition_change,
             visible=False  # Initially hidden until recurrence is set
         )
 
         self.end_date_button = ft.ElevatedButton(
-            text="Выбрать дату",
+            content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_end_date_picker,
             visible=False
@@ -238,13 +238,13 @@ class PlannedTransactionModal:
             page: Ссылка на страницу Flet.
             date: Предустановленная дата начала (по умолчанию сегодня).
         """
-        self.page = page
+        self._page = page
 
         # Setup Date Pickers if not added
-        if self.start_date_picker not in self.page.overlay:
-            self.page.overlay.append(self.start_date_picker)
-        if self.end_date_picker not in self.page.overlay:
-            self.page.overlay.append(self.end_date_picker)
+        if self.start_date_picker not in self._page.overlay:
+            self._page.overlay.append(self.start_date_picker)
+        if self.end_date_picker not in self._page.overlay:
+            self._page.overlay.append(self.end_date_picker)
 
         # Reset fields
         self.current_start_date = date or datetime.date.today()
@@ -258,7 +258,7 @@ class PlannedTransactionModal:
         self.error_text.value = ""
 
         # Default to Expense
-        self.type_segment.selected = {TransactionType.EXPENSE.value}
+        self.type_segment.selected = [TransactionType.EXPENSE.value]
 
         # Reset recurrence fields
         self.recurrence_type_dropdown.value = RecurrenceType.NONE.value
@@ -273,16 +273,16 @@ class PlannedTransactionModal:
         # Load categories
         self._load_categories(TransactionType.EXPENSE)
 
-        self.page.open(self.dialog)
+        self._page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
 
     def _open_start_date_picker(self, e):
         """Открытие выбора даты начала."""
-        self.page.open(self.start_date_picker)
+        self._page.open(self.start_date_picker)
 
     def _on_start_date_change(self, e):
         """Обработка выбора даты начала."""
@@ -293,11 +293,11 @@ class PlannedTransactionModal:
             else:
                 self.current_start_date = self.start_date_picker.value
             self.start_date_button.text = self.current_start_date.strftime("%d.%m.%Y")
-            self.page.update()
+            self._page.update()
 
     def _open_end_date_picker(self, e):
         """Открытие выбора даты окончания."""
-        self.page.open(self.end_date_picker)
+        self._page.open(self.end_date_picker)
 
     def _on_end_date_change(self, e):
         """Обработка выбора даты окончания."""
@@ -308,7 +308,7 @@ class PlannedTransactionModal:
             else:
                 self.current_end_date = self.end_date_picker.value
             self.end_date_button.text = self.current_end_date.strftime("%d.%m.%Y")
-            self.page.update()
+            self._page.update()
 
     def _on_type_change(self, e):
         """Обработка смены типа транзакции."""
@@ -318,7 +318,7 @@ class PlannedTransactionModal:
 
         selected_type = list(self.type_segment.selected)[0]
         self._load_categories(TransactionType(selected_type))
-        self.page.update()
+        self._page.update()
 
     def _load_categories(self, t_type: TransactionType):
         """Загрузка категорий выбранного типа."""
@@ -335,12 +335,12 @@ class PlannedTransactionModal:
     def _on_recurrence_type_change(self, e):
         """Обработка изменения типа повторения."""
         self._update_recurrence_ui()
-        self.page.update()
+        self._page.update()
 
     def _on_end_condition_change(self, e):
         """Обработка изменения условия окончания."""
         self._update_end_condition_ui()
-        self.page.update()
+        self._page.update()
 
     def _update_recurrence_ui(self):
         """Обновление видимости полей в зависимости от типа повторения."""
@@ -375,7 +375,7 @@ class PlannedTransactionModal:
             e.control.error_text = None
         elif isinstance(e.control, ft.Dropdown):
             e.control.error_text = None
-        self.page.update()
+        self._page.update()
 
     def _validate_fields(self) -> bool:
         """
@@ -476,7 +476,7 @@ class PlannedTransactionModal:
         Validates: Requirements 5.1, 5.2 - создание плановых транзакций с правилами повторения
         """
         if not self._validate_fields():
-            self.page.update()
+            self._page.update()
             return
 
         try:
@@ -508,4 +508,4 @@ class PlannedTransactionModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка сохранения: {ex}"
-            self.page.update()
+            self._page.update()

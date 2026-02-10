@@ -48,7 +48,7 @@ class DebtTransferModal:
         self.session = session
         self.loan = loan
         self.on_transfer_callback = on_transfer_callback
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.transfer_date: Optional[datetime.date] = None
         self.current_remaining_debt: Optional[Decimal] = None
 
@@ -98,19 +98,19 @@ class DebtTransferModal:
         self.to_lender_dropdown = ft.Dropdown(
             label="Новый держатель долга *",
             options=[],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         # Кнопка создания нового кредитора
         self.create_lender_button = ft.TextButton(
-            text="Создать кредитора",
+            content="Создать кредитора",
             icon=ft.Icons.ADD,
             on_click=self._on_create_lender
         )
 
         # Дата передачи
         self.transfer_date_button = ft.ElevatedButton(
-            text="Выбрать дату передачи *",
+            content="Выбрать дату передачи *",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
         )
@@ -118,7 +118,7 @@ class DebtTransferModal:
         # Сумма передачи
         self.amount_field = ft.TextField(
             label="Сумма долга при передаче *",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -229,7 +229,7 @@ class DebtTransferModal:
         Args:
             page: Страница Flet для отображения диалога
         """
-        self.page = page
+        self._page = page
 
         # Загружаем список кредиторов
         self._load_lenders()
@@ -253,8 +253,8 @@ class DebtTransferModal:
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
 
     def _load_lenders(self):
         """Загружает список кредиторов в dropdown."""
@@ -285,15 +285,15 @@ class DebtTransferModal:
 
         except Exception as e:
             self.error_text.value = f"Ошибка загрузки кредиторов: {str(e)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _clear_error(self, e=None):
         """Очищает сообщение об ошибке при изменении поля."""
         if self.error_text.value:
             self.error_text.value = ""
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _open_date_picker(self, e):
         """Открывает date picker для даты передачи."""
@@ -305,8 +305,8 @@ class DebtTransferModal:
             self.transfer_date = e.control.value
             self.transfer_date_button.text = f"Дата передачи: {self.transfer_date.strftime('%d.%m.%Y')}"
             self._clear_error()
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _on_amount_change(self, e):
         """Обработчик изменения суммы — показывает разницу."""
@@ -317,8 +317,8 @@ class DebtTransferModal:
         """Обновляет отображение разницы с текущим остатком."""
         if not self.amount_field.value or not self.current_remaining_debt:
             self.amount_difference_text.value = ""
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             return
 
         try:
@@ -338,13 +338,13 @@ class DebtTransferModal:
         except (InvalidOperation, ValueError):
             self.amount_difference_text.value = ""
             
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _on_create_lender(self, e):
         """Открывает модальное окно создания кредитора."""
-        if self.page:
-            self.lender_modal.open(self.page)
+        if self._page:
+            self.lender_modal.open(self._page)
 
     def _on_lender_created(
         self, 
@@ -385,13 +385,13 @@ class DebtTransferModal:
             self._clear_error()
             
             # Обновляем UI
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
                 
         except Exception as ex:
             self.error_text.value = f"Ошибка при создании кредитора: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _validate_form(self) -> bool:
         """
@@ -459,7 +459,7 @@ class DebtTransferModal:
                 ft.Text("Вы уверены, что хотите передать долг?"),
             ], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda e: self.page.close(confirmation_dialog)),
+                ft.TextButton("Отмена", on_click=lambda e: self._page.close(confirmation_dialog)),
                 ft.ElevatedButton(
                     "Подтвердить передачу", 
                     on_click=lambda e: self._execute_transfer(confirmation_dialog)
@@ -468,13 +468,13 @@ class DebtTransferModal:
             actions_alignment=ft.MainAxisAlignment.END,
         )
         
-        self.page.open(confirmation_dialog)
+        self._page.open(confirmation_dialog)
 
     def _execute_transfer(self, confirmation_dialog):
         """Выполняет передачу долга после подтверждения."""
         try:
             # Закрываем диалог подтверждения
-            self.page.close(confirmation_dialog)
+            self._page.close(confirmation_dialog)
             
             # Получаем данные из формы
             to_lender_id = self.to_lender_dropdown.value
@@ -498,15 +498,15 @@ class DebtTransferModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка при передаче долга: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _on_confirm(self, e):
         """Подтверждение передачи с диалогом подтверждения."""
         # Валидация
         if not self._validate_form():
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             return
 
         # Показываем диалог подтверждения

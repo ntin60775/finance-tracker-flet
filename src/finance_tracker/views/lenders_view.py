@@ -49,7 +49,7 @@ class LendersView(ft.Column):
             page: Страница Flet для отображения UI
         """
         super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.lender_type_filter: Optional[LenderType] = None
         self.selected_lender: Optional[LenderDB] = None
 
@@ -98,7 +98,7 @@ class LendersView(ft.Column):
                 ft.dropdown.Option(key=LenderType.OTHER.value, text="Другое"),
             ],
             value="all",
-            on_change=self.on_type_filter_change
+            on_select=self.on_type_filter_change
         )
 
         # Список займодателей
@@ -138,7 +138,7 @@ class LendersView(ft.Column):
                             color=ft.Colors.GREY_400,
                             text_align=ft.TextAlign.CENTER
                         ),
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                         padding=40
                     )
                 )
@@ -148,7 +148,7 @@ class LendersView(ft.Column):
                         self._create_lender_card(lender)
                     )
 
-            self.page.update()
+            self._page.update()
             logger.info(f"Загружено {len(lenders)} займодателей")
 
         except Exception as e:
@@ -372,7 +372,7 @@ class LendersView(ft.Column):
     def open_create_dialog(self, e):
         """Открывает диалог создания нового займодателя."""
         self.selected_lender = None
-        self.lender_modal.open(self.page, lender=None)
+        self.lender_modal.open(self._page, lender=None)
 
     def open_edit_dialog(self, lender: LenderDB):
         """
@@ -382,7 +382,7 @@ class LendersView(ft.Column):
             lender: Займодатель для редактирования
         """
         self.selected_lender = lender
-        self.lender_modal.open(self.page, lender=lender)
+        self.lender_modal.open(self._page, lender=lender)
 
     def confirm_delete_lender(self, lender: LenderDB):
         """
@@ -396,7 +396,7 @@ class LendersView(ft.Column):
                 delete_lender(self.session, lender.id)
                 logger.info(f"Займодатель удалён: {lender.name} (ID {lender.id})")
                 self._show_success(f"Займодатель '{lender.name}' успешно удалён")
-                self.page.close(confirm_dialog)
+                self._page.close(confirm_dialog)
                 self.load_lenders()
 
             except ValueError as ve:
@@ -407,7 +407,7 @@ class LendersView(ft.Column):
                 self._show_error(f"Не удалось удалить займодателя: {str(ex)}")
 
         def cancel(e):
-            self.page.close(confirm_dialog)
+            self._page.close(confirm_dialog)
 
         confirm_dialog = ft.AlertDialog(
             modal=True,
@@ -429,7 +429,7 @@ class LendersView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        self.page.open(confirm_dialog)
+        self._page.open(confirm_dialog)
 
     def _show_success(self, message: str):
         """Показывает snackbar с сообщением об успехе."""
@@ -438,7 +438,7 @@ class LendersView(ft.Column):
             bgcolor=ft.Colors.GREEN,
             duration=3000
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def _show_error(self, message: str):
         """Показывает snackbar с сообщением об ошибке."""
@@ -447,7 +447,7 @@ class LendersView(ft.Column):
             bgcolor=ft.Colors.ERROR,
             duration=5000
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""

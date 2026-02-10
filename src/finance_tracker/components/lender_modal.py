@@ -41,7 +41,7 @@ class LenderModal:
         self.session = session
         self.on_save = on_save
         self.on_update = on_update
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.edit_lender_id: Optional[str] = None
 
         # UI Controls
@@ -63,7 +63,7 @@ class LenderModal:
                 ft.dropdown.Option(key=LenderType.COLLECTOR.value, text="Коллектор"),
                 ft.dropdown.Option(key=LenderType.OTHER.value, text="Другое"),
             ],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         self.description_field = ft.TextField(
@@ -129,7 +129,7 @@ class LenderModal:
             page: Страница Flet для отображения диалога
             lender: Займодатель для редактирования (None = создание нового)
         """
-        self.page = page
+        self._page = page
 
         # Режим редактирования или создания
         if lender:
@@ -157,15 +157,15 @@ class LenderModal:
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
 
     def _clear_error(self, e=None):
         """Очищает сообщение об ошибке при изменении поля."""
         if self.error_text.value:
             self.error_text.value = ""
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _validate_fields(self) -> bool:
         """
@@ -177,8 +177,8 @@ class LenderModal:
         # Проверка обязательных полей
         if not self.name_field.value or not self.name_field.value.strip():
             self.error_text.value = "Название займодателя не может быть пустым"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             return False
 
         return True
@@ -227,9 +227,9 @@ class LenderModal:
 
         except ValueError as ve:
             self.error_text.value = str(ve)
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
         except Exception as ex:
             self.error_text.value = f"Ошибка: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()

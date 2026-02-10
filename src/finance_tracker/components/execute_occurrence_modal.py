@@ -53,21 +53,21 @@ class ExecuteOccurrenceModal:
         self.on_execute = on_execute
         self.on_skip = on_skip
         self.on_reschedule = on_reschedule
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.occurrence: Optional[PlannedOccurrence] = None
         self.current_date = datetime.date.today()
         self.reschedule_mode = False  # Флаг режима переноса
 
         # UI Controls
         self.date_button = ft.ElevatedButton(
-            text=self.current_date.strftime("%d.%m.%Y"),
+            content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
         )
 
         self.amount_field = ft.TextField(
             label="Сумма исполнения",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -180,12 +180,12 @@ class ExecuteOccurrenceModal:
             occurrence: Плановое вхождение для исполнения/пропуска.
             default_date: Предустановленная дата исполнения (по умолчанию сегодня).
         """
-        self.page = page
+        self._page = page
         self.occurrence = occurrence
 
         # Setup Date Picker if not added
-        if self.date_picker not in self.page.overlay:
-            self.page.overlay.append(self.date_picker)
+        if self.date_picker not in self._page.overlay:
+            self._page.overlay.append(self.date_picker)
 
         # Reset fields
         self.current_date = default_date or datetime.date.today()
@@ -214,12 +214,12 @@ class ExecuteOccurrenceModal:
         if self.reschedule_button:
             self.reschedule_button.visible = self.on_reschedule is not None
 
-        self.page.open(self.dialog)
+        self._page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""
@@ -236,7 +236,7 @@ class ExecuteOccurrenceModal:
         """Сброс ошибок при вводе."""
         if isinstance(e.control, ft.TextField):
             e.control.error_text = None
-        self.page.update()
+        self._page.update()
 
     def _show_execute_form(self):
         """Показать форму исполнения."""
@@ -253,7 +253,7 @@ class ExecuteOccurrenceModal:
         self.cancel_skip_button.visible = False
 
         self.dialog.title = ft.Text("Исполнение планового вхождения")
-        self.page.update()
+        self._page.update()
 
     def _show_skip_form(self, e=None):
         """Показать форму пропуска."""
@@ -270,7 +270,7 @@ class ExecuteOccurrenceModal:
         self.cancel_skip_button.visible = True
 
         self.dialog.title = ft.Text("Пропуск планового вхождения")
-        self.page.update()
+        self._page.update()
 
     def _show_reschedule_form(self, e=None):
         """Показать форму переноса."""
@@ -287,7 +287,7 @@ class ExecuteOccurrenceModal:
         self.cancel_skip_button.visible = True
 
         self.dialog.title = ft.Text("Перенос планового вхождения")
-        self.page.update()
+        self._page.update()
 
     def _hide_skip_form(self, e=None):
         """Вернуться к форме исполнения."""
@@ -312,7 +312,7 @@ class ExecuteOccurrenceModal:
             errors = True
 
         if errors:
-            self.page.update()
+            self._page.update()
             return
 
         try:
@@ -322,7 +322,7 @@ class ExecuteOccurrenceModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка исполнения: {ex}"
-            self.page.update()
+            self._page.update()
 
     def _confirm_skip(self, e):
         """
@@ -339,7 +339,7 @@ class ExecuteOccurrenceModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка пропуска: {ex}"
-            self.page.update()
+            self._page.update()
 
     def _confirm_reschedule(self, e):
         """
@@ -348,13 +348,13 @@ class ExecuteOccurrenceModal:
         try:
             if not self.on_reschedule:
                 self.error_text.value = "Функция переноса недоступна"
-                self.page.update()
+                self._page.update()
                 return
 
             # Проверяем, что выбранная дата отличается от текущей
             if self.current_date == self.occurrence.occurrence_date:
                 self.error_text.value = "Выберите другую дату для переноса"
-                self.page.update()
+                self._page.update()
                 return
 
             # Call reschedule callback
@@ -363,4 +363,4 @@ class ExecuteOccurrenceModal:
 
         except Exception as ex:
             self.error_text.value = f"Ошибка переноса: {ex}"
-            self.page.update()
+            self._page.update()

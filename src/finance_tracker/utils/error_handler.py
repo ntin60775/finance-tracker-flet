@@ -22,7 +22,7 @@ class ErrorHandler:
     """
 
     def __init__(self, page: Optional[ft.Page] = None):
-        self.page = page
+        self._page = page
 
     def handle(self, exception: Exception, context_message: str = ""):
         """
@@ -42,7 +42,7 @@ class ErrorHandler:
             logger.error(f"System error: {log_message}\n{traceback.format_exc()}")
 
         # Отображение в UI (если есть доступ к странице)
-        if self.page:
+        if self._page:
             self._show_error_dialog(error_message)
 
     def _get_user_message(self, exception: Exception) -> str:
@@ -63,7 +63,7 @@ class ErrorHandler:
             bgcolor=ft.Colors.ERROR,
             action="OK",
         )
-        self.page.open(snack_bar)
+        self._page.open(snack_bar)
 
 
 def safe_handler(page_getter: Callable[[], Optional[ft.Page]] = None):

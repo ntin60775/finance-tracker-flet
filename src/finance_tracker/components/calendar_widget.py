@@ -256,7 +256,7 @@ class CalendarWidget(ft.Container):
                 ft.Container(
                     content=self.header_text,
                     expand=True,
-                    alignment=ft.alignment.center
+                    alignment=ft.Alignment.CENTER
                 ),
                 ft.IconButton(
                     icon=ft.Icons.CHEVRON_RIGHT,
@@ -299,7 +299,7 @@ class CalendarWidget(ft.Container):
                             size=12
                         ),
                         expand=True,
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                     )
                     for i in range(num_weeks)
                 ]
@@ -441,7 +441,7 @@ class CalendarWidget(ft.Container):
                         size=self._font_size - 2  # Адаптивный размер шрифта метки
                     ),
                     width=40,
-                    alignment=ft.alignment.center_right,
+                    alignment=ft.Alignment.CENTER_RIGHT,
                     padding=ft.padding.only(right=5),
                     # Выделяем выходные светлым фоном
                     bgcolor=ft.Colors.BLUE_50 if is_weekend else None,

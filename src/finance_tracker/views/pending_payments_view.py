@@ -66,7 +66,7 @@ class PendingPaymentsView(ft.Column):
             page: Страница Flet для отображения UI
         """
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.has_date_filter: Optional[bool] = None  # None=все, True=с датой, False=без даты
         self.priority_filter: Optional[PendingPaymentPriority] = None
         self.selected_payment: Optional[PendingPaymentDB] = None
@@ -123,13 +123,14 @@ class PendingPaymentsView(ft.Column):
 
         # Фильтры по наличию даты
         self.date_tabs = ft.Tabs(
+            content=ft.TabBar(tabs=[
+                ft.Tab(label="Все"),
+                ft.Tab(label="С датой", icon=ft.Icon(ft.Icons.CALENDAR_TODAY)),
+                ft.Tab(label="Без даты", icon=ft.Icon(ft.Icons.EVENT_BUSY)),
+            ]),
+            length=3,
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="Все"),
-                ft.Tab(text="С датой", icon=ft.Icon(ft.Icons.CALENDAR_TODAY)),
-                ft.Tab(text="Без даты", icon=ft.Icon(ft.Icons.EVENT_BUSY)),
-            ],
             on_change=self.on_date_filter_change
         )
 
@@ -145,7 +146,7 @@ class PendingPaymentsView(ft.Column):
                 ft.dropdown.Option(key=PendingPaymentPriority.CRITICAL.value, text="Критический"),
             ],
             value="all",
-            on_change=self.on_priority_filter_change
+            on_select=self.on_priority_filter_change
         )
 
         # Список отложенных платежей
@@ -262,7 +263,7 @@ class PendingPaymentsView(ft.Column):
             spacing=5,
         )
 
-        if self.page:
+        if self._page:
             self.stats_card.update()
 
     def _update_payments_list(self, payments: List[PendingPaymentDB]):
@@ -279,7 +280,7 @@ class PendingPaymentsView(ft.Column):
                         italic=True
                     ),
                     padding=20,
-                    alignment=ft.alignment.center
+                    alignment=ft.Alignment.CENTER
                 )
             )
         else:
@@ -288,7 +289,7 @@ class PendingPaymentsView(ft.Column):
                     self._build_payment_card(payment)
                 )
 
-        if self.page:
+        if self._page:
             self.payments_list.update()
 
     def _build_payment_card(self, payment: PendingPaymentDB) -> ft.Container:
@@ -439,15 +440,15 @@ class PendingPaymentsView(ft.Column):
 
     def open_create_dialog(self, e):
         """Открытие диалога создания платежа."""
-        self.payment_modal.open(self.page)
+        self.payment_modal.open(self._page)
 
     def open_edit_dialog(self, payment: PendingPaymentDB):
         """Открытие диалога редактирования платежа."""
-        self.payment_modal.open(self.page, payment=payment)
+        self.payment_modal.open(self._page, payment=payment)
 
     def open_execute_dialog(self, payment: PendingPaymentDB):
         """Открытие диалога исполнения платежа."""
-        self.execute_modal.open(self.page, payment=payment)
+        self.execute_modal.open(self._page, payment=payment)
 
     def on_create_payment(self, payment_data: PendingPaymentCreate):
         """Callback создания платежа."""
@@ -496,7 +497,7 @@ class PendingPaymentsView(ft.Column):
                 reason = reason_field.value or None
                 cancel_data = PendingPaymentCancel(cancel_reason=reason)
                 cancel_pending_payment(self.session, payment.id, cancel_data)
-                self.page.close(dialog)
+                self._page.close(dialog)
                 self.show_success("Отложенный платёж отменён")
                 self.refresh_data()
             except Exception as ex:
@@ -523,19 +524,19 @@ class PendingPaymentsView(ft.Column):
                 spacing=10,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self.page.close(dialog)),
+                ft.TextButton("Отмена", on_click=lambda _: self._page.close(dialog)),
                 ft.ElevatedButton("Отменить платёж", on_click=on_confirm),
             ],
         )
 
-        self.page.open(dialog)
+        self._page.open(dialog)
 
     def confirm_delete_payment(self, payment: PendingPaymentDB):
         """Подтверждение удаления платежа."""
         def on_confirm(e):
             try:
                 delete_pending_payment(self.session, payment.id)
-                self.page.close(dialog)
+                self._page.close(dialog)
                 self.show_success("Отложенный платёж удалён")
                 self.refresh_data()
             except ValueError as ve:
@@ -557,12 +558,12 @@ class PendingPaymentsView(ft.Column):
                 spacing=5,
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self.page.close(dialog)),
+                ft.TextButton("Отмена", on_click=lambda _: self._page.close(dialog)),
                 ft.ElevatedButton("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR),
             ],
         )
 
-        self.page.open(dialog)
+        self._page.open(dialog)
 
     def show_success(self, message: str):
         """Отображение сообщения об успехе."""
@@ -570,7 +571,7 @@ class PendingPaymentsView(ft.Column):
             content=ft.Text(message),
             bgcolor=ft.Colors.GREEN,
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def show_error(self, message: str):
         """Отображение сообщения об ошибке."""
@@ -578,4 +579,4 @@ class PendingPaymentsView(ft.Column):
             content=ft.Text(message),
             bgcolor=ft.Colors.ERROR,
         )
-        self.page.open(snack)
+        self._page.open(snack)

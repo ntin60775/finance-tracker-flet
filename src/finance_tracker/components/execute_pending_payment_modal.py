@@ -44,20 +44,20 @@ class ExecutePendingPaymentModal:
         """
         self.session = session
         self.on_execute = on_execute
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.payment: Optional[PendingPaymentDB] = None
         self.current_date = datetime.date.today()
 
         # UI Controls
         self.date_button = ft.ElevatedButton(
-            text=self.current_date.strftime("%d.%m.%Y"),
+            content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
         )
 
         self.amount_field = ft.TextField(
             label="Сумма исполнения",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -114,12 +114,12 @@ class ExecutePendingPaymentModal:
             page: Ссылка на страницу Flet.
             payment: Отложенный платёж для исполнения.
         """
-        self.page = page
+        self._page = page
         self.payment = payment
 
         # Setup Date Picker if not added
-        if self.date_picker not in self.page.overlay:
-            self.page.overlay.append(self.date_picker)
+        if self.date_picker not in self._page.overlay:
+            self._page.overlay.append(self.date_picker)
 
         # Reset fields
         self.current_date = datetime.date.today()
@@ -150,12 +150,12 @@ class ExecutePendingPaymentModal:
 
         self.error_text.value = ""
 
-        self.page.open(self.dialog)
+        self._page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.page:
-            self.page.close(self.dialog)
+        if self._page:
+            self._page.close(self.dialog)
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""
@@ -167,15 +167,15 @@ class ExecutePendingPaymentModal:
         if self.date_picker.value:
             self.current_date = self.date_picker.value
             self.date_button.text = self.current_date.strftime("%d.%m.%Y")
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _clear_error(self, e=None):
         """Очистка сообщений об ошибках."""
         self.amount_field.error_text = None
         self.error_text.value = ""
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _validate(self) -> bool:
         """
@@ -196,8 +196,8 @@ class ExecutePendingPaymentModal:
             self.amount_field.error_text = "Некорректная сумма"
             is_valid = False
 
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
         return is_valid
 
@@ -218,9 +218,9 @@ class ExecutePendingPaymentModal:
 
         except ValueError as ve:
             self.error_text.value = str(ve)
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
         except Exception as ex:
             self.error_text.value = f"Ошибка исполнения: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()

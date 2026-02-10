@@ -48,7 +48,7 @@ class LoanModal:
         self.session = session
         self.on_save = on_save
         self.on_update = on_update
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.edit_loan_id: Optional[str] = None
         self.issue_date: Optional[datetime.date] = None
         self.end_date: Optional[datetime.date] = None
@@ -57,7 +57,7 @@ class LoanModal:
         self.lender_dropdown = ft.Dropdown(
             label="Займодатель *",
             options=[],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         self.name_field = ft.TextField(
@@ -78,12 +78,12 @@ class LoanModal:
                 ft.dropdown.Option(key=LoanType.PERSONAL.value, text="Личный займ"),
                 ft.dropdown.Option(key=LoanType.OTHER.value, text="Другое"),
             ],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         self.amount_field = ft.TextField(
             label="Сумма кредита *",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -96,7 +96,7 @@ class LoanModal:
         self.interest_rate_field = ft.TextField(
             label="Процентная ставка",
             hint_text="Например: 12.5",
-            suffix_text="%",
+            suffix="%",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -107,13 +107,13 @@ class LoanModal:
         )
 
         self.issue_date_button = ft.ElevatedButton(
-            text="Выбрать дату выдачи *",
+            content="Выбрать дату выдачи *",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_issue_date_picker
         )
 
         self.end_date_button = ft.ElevatedButton(
-            text="Выбрать дату окончания",
+            content="Выбрать дату окончания",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_end_date_picker
         )
@@ -192,7 +192,7 @@ class LoanModal:
             page: Страница Flet для отображения диалога
             loan: Кредит для редактирования (None = создание нового)
         """
-        self.page = page
+        self._page = page
 
         # Загружаем список займодателей
         self._load_lenders()
@@ -241,8 +241,8 @@ class LoanModal:
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
 
     def _load_lenders(self):
         """Загружает список займодателей в dropdown."""
@@ -261,15 +261,15 @@ class LoanModal:
 
         except Exception as e:
             self.error_text.value = f"Ошибка загрузки займодателей: {str(e)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _clear_error(self, e=None):
         """Очищает сообщение об ошибке при изменении поля."""
         if self.error_text.value:
             self.error_text.value = ""
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _open_issue_date_picker(self, e):
         """Открывает date picker для даты выдачи."""
@@ -285,8 +285,8 @@ class LoanModal:
             self.issue_date = e.control.value
             self.issue_date_button.text = f"Дата выдачи: {self.issue_date.strftime('%d.%m.%Y')}"
             self._clear_error()
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _on_end_date_change(self, e):
         """Обработчик выбора даты окончания."""
@@ -294,8 +294,8 @@ class LoanModal:
             self.end_date = e.control.value
             self.end_date_button.text = f"Дата окончания: {self.end_date.strftime('%d.%m.%Y')}"
             self._clear_error()
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _validate_and_get_data(self) -> Optional[dict]:
         """
@@ -367,8 +367,8 @@ class LoanModal:
         validated_data = self._validate_and_get_data()
         
         if not validated_data:
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             return
 
         try:
@@ -407,9 +407,9 @@ class LoanModal:
 
         except ValueError as ve:
             self.error_text.value = str(ve)
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
         except Exception as ex:
             self.error_text.value = f"Ошибка: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()

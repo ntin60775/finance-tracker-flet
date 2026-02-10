@@ -41,7 +41,7 @@ class TransactionHistoryView(ft.Container):
 
     def __init__(self):
         super().__init__()
-        self.alignment = ft.alignment.top_left
+        self.alignment = ft.Alignment.TOP_LEFT
         self.expand = True
 
         # Начальные параметры фильтрации
@@ -67,7 +67,7 @@ class TransactionHistoryView(ft.Container):
             label="Категория",
             width=200,
             options=[],
-            on_change=self._on_filter_change,
+            on_select=self._on_filter_change,
             dense=True
         )
 
@@ -80,7 +80,7 @@ class TransactionHistoryView(ft.Container):
                 ft.dropdown.Option("expense", "Расходы")
             ],
             value="all",
-            on_change=self._on_filter_change,
+            on_select=self._on_filter_change,
             dense=True
         )
 
@@ -101,7 +101,7 @@ class TransactionHistoryView(ft.Container):
                 ft.dropdown.Option("month", "По месяцам")
             ],
             value="date",
-            on_change=self._on_group_change,
+            on_select=self._on_group_change,
             dense=True
         )
 
@@ -115,7 +115,7 @@ class TransactionHistoryView(ft.Container):
                 ft.dropdown.Option("amount_asc", "Сумма ↑")
             ],
             value="date_desc",
-            on_change=self._on_sort_change,
+            on_select=self._on_sort_change,
             dense=True
         )
 
@@ -377,7 +377,7 @@ class TransactionHistoryView(ft.Container):
                         size=16,
                         color="outline"
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     padding=40
                 )
             )

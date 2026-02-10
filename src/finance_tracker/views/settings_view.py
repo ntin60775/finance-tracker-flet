@@ -18,7 +18,7 @@ class SettingsView(ft.Column):
             spacing=20,
             alignment=ft.MainAxisAlignment.START
         )
-        self.page = page
+        self._page = page
         
         self._init_controls()
         self._update_controls_values()
@@ -38,7 +38,7 @@ class SettingsView(ft.Column):
                 # ft.dropdown.Option("system", "Системная"), # Flet может не поддерживать system корректно везде
             ],
             width=300,
-            on_change=self._on_theme_changed
+            on_select=self._on_theme_changed
         )
         
         appearance_section = ft.Column(
@@ -60,7 +60,7 @@ class SettingsView(ft.Column):
         
         # FilePicker для выбора БД (пока не реализован полностью, так как это сложнее)
         # self.file_picker = ft.FilePicker(on_result=self._on_db_file_picked)
-        # self.page.overlay.append(self.file_picker)
+        # self._page.overlay.append(self.file_picker)
         
         database_section = ft.Column(
             controls=[
@@ -86,7 +86,7 @@ class SettingsView(ft.Column):
                 ft.dropdown.Option("%m/%d/%Y", "MM/DD/YYYY (12/31/2023)"),
             ],
             width=300,
-            on_change=self._on_date_format_changed
+            on_select=self._on_date_format_changed
         )
         
         formats_section = ft.Column(
@@ -100,7 +100,7 @@ class SettingsView(ft.Column):
         
         # Кнопка сохранения (хотя изменения применяются сразу, кнопка для явного подтверждения сохранения в файл)
         self.save_button = ft.ElevatedButton(
-            text="Сохранить настройки",
+            content="Сохранить настройки",
             icon=ft.Icons.SAVE,
             on_click=self._save_settings
         )
@@ -127,8 +127,8 @@ class SettingsView(ft.Column):
     def _on_theme_changed(self, e):
         """Обработчик изменения темы."""
         settings.theme_mode = self.theme_dropdown.value
-        self.page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
-        self.page.update()
+        self._page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
+        self._page.update()
         logger.info(f"Тема изменена на: {settings.theme_mode}")
 
     def _on_date_format_changed(self, e):
@@ -146,4 +146,4 @@ class SettingsView(ft.Column):
             content=ft.Text("Настройки успешно сохранены"),
             bgcolor=ft.Colors.GREEN
         )
-        self.page.open(snack_bar)
+        self._page.open(snack_bar)

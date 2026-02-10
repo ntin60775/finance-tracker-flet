@@ -64,7 +64,7 @@ class LoanDetailsView(ft.Column):
             on_back: Callback для возврата к списку кредитов
         """
         super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.loan_id = loan_id
         self.on_back = on_back
         self.loan: Optional[LoanDB] = None
@@ -113,12 +113,12 @@ class LoanDetailsView(ft.Column):
         self.action_buttons = ft.Row(
             controls=[
                 ft.ElevatedButton(
-                    text="Редактировать",
+                    content="Редактировать",
                     icon=ft.Icons.EDIT,
                     on_click=self.open_edit_dialog
                 ),
                 ft.ElevatedButton(
-                    text="Досрочное погашение",
+                    content="Досрочное погашение",
                     icon=ft.Icons.PAYMENTS,
                     on_click=self.open_early_repayment_dialog,
                     bgcolor=ft.Colors.GREEN,
@@ -130,13 +130,14 @@ class LoanDetailsView(ft.Column):
 
         # Табы для графика и истории
         self.tabs = ft.Tabs(
+            content=ft.TabBar(tabs=[
+                ft.Tab(label="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
+                ft.Tab(label="История платежей", icon=ft.Icon(ft.Icons.HISTORY)),
+                ft.Tab(label="История передач", icon=ft.Icon(ft.Icons.SWAP_HORIZ)),
+            ]),
+            length=3,
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
-                ft.Tab(text="История платежей", icon=ft.Icon(ft.Icons.HISTORY)),
-                ft.Tab(text="История передач", icon=ft.Icon(ft.Icons.SWAP_HORIZ)),
-            ],
             on_change=self.on_tab_change,
             expand=True
         )
@@ -267,7 +268,7 @@ class LoanDetailsView(ft.Column):
             spacing=5
         )
 
-        if self.page:
+        if self._page:
             self.info_card.update()
 
     def _create_info_row(self, label: str, value: str) -> ft.Row:
@@ -378,7 +379,7 @@ class LoanDetailsView(ft.Column):
                             color=ft.Colors.GREY_600
                         ),
                         padding=20,
-                        alignment=ft.alignment.center
+                        alignment=ft.Alignment.CENTER
                     )
                 )
             else:
@@ -387,7 +388,7 @@ class LoanDetailsView(ft.Column):
                         self._create_payment_card(payment)
                     )
 
-            if self.page:
+            if self._page:
                 self.payments_list.update()
 
         except Exception as e:
@@ -554,7 +555,7 @@ class LoanDetailsView(ft.Column):
                 wrap=True
             )
 
-            if self.page:
+            if self._page:
                 self.payment_stats.update()
 
         except Exception as e:
@@ -626,12 +627,12 @@ class LoanDetailsView(ft.Column):
             self.load_loan_details()
 
             # Показываем уведомление
-            if self.page:
+            if self._page:
                 snack = ft.SnackBar(
                     content=ft.Text("Платёж успешно исполнен"),
                     bgcolor=ft.Colors.GREEN
                 )
-                self.page.open(snack)
+                self._page.open(snack)
 
         except Exception as e:
             logger.error(f"Ошибка при исполнении платежа: {e}")
@@ -640,12 +641,12 @@ class LoanDetailsView(ft.Column):
     def open_edit_dialog(self, e):
         """Открыть диалог редактирования кредита."""
         # TODO: реализовать редактирование через LoanModal
-        if self.page:
+        if self._page:
             snack = ft.SnackBar(
                 content=ft.Text("Редактирование кредита в разработке"),
                 bgcolor=ft.Colors.AMBER
             )
-            self.page.open(snack)
+            self._page.open(snack)
 
     def open_early_repayment_dialog(self, e):
         """Открыть диалог досрочного погашения."""
@@ -656,7 +657,7 @@ class LoanDetailsView(ft.Column):
                 loan=self.loan,
                 on_repay=self.handle_early_repayment
             )
-            modal.open(self.page)
+            modal.open(self._page)
 
         except Exception as ex:
             logger.error(f"Ошибка при открытии диалога досрочного погашения: {ex}")
@@ -687,14 +688,14 @@ class LoanDetailsView(ft.Column):
                 )
 
                 # Показываем уведомление
-                if self.page:
+                if self._page:
                     snack = ft.SnackBar(
                         content=ft.Text(
                             f"Кредит полностью погашен! Отменено платежей: {result['cancelled_payments_count']}"
                         ),
                         bgcolor=ft.Colors.GREEN
                     )
-                    self.page.open(snack)
+                    self._page.open(snack)
             else:
                 # Частичное досрочное погашение
                 result = early_repayment_partial(
@@ -710,7 +711,7 @@ class LoanDetailsView(ft.Column):
                 )
 
                 # Показываем уведомление с предупреждением
-                if self.page:
+                if self._page:
                     snack = ft.SnackBar(
                         content=ft.Text(
                             f"Частичное погашение выполнено! {result['warning']}"
@@ -718,7 +719,7 @@ class LoanDetailsView(ft.Column):
                         bgcolor=ft.Colors.AMBER,
                         duration=5000
                     )
-                    self.page.open(snack)
+                    self._page.open(snack)
 
             # Обновляем UI
             self.load_loan_details()
@@ -764,7 +765,7 @@ class LoanDetailsView(ft.Column):
                             spacing=10
                         ),
                         padding=40,
-                        alignment=ft.alignment.center
+                        alignment=ft.Alignment.CENTER
                     )
                 )
             else:
@@ -791,18 +792,18 @@ class LoanDetailsView(ft.Column):
                 self.payments_list.controls.append(
                     ft.Container(
                         content=ft.ElevatedButton(
-                            text="Передать долг",
+                            content="Передать долг",
                             icon=ft.Icons.SWAP_HORIZ,
                             on_click=self.open_debt_transfer_modal,
                             bgcolor=ft.Colors.PRIMARY,
                             color=ft.Colors.WHITE,
                         ),
                         padding=ft.padding.only(top=20),
-                        alignment=ft.alignment.center
+                        alignment=ft.Alignment.CENTER
                     )
                 )
 
-            if self.page:
+            if self._page:
                 self.payments_list.update()
 
         except Exception as e:
@@ -978,7 +979,7 @@ class LoanDetailsView(ft.Column):
                 loan=self.loan,
                 on_transfer_callback=self.handle_debt_transfer
             )
-            modal.open(self.page)
+            modal.open(self._page)
 
         except Exception as ex:
             logger.error(f"Ошибка при открытии диалога передачи долга: {ex}")
@@ -1025,12 +1026,12 @@ class LoanDetailsView(ft.Column):
             self.load_loan_details()
 
             # Показываем уведомление
-            if self.page:
+            if self._page:
                 snack = ft.SnackBar(
                     content=ft.Text("Долг успешно передан!"),
                     bgcolor=ft.Colors.GREEN
                 )
-                self.page.open(snack)
+                self._page.open(snack)
 
         except ValueError as e:
             logger.error(f"Ошибка валидации при передаче долга: {e}")
@@ -1046,12 +1047,12 @@ class LoanDetailsView(ft.Column):
         Args:
             message: Текст ошибки
         """
-        if self.page:
+        if self._page:
             snack = ft.SnackBar(
                 content=ft.Text(message),
                 bgcolor=ft.Colors.RED
             )
-            self.page.open(snack)
+            self._page.open(snack)
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""
         if hasattr(self, 'cm') and self.cm is not None:

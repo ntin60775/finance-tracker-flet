@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 class MainWindow(ft.Row):
     def __init__(self, page: ft.Page):
         super().__init__()
-        self.page = page
+        self._page = page
         self.expand = True
 
         # Создаем persistent сессию для HomeView через context manager
@@ -37,12 +37,12 @@ class MainWindow(ft.Row):
 
     def setup_page(self):
         """Настройка основных параметров страницы"""
-        self.page.title = "Finance Tracker"
-        self.page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
-        self.page.padding = 0
+        self._page.title = "Finance Tracker"
+        self._page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
+        self._page.padding = 0
         
         # Настройка локализации на русский язык
-        self.page.locale_configuration = ft.LocaleConfiguration(
+        self._page.locale_configuration = ft.LocaleConfiguration(
             supported_locales=[
                 ft.Locale("ru", "RU"),
                 ft.Locale("en", "US"),
@@ -65,7 +65,7 @@ class MainWindow(ft.Row):
             
             icon_path = os.path.join(base_path, 'assets', 'icon.ico')
             if os.path.exists(icon_path):
-                self.page.window.icon = icon_path
+                self._page.window.icon = icon_path
                 logger.info(f"Иконка окна установлена: {icon_path}")
             else:
                 logger.warning(f"Иконка не найдена по пути: {icon_path}")
@@ -73,7 +73,7 @@ class MainWindow(ft.Row):
             logger.error(f"Ошибка при установке иконки окна: {e}")
         
         # ВСЕГДА разворачиваем окно на весь экран при запуске
-        self.page.window.maximized = True
+        self._page.window.maximized = True
 
         # Примечание: width/height/top/left не устанавливаем, так как окно maximized
         # Эти значения будут использованы, если пользователь выйдет из полноэкранного режима
@@ -89,7 +89,7 @@ class MainWindow(ft.Row):
                 if hasattr(self, 'balance_text') and self.balance_text:
                     self.balance_text.value = f"Баланс: {balance:,.2f} ₽".replace(",", " ")
                     # Обновляем только если элемент уже добавлен на страницу
-                    if self.page and hasattr(self.balance_text, 'page') and self.balance_text.page:
+                    if self._page and hasattr(self.balance_text, 'page') and self.balance_text.page:
                         self.balance_text.update()
         except Exception as e:
             logger.error(f"Ошибка при обновлении баланса: {e}")
@@ -98,7 +98,7 @@ class MainWindow(ft.Row):
         # Создаем HomeView один раз с persistent Session
         # HomeView получает Session через Dependency Injection и не управляет его жизненным циклом
         # Передаем navigate_callback для возможности программной навигации из HomeView
-        self.home_view = HomeView(self.page, self.home_view_session, navigate_callback=self.navigate)
+        self.home_view = HomeView(self._page, self.home_view_session, navigate_callback=self.navigate)
 
         # Боковая панель навигации
         self.rail = ft.NavigationRail(
@@ -166,7 +166,7 @@ class MainWindow(ft.Row):
         )
 
         # AppBar
-        self.page.appbar = ft.AppBar(
+        self._page.appbar = ft.AppBar(
             leading=ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET),
             leading_width=40,
             title=ft.Text("Finance Tracker"),
@@ -184,7 +184,7 @@ class MainWindow(ft.Row):
         self.content_area = ft.Container(
             content=self.get_view(settings.last_selected_index),
             expand=True,
-            alignment=ft.alignment.top_left,
+            alignment=ft.Alignment.TOP_LEFT,
             padding=20
         )
 
@@ -209,16 +209,16 @@ class MainWindow(ft.Row):
         except Exception as e:
             logger.error(f"Ошибка при инициализации данных после монтирования: {e}")
             # Показываем ошибку пользователю, но не падаем
-            if self.page:
-                self.page.add(ft.Text(f"Ошибка инициализации: {e}", color=ft.Colors.ERROR))
+            if self._page:
+                self._page.add(ft.Text(f"Ошибка инициализации: {e}", color=ft.Colors.ERROR))
 
     def save_state(self):
         """Сохраняет текущее состояние приложения"""
         settings.last_selected_index = self.rail.selected_index
-        settings.window_width = self.page.window.width
-        settings.window_height = self.page.window.height
-        settings.window_top = self.page.window.top
-        settings.window_left = self.page.window.left
+        settings.window_width = self._page.window.width
+        settings.window_height = self._page.window.height
+        settings.window_top = self._page.window.top
+        settings.window_left = self._page.window.left
         settings.save()
 
     def navigate(self, index: int):
@@ -253,21 +253,21 @@ class MainWindow(ft.Row):
                     logger.error(f"Ошибка обновления данных HomeView: {e}")
             return self.home_view
         if index == 1:
-            return PlannedTransactionsView(self.page)
+            return PlannedTransactionsView(self._page)
         if index == 2:
-            return LoansView(self.page)
+            return LoansView(self._page)
         if index == 3:
-            return PendingPaymentsView(self.page)
+            return PendingPaymentsView(self._page)
         if index == 4:
             return TransactionHistoryView()
         if index == 5:
             return PlanFactView()
         if index == 6:
-            return LendersView(self.page)
+            return LendersView(self._page)
         if index == 7:
-            return CategoriesView(self.page)
+            return CategoriesView(self._page)
         if index == 8:
-            return SettingsView(self.page)
+            return SettingsView(self._page)
 
         return ft.Text("Раздел не найден")
 

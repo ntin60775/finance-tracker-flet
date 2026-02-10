@@ -5,7 +5,25 @@ from finance_tracker.utils.logger import setup_logging, get_logger
 
 logger = get_logger(__name__)
 
+
+def _ensure_flet_page_dialog_compatibility() -> None:
+    """Добавляет совместимые методы page.open/page.close для новых версий Flet."""
+    if not hasattr(ft.Page, "open"):
+        def _open(self: ft.Page, dialog):
+            self.show_dialog(dialog)
+
+        setattr(ft.Page, "open", _open)
+
+    if not hasattr(ft.Page, "close"):
+        def _close(self: ft.Page, _dialog=None):
+            self.pop_dialog()
+
+        setattr(ft.Page, "close", _close)
+
+
 def main(page: ft.Page):
+    _ensure_flet_page_dialog_compatibility()
+
     # 1. Настройка логирования
     setup_logging()
     logger.info("Запуск приложения Finance Tracker Flet")

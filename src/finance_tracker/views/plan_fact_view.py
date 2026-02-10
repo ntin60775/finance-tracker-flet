@@ -21,7 +21,7 @@ class PlanFactView(ft.Container):
 
     def __init__(self):
         super().__init__()
-        self.alignment = ft.alignment.top_left
+        self.alignment = ft.Alignment.TOP_LEFT
         self.start_date = datetime.date.today().replace(day=1)
         self.end_date = self._get_last_day_of_month(datetime.date.today())
         self.selected_category_id: Optional[int] = None
@@ -31,7 +31,7 @@ class PlanFactView(ft.Container):
         
         # UI Components
         self.date_range_button = ft.ElevatedButton(
-            text=f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}",
+            content=f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}",
             icon=ft.Icons.CALENDAR_MONTH,
             on_click=self._open_date_picker
         )
@@ -39,7 +39,7 @@ class PlanFactView(ft.Container):
             label="Категория",
             width=200,
             options=[],
-            on_change=self._on_category_change,
+            on_select=self._on_category_change,
             dense=True
         )
         

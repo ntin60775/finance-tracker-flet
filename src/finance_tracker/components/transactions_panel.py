@@ -274,7 +274,7 @@ class TransactionsPanel(ft.Container):
                 bgcolor=ft.Colors.RED_50 if is_cash_gap else None,
                 border_radius=8,
                 border=ft.border.all(1, ft.Colors.RED) if is_cash_gap else None,
-                alignment=ft.alignment.center
+                alignment=ft.Alignment.CENTER
             )
             self.forecast_container.visible = True
         else:
@@ -347,7 +347,7 @@ class TransactionsPanel(ft.Container):
             self.transactions_list.controls.append(
                 ft.Container(
                     content=ft.Text("Нет транзакций", color="outline"),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     padding=20
                 )
             )
