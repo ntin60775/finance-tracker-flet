@@ -78,7 +78,7 @@ class PlannedTransactionModal:
             on_change=self._on_type_change,
         )
 
-        self.start_date_button = ft.ElevatedButton(
+        self.start_date_button = ft.Button(
             content=self.current_start_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_start_date_picker
@@ -158,7 +158,7 @@ class PlannedTransactionModal:
             visible=False  # Initially hidden until recurrence is set
         )
 
-        self.end_date_button = ft.ElevatedButton(
+        self.end_date_button = ft.Button(
             content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_end_date_picker,
@@ -225,7 +225,7 @@ class PlannedTransactionModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Сохранить", on_click=self._save),
+                ft.Button("Сохранить", on_click=self._save),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

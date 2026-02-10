@@ -118,7 +118,7 @@ class PendingPaymentsView(ft.Column):
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
         )
 
         # Фильтры по наличию даты
@@ -433,7 +433,7 @@ class PendingPaymentsView(ft.Column):
                 spacing=8,
             ),
             padding=15,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=10,
             bgcolor=ft.Colors.SURFACE,
         )
@@ -525,7 +525,7 @@ class PendingPaymentsView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._page.close(dialog)),
-                ft.ElevatedButton("Отменить платёж", on_click=on_confirm),
+                ft.Button("Отменить платёж", on_click=on_confirm),
             ],
         )
 
@@ -559,7 +559,7 @@ class PendingPaymentsView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._page.close(dialog)),
-                ft.ElevatedButton("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR),
+                ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR),
             ],
         )
 

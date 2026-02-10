@@ -101,7 +101,7 @@ class PlannedTransactionsWidget(ft.Container):
 
         # Init Layout
         self.padding = 15
-        self.border = ft.border.all(1, "outlineVariant")
+        self.border = ft.Border.all(1, "outlineVariant")
         self.border_radius = 10
         self.bgcolor = "surface"
 
@@ -277,7 +277,7 @@ class PlannedTransactionsWidget(ft.Container):
                                     weight=ft.FontWeight.BOLD
                                 ),
                                 bgcolor=status_color,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                                 border_radius=5,
                             ),
                         ],
@@ -287,7 +287,7 @@ class PlannedTransactionsWidget(ft.Container):
                 spacing=8,
             ),
             padding=10,
-            border=ft.border.all(
+            border=ft.Border.all(
                 2 if is_selected else 1,
                 ft.Colors.PRIMARY if is_selected else ft.Colors.OUTLINE_VARIANT
             ),
@@ -360,7 +360,7 @@ class PlannedTransactionsWidget(ft.Container):
         is_selected = hasattr(e.control, 'data') and e.control.data == self.selected_occurrence_id
         
         if e.data == "true":  # Курсор наведён
-            e.control.border = ft.border.all(2, ft.Colors.PRIMARY)
+            e.control.border = ft.Border.all(2, ft.Colors.PRIMARY)
             e.control.shadow = ft.BoxShadow(
                 spread_radius=1,
                 blur_radius=4,
@@ -370,9 +370,9 @@ class PlannedTransactionsWidget(ft.Container):
         else:  # Курсор убран
             # Восстанавливаем стиль в зависимости от того, выбрана ли карточка
             if is_selected:
-                e.control.border = ft.border.all(2, ft.Colors.PRIMARY)
+                e.control.border = ft.Border.all(2, ft.Colors.PRIMARY)
             else:
-                e.control.border = ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
+                e.control.border = ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
             e.control.shadow = None
 
         if self.page:

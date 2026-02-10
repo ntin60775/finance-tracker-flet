@@ -112,12 +112,12 @@ class LoanDetailsView(ft.Column):
         # Кнопки действий
         self.action_buttons = ft.Row(
             controls=[
-                ft.ElevatedButton(
+                ft.Button(
                     content="Редактировать",
                     icon=ft.Icons.EDIT,
                     on_click=self.open_edit_dialog
                 ),
-                ft.ElevatedButton(
+                ft.Button(
                     content="Досрочное погашение",
                     icon=ft.Icons.PAYMENTS,
                     on_click=self.open_early_repayment_dialog,
@@ -225,7 +225,7 @@ class LoanDetailsView(ft.Column):
                     color=ft.Colors.WHITE
                 ),
                 bgcolor=status_color,
-                padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                padding=ft.Padding.symmetric(horizontal=10, vertical=5),
                 border_radius=5
             )
         ]
@@ -344,7 +344,7 @@ class LoanDetailsView(ft.Column):
                 tight=True
             ),
             bgcolor=ft.Colors.AMBER,
-            padding=ft.padding.symmetric(horizontal=10, vertical=5),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=5),
             border_radius=5,
             tooltip=f"Кредит был передан от {original_name} к {current_name}"
         )
@@ -496,7 +496,7 @@ class LoanDetailsView(ft.Column):
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
-            border=ft.border.all(1, status_color),
+            border=ft.Border.all(1, status_color),
         )
 
     def update_payment_stats(self):
@@ -777,7 +777,7 @@ class LoanDetailsView(ft.Column):
                             size=18,
                             weight=ft.FontWeight.BOLD
                         ),
-                        padding=ft.padding.only(bottom=10)
+                        padding=ft.Padding.only(bottom=10)
                     )
                 )
 
@@ -791,14 +791,14 @@ class LoanDetailsView(ft.Column):
             if self.loan and self.loan.status == LoanStatus.ACTIVE:
                 self.payments_list.controls.append(
                     ft.Container(
-                        content=ft.ElevatedButton(
+                        content=ft.Button(
                             content="Передать долг",
                             icon=ft.Icons.SWAP_HORIZ,
                             on_click=self.open_debt_transfer_modal,
                             bgcolor=ft.Colors.PRIMARY,
                             color=ft.Colors.WHITE,
                         ),
-                        padding=ft.padding.only(top=20),
+                        padding=ft.Padding.only(top=20),
                         alignment=ft.Alignment.CENTER
                     )
                 )
@@ -963,7 +963,7 @@ class LoanDetailsView(ft.Column):
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
-            border=ft.border.all(1, ft.Colors.PRIMARY),
+            border=ft.Border.all(1, ft.Colors.PRIMARY),
         )
 
     def open_debt_transfer_modal(self, e):

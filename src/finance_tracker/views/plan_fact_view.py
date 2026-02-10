@@ -30,7 +30,7 @@ class PlanFactView(ft.Container):
         self.details_modal = OccurrenceDetailsModal()
         
         # UI Components
-        self.date_range_button = ft.ElevatedButton(
+        self.date_range_button = ft.Button(
             content=f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}",
             icon=ft.Icons.CALENDAR_MONTH,
             on_click=self._open_date_picker
@@ -88,7 +88,7 @@ class PlanFactView(ft.Container):
                         controls=[self.data_table],
                         scroll=ft.ScrollMode.AUTO
                     ),
-                    border=ft.border.all(1, "outlineVariant"),
+                    border=ft.Border.all(1, "outlineVariant"),
                     border_radius=10,
                     padding=10,
                     expand=True

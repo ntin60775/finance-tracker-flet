@@ -349,7 +349,7 @@ class TestTransactionModal(unittest.TestCase):
         
         # 4. Проверяем кнопку выбора даты
         self.assertIsNotNone(self.modal.date_button, "Кнопка выбора даты должна быть создана")
-        self.assertIsInstance(self.modal.date_button, ft.ElevatedButton, "Кнопка даты должна быть ElevatedButton")
+        self.assertIsInstance(self.modal.date_button, ft.Button, "Кнопка даты должна быть Button")
         self.assertEqual(self.modal.date_button.icon, ft.Icons.CALENDAR_TODAY, "Кнопка даты должна иметь иконку календаря")
         
         # 5. Проверяем предустановку выбранной даты

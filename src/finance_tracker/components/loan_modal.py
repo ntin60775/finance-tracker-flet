@@ -106,13 +106,13 @@ class LoanModal:
             on_change=self._clear_error
         )
 
-        self.issue_date_button = ft.ElevatedButton(
+        self.issue_date_button = ft.Button(
             content="Выбрать дату выдачи *",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_issue_date_picker
         )
 
-        self.end_date_button = ft.ElevatedButton(
+        self.end_date_button = ft.Button(
             content="Выбрать дату окончания",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_end_date_picker
@@ -175,7 +175,7 @@ class LoanModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Сохранить", on_click=self._save),
+                ft.Button("Сохранить", on_click=self._save),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

@@ -144,7 +144,7 @@ INDICATOR_CONFIGS: Dict[IndicatorType, LegendIndicator] = {
             height=12, 
             bgcolor=ft.Colors.RED_100,
             border_radius=2,
-            border=ft.border.all(1, ft.Colors.RED_700)
+            border=ft.Border.all(1, ft.Colors.RED_700)
         ),
         label="Долг",  # Сокращено с "Просрочка" для экономии 28px ширины
         description="Красный фон дня обозначает просроченные платежи по кредитам",

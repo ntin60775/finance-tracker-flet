@@ -99,7 +99,7 @@ class SettingsView(ft.Column):
         )
         
         # Кнопка сохранения (хотя изменения применяются сразу, кнопка для явного подтверждения сохранения в файл)
-        self.save_button = ft.ElevatedButton(
+        self.save_button = ft.Button(
             content="Сохранить настройки",
             icon=ft.Icons.SAVE,
             on_click=self._save_settings

@@ -277,7 +277,7 @@ class PlannedTransactionsView(ft.Column):
                             weight=ft.FontWeight.BOLD
                         ),
                         bgcolor=status_color,
-                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                        padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                         border_radius=5,
                     ),
                 ],
@@ -415,7 +415,7 @@ class PlannedTransactionsView(ft.Column):
                         spacing=5,
                     ),
                     height=200,
-                    border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+                    border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
                     border_radius=5,
                     padding=5,
                 ),
@@ -425,17 +425,17 @@ class PlannedTransactionsView(ft.Column):
                 # Кнопки действий
                 ft.Row(
                     controls=[
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Редактировать",
                             icon=ft.Icons.EDIT,
                             on_click=lambda _: self.edit_planned_transaction(tx)
                         ),
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Деактивировать" if tx.is_active else "Активировать",
                             icon=ft.Icons.PAUSE_CIRCLE if tx.is_active else ft.Icons.PLAY_CIRCLE,
                             on_click=lambda _: self.toggle_active(tx)
                         ),
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Удалить",
                             icon=ft.Icons.DELETE,
                             color=ft.Colors.ERROR,
@@ -567,14 +567,14 @@ class PlannedTransactionsView(ft.Column):
                             color=ft.Colors.WHITE,
                         ),
                         bgcolor=status_color,
-                        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                         border_radius=4,
                     ),
                 ],
                 spacing=10,
             ),
             padding=5,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=5,
         )
 
@@ -726,7 +726,7 @@ class PlannedTransactionsView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda e: self._page.close(dlg)),
-                ft.ElevatedButton(
+                ft.Button(
                     "Удалить",
                     color=ft.Colors.ERROR,
                     on_click=delete_action

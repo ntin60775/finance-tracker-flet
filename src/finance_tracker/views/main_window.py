@@ -32,6 +32,7 @@ class MainWindow(ft.Row):
 
         self.setup_page()
         self.init_ui()
+        self.did_mount()
 
         logger.info("Инициализация главного окна")
 
@@ -176,7 +177,7 @@ class MainWindow(ft.Row):
             actions=[
                 ft.Container(
                     content=self.balance_text,
-                    padding=ft.padding.only(right=20)
+                    padding=ft.Padding.only(right=20)
                 )
             ]
         )

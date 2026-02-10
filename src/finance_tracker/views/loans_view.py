@@ -195,7 +195,7 @@ class LoansView(ft.Column):
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.ON_SURFACE
                     ),
-                    padding=ft.padding.only(top=15, bottom=5)
+                    padding=ft.Padding.only(top=15, bottom=5)
                 )
 
                 # Создаём список держателей
@@ -327,7 +327,7 @@ class LoansView(ft.Column):
                 spacing=8,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            padding=ft.padding.symmetric(horizontal=10, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=8),
             bgcolor=ft.Colors.SURFACE_VARIANT if hasattr(ft.Colors, 'SURFACE_VARIANT') else ft.Colors.SURFACE,
             border_radius=8
         )
@@ -422,7 +422,7 @@ class LoansView(ft.Column):
             ft.Container(
                 content=ft.Text(status_name, size=12, color=ft.Colors.WHITE),
                 bgcolor=status_color,
-                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                 border_radius=12
             )
         ]
@@ -453,7 +453,7 @@ class LoansView(ft.Column):
                     tight=True
                 ),
                 bgcolor=ft.Colors.ORANGE,
-                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                 border_radius=12,
                 tooltip=tooltip_text
             )
@@ -787,7 +787,7 @@ class LoansView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel),
-                ft.ElevatedButton(
+                ft.Button(
                     "Удалить",
                     bgcolor=ft.Colors.ERROR,
                     color=ft.Colors.ON_ERROR,

@@ -93,7 +93,7 @@ class CategoryDialog(ft.AlertDialog):
         button_text = "Сохранить" if category else "Создать"
         self.actions = [
             ft.TextButton("Отмена", on_click=self.close),
-            ft.ElevatedButton(button_text, on_click=self.save_category),
+            ft.Button(button_text, on_click=self.save_category),
         ]
         self.actions_alignment = ft.MainAxisAlignment.END
 
@@ -304,7 +304,7 @@ class CategoriesView(ft.Column):
             bgcolor=ft.Colors.SURFACE,
             padding=12,
             border_radius=8,
-            border=ft.border.all(1, ft.Colors.OUTLINE),
+            border=ft.Border.all(1, ft.Colors.OUTLINE),
             ink=False  # Отключаем эффект ink, чтобы не перехватывать события кнопок
         )
 

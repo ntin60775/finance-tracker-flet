@@ -137,14 +137,14 @@ class TransactionHistoryView(ft.Container):
         self.chart_container = ft.Container(
             content=ft.Text("График загружается..."),
             visible=False,
-            border=ft.border.all(1, "outlineVariant"),
+            border=ft.Border.all(1, "outlineVariant"),
             border_radius=10,
             padding=20,
             height=300
         )
 
         # Кнопки действий
-        self.show_chart_button = ft.ElevatedButton(
+        self.show_chart_button = ft.Button(
             "Показать график",
             icon=ft.Icons.PIE_CHART,
             on_click=self._toggle_chart
@@ -165,7 +165,7 @@ class TransactionHistoryView(ft.Container):
                 # Фильтры - верхняя строка
                 ft.Row(
                     controls=[
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Выбрать период",
                             icon=ft.Icons.DATE_RANGE,
                             on_click=self._open_date_picker
@@ -218,7 +218,7 @@ class TransactionHistoryView(ft.Container):
                 # Список транзакций
                 ft.Container(
                     content=self.transactions_container,
-                    border=ft.border.all(1, "outlineVariant"),
+                    border=ft.Border.all(1, "outlineVariant"),
                     border_radius=10,
                     padding=15,
                     expand=True
@@ -836,9 +836,9 @@ class TransactionHistoryView(ft.Container):
                     ft.Divider(),
                     ft.Text("Быстрый выбор:", size=12, weight=ft.FontWeight.BOLD),
                     ft.Row([
-                        ft.ElevatedButton("Текущий месяц", on_click=set_current_month, compact=True),
-                        ft.ElevatedButton("Прошлый месяц", on_click=set_last_month, compact=True),
-                        ft.ElevatedButton("Текущий год", on_click=set_current_year, compact=True)
+                ft.Button("Текущий месяц", on_click=set_current_month),
+                ft.Button("Прошлый месяц", on_click=set_last_month),
+                ft.Button("Текущий год", on_click=set_current_year)
                     ], wrap=True)
                 ],
                 tight=True,
@@ -847,7 +847,7 @@ class TransactionHistoryView(ft.Container):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel),
-                ft.ElevatedButton("Применить", on_click=apply_dates)
+                ft.Button("Применить", on_click=apply_dates)
             ]
         )
 

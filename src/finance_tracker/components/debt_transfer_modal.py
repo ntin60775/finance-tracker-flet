@@ -118,7 +118,7 @@ class DebtTransferModal:
         )
 
         # Дата передачи
-        self.transfer_date_button = ft.ElevatedButton(
+        self.transfer_date_button = ft.Button(
             content="Выбрать дату передачи *",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
@@ -191,7 +191,7 @@ class DebtTransferModal:
                         bgcolor=ft.Colors.SURFACE,
                         padding=15,
                         border_radius=8,
-                        margin=ft.margin.only(bottom=15)
+                        margin=ft.Margin.only(bottom=15)
                     ),
                     
                     # Выбор нового держателя
@@ -226,7 +226,7 @@ class DebtTransferModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Передать долг", on_click=self._on_confirm),
+                ft.Button("Передать долг", on_click=self._on_confirm),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -469,7 +469,7 @@ class DebtTransferModal:
             ], tight=True, spacing=10),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda e: self._page.close(confirmation_dialog)),
-                ft.ElevatedButton(
+                ft.Button(
                     "Подтвердить передачу", 
                     on_click=lambda e: self._execute_transfer(confirmation_dialog)
                 ),

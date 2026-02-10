@@ -59,7 +59,7 @@ class ExecuteOccurrenceModal:
         self.reschedule_mode = False  # Флаг режима переноса
 
         # UI Controls
-        self.date_button = ft.ElevatedButton(
+        self.date_button = ft.Button(
             content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
@@ -97,7 +97,7 @@ class ExecuteOccurrenceModal:
         )
 
         # Action buttons
-        self.execute_button = ft.ElevatedButton(
+        self.execute_button = ft.Button(
             "Исполнить",
             icon=ft.Icons.CHECK_CIRCLE,
             on_click=self._execute
@@ -116,14 +116,14 @@ class ExecuteOccurrenceModal:
             visible=True  # Будет скрыта если on_reschedule не передан
         )
 
-        self.confirm_skip_button = ft.ElevatedButton(
+        self.confirm_skip_button = ft.Button(
             "Подтвердить пропуск",
             icon=ft.Icons.CHECK,
             on_click=self._confirm_skip,
             visible=False
         )
 
-        self.confirm_reschedule_button = ft.ElevatedButton(
+        self.confirm_reschedule_button = ft.Button(
             "Подтвердить перенос",
             icon=ft.Icons.CHECK,
             on_click=self._confirm_reschedule,

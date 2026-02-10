@@ -112,7 +112,7 @@ class LenderModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Сохранить", on_click=self._save),
+                ft.Button("Сохранить", on_click=self._save),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

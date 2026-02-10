@@ -100,7 +100,7 @@ class PendingPaymentModal:
             on_change=self._on_has_date_change
         )
 
-        self.date_button = ft.ElevatedButton(
+        self.date_button = ft.Button(
             content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker,
@@ -137,7 +137,7 @@ class PendingPaymentModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton("Сохранить", on_click=self._save),
+                ft.Button("Сохранить", on_click=self._save),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

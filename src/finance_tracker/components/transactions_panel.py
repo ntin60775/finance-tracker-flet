@@ -80,7 +80,7 @@ class TransactionsPanel(ft.Container):
         
         # Layout
         self.padding = 15
-        self.border = ft.border.all(1, "outlineVariant")
+        self.border = ft.Border.all(1, "outlineVariant")
         self.border_radius = 10
         self.bgcolor = "surface"
         self.expand = True
@@ -174,7 +174,7 @@ class TransactionsPanel(ft.Container):
                     disabled=self.on_add_transaction is None,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=10),
-                        padding=ft.padding.all(12),
+                        padding=ft.Padding.all(12),
                         bgcolor={
                             ft.ControlState.DEFAULT: ft.Colors.PRIMARY if self.on_add_transaction is not None else ft.Colors.ON_SURFACE_VARIANT,
                             ft.ControlState.HOVERED: ft.Colors.PRIMARY_CONTAINER if self.on_add_transaction is not None else ft.Colors.ON_SURFACE_VARIANT,
@@ -273,7 +273,7 @@ class TransactionsPanel(ft.Container):
                 padding=10,
                 bgcolor=ft.Colors.RED_50 if is_cash_gap else None,
                 border_radius=8,
-                border=ft.border.all(1, ft.Colors.RED) if is_cash_gap else None,
+                border=ft.Border.all(1, ft.Colors.RED) if is_cash_gap else None,
                 alignment=ft.Alignment.CENTER
             )
             self.forecast_container.visible = True
@@ -393,7 +393,7 @@ class TransactionsPanel(ft.Container):
                     icon_size=20,  # Компактный размер
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.all(8),
+                        padding=ft.Padding.all(8),
                         overlay_color={
                             ft.ControlState.HOVERED: ft.Colors.PRIMARY_CONTAINER,
                             ft.ControlState.PRESSED: ft.Colors.PRIMARY,
@@ -421,7 +421,7 @@ class TransactionsPanel(ft.Container):
                     icon_size=20,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.all(8),
+                        padding=ft.Padding.all(8),
                     )
                 )
             )
@@ -438,7 +438,7 @@ class TransactionsPanel(ft.Container):
                     icon_size=20,  # Компактный размер
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.all(8),
+                        padding=ft.Padding.all(8),
                         overlay_color={
                             ft.ControlState.HOVERED: ft.Colors.ERROR_CONTAINER,
                             ft.ControlState.PRESSED: ft.Colors.ERROR,
@@ -466,7 +466,7 @@ class TransactionsPanel(ft.Container):
                     icon_size=20,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.all(8),
+                        padding=ft.Padding.all(8),
                     )
                 )
             )
@@ -509,7 +509,7 @@ class TransactionsPanel(ft.Container):
             ),
             bgcolor=ft.Colors.SURFACE,
             border_radius=8,
-            padding=ft.padding.symmetric(horizontal=4, vertical=2),
+            padding=ft.Padding.symmetric(horizontal=4, vertical=2),
             animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
             on_hover=self._on_transaction_tile_hover,
         )
@@ -608,7 +608,7 @@ class TransactionsPanel(ft.Container):
                         icon_size=20,
                         style=ft.ButtonStyle(
                             shape=ft.RoundedRectangleBorder(radius=8),
-                            padding=ft.padding.all(6),
+                            padding=ft.Padding.all(6),
                             bgcolor={
                                 ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
                                 ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_occurrence is not None else ft.Colors.TRANSPARENT,
@@ -631,7 +631,7 @@ class TransactionsPanel(ft.Container):
                         icon_size=20,
                         style=ft.ButtonStyle(
                             shape=ft.RoundedRectangleBorder(radius=8),
-                            padding=ft.padding.all(6),
+                            padding=ft.Padding.all(6),
                             bgcolor={
                                 ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
                                 ft.ControlState.HOVERED: ft.Colors.RED_50 if self.on_skip_occurrence is not None else ft.Colors.TRANSPARENT,
@@ -698,7 +698,7 @@ class TransactionsPanel(ft.Container):
             icon_size=20,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=8),
-                padding=ft.padding.all(8),
+                padding=ft.Padding.all(8),
                 bgcolor={
                     ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
                     ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_pending_payment is not None else ft.Colors.TRANSPARENT,
@@ -782,7 +782,7 @@ class TransactionsPanel(ft.Container):
                 icon_size=20,
                 style=ft.ButtonStyle(
                     shape=ft.RoundedRectangleBorder(radius=8),
-                    padding=ft.padding.all(8),
+                    padding=ft.Padding.all(8),
                     bgcolor={
                         ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT,
                         ft.ControlState.HOVERED: ft.Colors.GREEN_50 if self.on_execute_loan_payment is not None else ft.Colors.TRANSPARENT,

@@ -804,7 +804,7 @@ class TestLoanDetailsView(ViewTestBase):
         
         # Получаем кнопку из контейнера
         button = button_container.content
-        self.assertIsInstance(button, ft.ElevatedButton)
+        self.assertIsInstance(button, ft.Button)
         
         # Проверяем атрибуты кнопки
         self.assertEqual(button.text, "Передать долг")
@@ -951,4 +951,3 @@ class TestLoanDetailsView(ViewTestBase):
 
 if __name__ == '__main__':
     unittest.main()
-

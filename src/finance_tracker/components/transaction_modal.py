@@ -59,7 +59,7 @@ class TransactionModal:
             on_change=self._on_type_change,
         )
         
-        self.date_button = ft.ElevatedButton(
+        self.date_button = ft.Button(
             content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
@@ -99,7 +99,7 @@ class TransactionModal:
         self.dialog_title = ft.Text("Новая транзакция")
         
         # Кнопка сохранения с отслеживанием состояния
-        self.save_button = ft.ElevatedButton("Сохранить", on_click=self._save)
+        self.save_button = ft.Button("Сохранить", on_click=self._save)
         
         self.dialog = ft.AlertDialog(
             modal=True,

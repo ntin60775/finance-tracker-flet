@@ -76,7 +76,7 @@ class CalendarWidget(ft.Container):
 
         # Init Layout
         self.padding = 10
-        self.border = ft.border.all(1, "outlineVariant")
+        self.border = ft.Border.all(1, "outlineVariant")
         self.border_radius = 10
         self.bgcolor = "surface"
         
@@ -442,7 +442,7 @@ class CalendarWidget(ft.Container):
                     ),
                     width=40,
                     alignment=ft.Alignment.CENTER_RIGHT,
-                    padding=ft.padding.only(right=5),
+                    padding=ft.Padding.only(right=5),
                     # Выделяем выходные светлым фоном
                     bgcolor=ft.Colors.BLUE_50 if is_weekend else None,
                     border_radius=5,
@@ -527,11 +527,11 @@ class CalendarWidget(ft.Container):
 
         # Рамка для выделения
         if has_overdue_payment:
-            border = ft.border.all(2, ft.Colors.RED_700)
+            border = ft.Border.all(2, ft.Colors.RED_700)
         elif is_selected:
-            border = ft.border.all(3, ft.Colors.GREEN_700)
+            border = ft.Border.all(3, ft.Colors.GREEN_700)
         elif is_today:
-            border = ft.border.all(2, "primary")
+            border = ft.Border.all(2, "primary")
         else:
             border = None
 

@@ -300,8 +300,8 @@ class CalendarLegend(ft.Container):
                 )
             
             # Настраиваем контейнер с улучшенным стилем
-            self.padding = ft.padding.symmetric(horizontal=10, vertical=5)
-            self.margin = ft.margin.symmetric(vertical=2)
+            self.padding = ft.Padding.symmetric(horizontal=10, vertical=5)
+            self.margin = ft.Margin.symmetric(vertical=2)
             self.bgcolor = None  # Прозрачный фон для интеграции с календарём
             self.border_radius = 4
             self.content = content
@@ -470,7 +470,7 @@ class CalendarLegend(ft.Container):
             width=1,
             height=16,
             bgcolor=ft.Colors.OUTLINE_VARIANT,
-            margin=ft.margin.symmetric(horizontal=5)
+            margin=ft.Margin.symmetric(horizontal=5)
         )
 
     def _create_details_button(self) -> ft.TextButton:
@@ -490,7 +490,7 @@ class CalendarLegend(ft.Container):
                     size=12,
                     weight=ft.FontWeight.NORMAL
                 ),
-                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                 shape=ft.RoundedRectangleBorder(radius=4)
             ),
             tooltip="Показать все индикаторы календаря"
@@ -531,7 +531,7 @@ class CalendarLegend(ft.Container):
         Строит упрощённый UI в случае критической ошибки с консистентным стилем.
         """
         try:
-            self.padding = ft.padding.symmetric(horizontal=10, vertical=5)
+            self.padding = ft.Padding.symmetric(horizontal=10, vertical=5)
             self.content = ft.Row(
                 controls=[
                     ft.Icon(
@@ -775,8 +775,8 @@ class CalendarLegend(ft.Container):
                 )
             
             # Обновляем стиль контейнера
-            self.padding = ft.padding.symmetric(horizontal=10, vertical=5)
-            self.margin = ft.margin.symmetric(vertical=2)
+            self.padding = ft.Padding.symmetric(horizontal=10, vertical=5)
+            self.margin = ft.Margin.symmetric(vertical=2)
                 
             # Обновляем отображение если есть доступ к page
             if hasattr(self, 'page') and self.page:

@@ -49,7 +49,7 @@ class ExecutePendingPaymentModal:
         self.current_date = datetime.date.today()
 
         # UI Controls
-        self.date_button = ft.ElevatedButton(
+        self.date_button = ft.Button(
             content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
@@ -97,7 +97,7 @@ class ExecutePendingPaymentModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
-                ft.ElevatedButton(
+                ft.Button(
                     "Исполнить",
                     icon=ft.Icons.CHECK_CIRCLE,
                     on_click=self._execute

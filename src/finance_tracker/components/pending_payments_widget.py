@@ -128,7 +128,7 @@ class PendingPaymentsWidget(ft.Container):
 
         # Init Layout
         self.padding = 15
-        self.border = ft.border.all(1, "outlineVariant")
+        self.border = ft.Border.all(1, "outlineVariant")
         self.border_radius = 10
         self.bgcolor = "surface"
 
@@ -389,7 +389,7 @@ class PendingPaymentsWidget(ft.Container):
                 tight=True,
             ),
             padding=10,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=8,
             bgcolor=ft.Colors.SURFACE,
         )

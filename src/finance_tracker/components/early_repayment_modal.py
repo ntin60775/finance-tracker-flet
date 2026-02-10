@@ -83,7 +83,7 @@ class EarlyRepaymentModal:
             on_change=self._clear_error
         )
 
-        self.repayment_date_button = ft.ElevatedButton(
+        self.repayment_date_button = ft.Button(
             content=f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
@@ -164,7 +164,7 @@ class EarlyRepaymentModal:
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self._close_dialog),
-                ft.ElevatedButton(
+                ft.Button(
                     "Погасить",
                     icon=ft.Icons.PAYMENTS,
                     on_click=self._handle_repay,

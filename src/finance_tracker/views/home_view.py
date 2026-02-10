@@ -459,7 +459,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 ),
                 actions=[
                     ft.TextButton("Отмена", on_click=cancel_delete),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Удалить", 
                         on_click=confirm_delete, 
                         bgcolor=ft.Colors.ERROR,
@@ -603,7 +603,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel_dialog),
-                ft.ElevatedButton("Отменить платёж", on_click=confirm_cancel),
+                ft.Button("Отменить платёж", on_click=confirm_cancel),
             ],
         )
 
@@ -625,7 +625,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             content=ft.Text("Это действие нельзя отменить!"),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel_delete),
-                ft.ElevatedButton("Удалить", on_click=confirm_delete, bgcolor=ft.Colors.ERROR),
+                ft.Button("Удалить", on_click=confirm_delete, bgcolor=ft.Colors.ERROR),
             ],
         )
 
@@ -805,7 +805,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel_execute),
-                ft.ElevatedButton("Исполнить", on_click=confirm_execute, bgcolor=ft.Colors.PRIMARY),
+                ft.Button("Исполнить", on_click=confirm_execute, bgcolor=ft.Colors.PRIMARY),
             ],
         )
 

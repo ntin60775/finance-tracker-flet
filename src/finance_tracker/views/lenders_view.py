@@ -272,7 +272,7 @@ class LendersView(ft.Column):
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
-            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT)
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
         )
 
     def on_create_lender(
@@ -419,7 +419,7 @@ class LendersView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel),
-                ft.ElevatedButton(
+                ft.Button(
                     "Удалить",
                     bgcolor=ft.Colors.ERROR,
                     color=ft.Colors.ON_ERROR,
