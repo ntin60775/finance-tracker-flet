@@ -16,10 +16,7 @@ import flet as ft
 from finance_tracker.views.home_view import HomeView
 from finance_tracker.components.calendar_legend import CalendarLegend
 from finance_tracker.components.calendar_widget import CalendarWidget
-from finance_tracker.models.models import TransactionDB, CategoryDB
 from finance_tracker.models.enums import TransactionType
-from finance_tracker.services.transaction_service import create_transaction
-from finance_tracker.models import TransactionCreate
 
 
 class TestCalendarLegendIntegration(unittest.TestCase):
@@ -158,7 +155,6 @@ class TestCalendarLegendIntegration(unittest.TestCase):
             
             # Создаем HomeView
             home_view = HomeView(self.mock_page, self.mock_session)
-            calendar_widget = home_view.calendar_widget
             legend = home_view.legend
             
             # Act & Assert - проверяем консистентность индикаторов
@@ -340,7 +336,6 @@ class TestCalendarLegendIntegration(unittest.TestCase):
             legend = home_view.legend
             
             # Act - изменяем ширину календаря
-            old_width = legend.calendar_width
             legend.update_calendar_width(calendar_width)
             
             # Assert - проверяем стабильность

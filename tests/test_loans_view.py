@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import Mock
 from decimal import Decimal
 from datetime import date
+from hypothesis import given, strategies as st, settings
 
 from finance_tracker.views.loans_view import LoansView
 from finance_tracker.models.enums import LoanStatus, LoanType
@@ -385,7 +386,7 @@ class TestLoansView(ViewTestBase):
         self.mock_loan_details_view.return_value = mock_details_view
         
         # Сохраняем исходное количество контролов
-        original_controls_count = len(self.view.controls)
+        len(self.view.controls)
         
         # Вызываем метод открытия деталей
         self.view.open_loan_details(test_loan)
@@ -729,13 +730,6 @@ class TestLoansView(ViewTestBase):
 if __name__ == '__main__':
     unittest.main()
 
-
-
-# ============================================================================
-# Property-based тесты для LoansView
-# ============================================================================
-
-from hypothesis import given, strategies as st, settings
 
 
 class TestLoansViewProperties(ViewTestBase):

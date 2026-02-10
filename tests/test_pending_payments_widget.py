@@ -8,8 +8,7 @@ Unit тесты для PendingPaymentsWidget.
 - Состояние UI компонентов
 """
 import unittest
-from unittest.mock import Mock, MagicMock
-from datetime import date
+from unittest.mock import Mock
 from decimal import Decimal
 import flet as ft
 

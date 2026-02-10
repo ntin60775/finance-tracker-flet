@@ -6,7 +6,6 @@ from unittest.mock import Mock, MagicMock, patch
 from decimal import Decimal
 from datetime import date
 
-import pytest
 from hypothesis import given, strategies as st, settings
 
 from finance_tracker.components.debt_transfer_modal import DebtTransferModal

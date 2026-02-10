@@ -374,7 +374,7 @@ class TestUIStateSynchronizationProperties:
         
         Property: For any transaction deletion, all UI components should reflect the updated state consistently.
         """
-        from unittest.mock import Mock, MagicMock
+        from unittest.mock import Mock
         from finance_tracker.views.home_presenter import HomePresenter
         from finance_tracker.views.interfaces import IHomeViewCallbacks
         
@@ -481,7 +481,7 @@ class TestUIStateSynchronizationProperties:
             if update_transactions_calls:
                 # Последний вызов должен содержать актуальные данные
                 last_call_args = update_transactions_calls[-1][0]
-                call_date = last_call_args[0]
+                last_call_args[0]
                 call_transactions = last_call_args[1]
                 
                 # Проверяем, что удаленная транзакция не присутствует в переданных данных
@@ -1027,7 +1027,7 @@ class TestEdgeCaseHandlingProperties:
             # Получаем начальное состояние системы
             initial_balance = transaction_service.get_total_balance(session)
             initial_transaction_count = session.query(TransactionDB).count()
-            initial_stats = transaction_service.get_category_statistics(session)
+            transaction_service.get_category_statistics(session)
             
             # Создаем транзакцию с граничными параметрами
             edge_case_transaction = TransactionDB(
@@ -1098,7 +1098,7 @@ class TestEdgeCaseHandlingProperties:
                 f"Название категории: '{category_name[:50]}...'"
             )
             assert remaining_category.name == category_name, (
-                f"Название категории не должно измениться после удаления транзакции"
+                "Название категории не должно измениться после удаления транзакции"
             )
             
             # 5. Requirement 7.3: Точность пересчетов при больших суммах
@@ -1130,7 +1130,7 @@ class TestEdgeCaseHandlingProperties:
             # 8. Транзакция должна быть полностью удалена из БД
             deleted_transaction = session.query(TransactionDB).filter_by(id=edge_case_transaction.id).first()
             assert deleted_transaction is None, (
-                f"Транзакция с граничными параметрами должна быть полностью удалена из БД"
+                "Транзакция с граничными параметрами должна быть полностью удалена из БД"
             )
             
             # 9. Консистентность статистики категорий
@@ -1190,7 +1190,7 @@ class TestDialogDisplayProperties:
         
         Property: For any delete button click, a confirmation dialog should be displayed to the user.
         """
-        from unittest.mock import Mock, MagicMock, patch
+        from unittest.mock import Mock, MagicMock
         from finance_tracker.views.home_view import HomeView
         from finance_tracker.models.models import TransactionDB, CategoryDB
         
@@ -1280,7 +1280,6 @@ class TestDialogDisplayProperties:
             # Проверяем, что диалог содержит информацию о транзакции
             # Для Flet диалогов нужно проверять структуру объектов, а не строковое представление
             dialog_content_found = False
-            transaction_info_checks = []
             
             def check_flet_content_recursively(obj, depth=0):
                 """Рекурсивно проверяет содержимое Flet объектов."""
@@ -1492,7 +1491,7 @@ class TestCascadeUpdatesAfterDeletion:
         
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
         """
-        from unittest.mock import Mock, MagicMock, patch
+        from unittest.mock import Mock
         from finance_tracker.views.home_presenter import HomePresenter
         from finance_tracker.views.interfaces import IHomeViewCallbacks
         

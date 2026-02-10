@@ -17,8 +17,6 @@ from finance_tracker.components.pending_payment_modal import PendingPaymentModal
 from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
 from finance_tracker.utils.logger import get_logger
 from finance_tracker.models.models import (
-    PendingPaymentExecute,
-    PendingPaymentCancel,
     PendingPaymentUpdate,
     PendingPaymentDB,
     LoanPaymentDB

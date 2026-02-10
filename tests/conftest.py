@@ -11,7 +11,7 @@ import uuid
 import flet as ft
 
 from finance_tracker.models import Base
-from finance_tracker.models.models import CategoryDB, TransactionDB, TransactionCreate
+from finance_tracker.models.models import CategoryDB, TransactionDB
 from finance_tracker.models.enums import TransactionType
 
 

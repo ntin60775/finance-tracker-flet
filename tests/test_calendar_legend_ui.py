@@ -18,7 +18,6 @@ from hypothesis import given, strategies as st
 from finance_tracker.components.calendar_legend import CalendarLegend
 from finance_tracker.components.calendar_legend_types import (
     IndicatorType,
-    DisplayMode,
     INDICATOR_CONFIGS
 )
 
@@ -169,7 +168,7 @@ class TestCalendarLegendUI(unittest.TestCase):
         
         # Попытка открытия не должна вызывать исключений
         try:
-            result = legend._open_modal_safe(mock_event)
+            legend._open_modal_safe(mock_event)
             # Операция должна завершиться без ошибок, но неуспешно
             # (результат не проверяем, так как метод может не возвращать значение)
         except Exception as e:

@@ -8,19 +8,16 @@ Unit тесты для TransactionsPanel.
 - Состояние UI компонентов
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
 from datetime import date
 from decimal import Decimal
 import flet as ft
 
 from finance_tracker.components.transactions_panel import TransactionsPanel
-from finance_tracker.models.models import TransactionDB
 from finance_tracker.models.enums import TransactionType
 from ui_test_helpers import (
     create_test_transaction,
-    create_mock_callback,
-    assert_button_state,
-    simulate_button_click
+    create_mock_callback
 )
 
 

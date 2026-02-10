@@ -1,4 +1,3 @@
-import logging
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, List, Optional, Tuple
@@ -13,18 +12,19 @@ from finance_tracker.services import (
     pending_payment_service,
     loan_payment_service,
 )
+from finance_tracker.models.models import (
+    TransactionCreate,
+    TransactionUpdate,
+    PendingPaymentExecute,
+    PendingPaymentCancel,
+    PendingPaymentCreate,
+    PendingPaymentUpdate,
+    PlannedTransactionCreate,
+)
 # Assuming logger is setup via utils.logger
 from finance_tracker.utils.logger import get_logger
+
 logger = get_logger(__name__)
-from finance_tracker.models.models import (
-    TransactionCreate, # for create_transaction
-    TransactionUpdate, # for update_transaction
-    PendingPaymentExecute, # for execute_pending_payment
-    PendingPaymentCancel, # for cancel_pending_payment
-    PendingPaymentCreate, # for create_pending_payment
-    PendingPaymentUpdate, # for update_pending_payment
-    PlannedTransactionCreate, # for create_planned_transaction
-)
 
 class HomePresenter:
     """Presenter для HomeView, содержит всю бизнес-логику."""

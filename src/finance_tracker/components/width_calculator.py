@@ -21,7 +21,7 @@
 - Более точное определение режима отображения легенды
 - Полная легенда показывается при ширине календаря >= 525px (было >= 670px)
 """
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass
 import logging
 

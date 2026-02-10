@@ -52,7 +52,7 @@ class TestModalManagerProperties:
         # Проверяем, что диалог создан корректно
         assert dialog is not None
         assert isinstance(dialog, ft.AlertDialog)
-        assert dialog.modal == True
+        assert dialog.modal
         assert dialog.title.value == "Легенда календаря"
         assert dialog.content is not None
         assert len(dialog.actions) == 1
@@ -62,7 +62,7 @@ class TestModalManagerProperties:
         result = modal_manager.open_modal(page=mock_page)
         
         # Проверяем успешное открытие через page.open()
-        assert result == True
+        assert result
         mock_page.open.assert_called_once_with(dialog)
         
         # Act & Assert - закрытие модального окна через современный Flet API
@@ -70,7 +70,7 @@ class TestModalManagerProperties:
         result = modal_manager.close_modal(page=mock_page)
         
         # Проверяем успешное закрытие через page.close()
-        assert result == True
+        assert result
         mock_page.close.assert_called_once_with(dialog)
 
     @given(st.lists(
@@ -142,10 +142,10 @@ class TestModalManagerProperties:
                 
                 if page is None:
                     # При None должен вернуть False, но не упасть
-                    assert result == False
+                    assert not result
                 else:
                     # При валидном page должен вернуть True
-                    assert result == True
+                    assert result
                     # Проверяем вызов page.open() (современный Flet API)
                     page.open.assert_called_once_with(modal_manager.dialog)
                     
@@ -160,10 +160,10 @@ class TestModalManagerProperties:
                 
                 if page is None:
                     # При None должен вернуть False, но не упасть
-                    assert result == False
+                    assert not result
                 else:
                     # При валидном page должен вернуть True
-                    assert result == True
+                    assert result
                     # Проверяем вызов page.close() (современный Flet API)
                     page.close.assert_called_once_with(modal_manager.dialog)
                     
@@ -395,7 +395,7 @@ class TestModalManagerProperties:
                 # Если есть валидный page в событии, должно открыться успешно
                 if (event and hasattr(event, 'control') and 
                     hasattr(event.control, 'page') and event.control.page):
-                    assert result == True
+                    assert result
                     # Проверяем вызов page.open() (современный Flet API)
                     event.control.page.open.assert_called_with(modal_manager.dialog)
                     

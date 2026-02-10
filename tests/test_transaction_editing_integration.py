@@ -7,23 +7,16 @@
 - Обновление календаря после изменений
 """
 
-import pytest
 import unittest
 from unittest.mock import Mock, MagicMock, patch
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Dict, Any
-import flet as ft
 
 from finance_tracker.views.home_view import HomeView
-from finance_tracker.components.transactions_panel import TransactionsPanel
-from finance_tracker.components.transaction_modal import TransactionModal
 from finance_tracker.models.models import (
-    TransactionDB, TransactionCreate, TransactionUpdate, CategoryDB
+    TransactionDB, TransactionUpdate, CategoryDB
 )
 from finance_tracker.models.enums import TransactionType
-from finance_tracker.services import transaction_service
-from finance_tracker.database import get_db_session
 
 
 class TestTransactionEditingIntegration(unittest.TestCase):
@@ -149,7 +142,7 @@ class TestTransactionEditingIntegration(unittest.TestCase):
                 
                 # 4. Симулируем сохранение изменений
                 # Создаем TransactionUpdate с измененными данными
-                update_data = TransactionUpdate(
+                TransactionUpdate(
                     amount=Decimal("200.75"),
                     type=TransactionType.EXPENSE,
                     category_id=self.expense_category_id,

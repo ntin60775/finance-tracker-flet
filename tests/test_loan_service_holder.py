@@ -140,7 +140,7 @@ class TestGetLoansByCurrentHolder(unittest.TestCase):
             )
             
             # Создаём несколько кредитов разных типов и статусов
-            loan1 = create_loan(
+            create_loan(
                 session=session,
                 name="Потребительский кредит",
                 lender_id=lender.id,
@@ -216,7 +216,7 @@ class TestGetDebtByHolderStatistics(unittest.TestCase):
             )
             
             # Создаём кредит
-            loan = create_loan(
+            create_loan(
                 session=session,
                 name="Кредит 1",
                 lender_id=lender.id,
@@ -256,7 +256,7 @@ class TestGetDebtByHolderStatistics(unittest.TestCase):
             )
             
             # Создаём кредиты для каждого
-            loan1 = create_loan(
+            create_loan(
                 session=session,
                 name="Кредит 1",
                 lender_id=lender1.id,
@@ -265,7 +265,7 @@ class TestGetDebtByHolderStatistics(unittest.TestCase):
                 issue_date=date(2024, 1, 1)
             )
             
-            loan2 = create_loan(
+            create_loan(
                 session=session,
                 name="Кредит 2",
                 lender_id=lender2.id,
@@ -348,7 +348,7 @@ class TestGetDebtByHolderStatistics(unittest.TestCase):
             )
             
             # Создаём активный кредит
-            loan1 = create_loan(
+            create_loan(
                 session=session,
                 name="Активный кредит",
                 lender_id=lender.id,

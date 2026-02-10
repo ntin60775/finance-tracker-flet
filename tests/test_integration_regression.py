@@ -10,17 +10,16 @@
 """
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from hypothesis import given, strategies as st, assume, settings
 from hypothesis.strategies import composite
 
 from test_view_base import ViewTestBase
 from finance_tracker.views.main_window import MainWindow
-from finance_tracker.views.home_view import HomeView
 from finance_tracker.models import TransactionType, CategoryDB, TransactionCreate
 
 
@@ -543,7 +542,7 @@ class TestErrorHandlingIntegration(TestIntegrationRegression):
         self.add_patcher('finance_tracker.views.pending_payments_view.get_db_session', return_value=self.mock_db_cm)
         
         # Мокируем логгер для проверки логирования ошибок
-        mock_logger_error = self.add_patcher('logging.error')
+        self.add_patcher('logging.error')
         
         # Создаем MainWindow
         main_window = MainWindow(self.page)
@@ -609,7 +608,7 @@ class TestJSONSerializationSafety(TestIntegrationRegression):
         self.mock_logging_error = self.add_patcher('logging.error')
         
         # Создаем MainWindow (который может логировать данные)
-        main_window = MainWindow(self.page)
+        MainWindow(self.page)
         
         # Симулируем логирование сложных объектов
         try:
@@ -983,7 +982,7 @@ class TestApplicationStartupRobustnessProperties(TestIntegrationRegression):
         
         try:
             # Создаем MainWindow
-            main_window = MainWindow(self.page)
+            MainWindow(self.page)
             
             # Property: Логирование с произвольными данными не должно вызывать ошибки JSON сериализации
             mock_logger("Тест логирования", extra={"context": filtered_data})

@@ -337,8 +337,8 @@ class PlannedTransactionsWidget(ft.Container):
                 )
                 self.on_occurrence_click(occurrence)
                 logger.debug(
-                    f"[ДИАГНОСТИКА] PlannedTransactionsWidget._on_card_click: "
-                    f"Callback on_occurrence_click вызван успешно"
+                    "[ДИАГНОСТИКА] PlannedTransactionsWidget._on_card_click: "
+                    "Callback on_occurrence_click вызван успешно"
                 )
             except Exception as e:
                 logger.error(f"Ошибка при обработке клика на вхождение: {e}")

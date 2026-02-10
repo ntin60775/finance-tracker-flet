@@ -83,7 +83,7 @@ class TestLoanStatisticsHolderInfo(unittest.TestCase):
             )
             
             # Создаём два активных кредита
-            loan1 = create_loan(
+            create_loan(
                 session,
                 lender_id=lender.id,
                 name="Кредит 1",
@@ -94,7 +94,7 @@ class TestLoanStatisticsHolderInfo(unittest.TestCase):
                 end_date=date.today() + timedelta(days=365)
             )
             
-            loan2 = create_loan(
+            create_loan(
                 session,
                 lender_id=lender.id,
                 name="Кредит 2",
@@ -150,7 +150,7 @@ class TestLoanStatisticsHolderInfo(unittest.TestCase):
             )
             
             # Создаём кредиты для каждого кредитора
-            loan1 = create_loan(
+            create_loan(
                 session,
                 lender_id=lender1.id,
                 name="Кредит от Банка 1",
@@ -161,7 +161,7 @@ class TestLoanStatisticsHolderInfo(unittest.TestCase):
                 end_date=date.today() + timedelta(days=365)
             )
             
-            loan2 = create_loan(
+            create_loan(
                 session,
                 lender_id=lender2.id,
                 name="Кредит от Банка 2",

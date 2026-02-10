@@ -5,7 +5,7 @@ Property-based тесты для HomePresenter.
 - Property 2: Создание плановой транзакции сохраняет данные в БД
 """
 
-from datetime import date, timedelta
+from datetime import date
 from contextlib import contextmanager
 from decimal import Decimal
 from hypothesis import given, strategies as st, settings

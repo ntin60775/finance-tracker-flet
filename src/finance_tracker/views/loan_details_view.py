@@ -1007,7 +1007,7 @@ class LoanDetailsView(ft.Column):
         """
         try:
             # Создаём передачу долга
-            transfer = create_debt_transfer(
+            create_debt_transfer(
                 session=self.session,
                 loan_id=loan_id,
                 to_lender_id=to_lender_id,

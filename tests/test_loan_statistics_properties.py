@@ -279,7 +279,7 @@ class TestLoanStatisticsProperties:
                 interest = (amount * interest_rate / 100) / 12
                 total_payment = principal + interest
 
-                payment = create_payment(
+                create_payment(
                     session,
                     loan_id=loan.id,
                     scheduled_date=today,
@@ -603,7 +603,7 @@ class TestLoanStatisticsProperties:
             # Создаём кредиты разных типов (3 типа)
             loan_types_list = [LoanType.CONSUMER, LoanType.MORTGAGE, LoanType.MICROLOAN]
             for i, loan_type in enumerate(loan_types_list):
-                loan = create_loan(
+                create_loan(
                     session,
                     lender_id=lender.id,
                     name=f"Loan-{loan_type.value}",

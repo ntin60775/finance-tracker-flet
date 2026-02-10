@@ -5,7 +5,7 @@
 особенно в случаях, когда ожидается Dict[str, Any], но передается Tuple.
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, MagicMock, patch
 from typing import Dict, Any, List, Tuple
 import pytest
 from hypothesis import given, strategies as st, settings

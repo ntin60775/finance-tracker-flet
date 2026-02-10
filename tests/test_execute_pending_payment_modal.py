@@ -15,7 +15,6 @@ import unittest
 from unittest.mock import Mock, MagicMock
 from decimal import Decimal
 import datetime
-import flet as ft
 
 from finance_tracker.components.execute_pending_payment_modal import ExecutePendingPaymentModal
 from finance_tracker.models.models import PendingPaymentDB

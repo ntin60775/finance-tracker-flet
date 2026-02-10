@@ -122,7 +122,6 @@ def test_property_1_button_click_opens_modal(date_obj, has_page, has_modal):
     добавления транзакции должно открываться TransactionModal с текущей выбранной датой.
     """
     from finance_tracker.views.home_view import HomeView
-    from finance_tracker.components.transaction_modal import TransactionModal
     from unittest.mock import MagicMock, Mock, patch
     
     # Arrange - создаем различные сценарии для тестирования
@@ -256,9 +255,9 @@ def test_property_11_error_handling_robustness(callback_type, exception_type, ha
     
     # Проверяем правильное состояние кнопки
     if callback is None:
-        assert add_button.disabled == True, "Кнопка должна быть отключена при None callback"
+        assert add_button.disabled, "Кнопка должна быть отключена при None callback"
     else:
-        assert add_button.disabled != True, "Кнопка должна быть активна при наличии callback"
+        assert not add_button.disabled, "Кнопка должна быть активна при наличии callback"
     
     # on_click всегда должен быть установлен для безопасности
     assert add_button.on_click is not None, "on_click должен быть установлен для безопасности"
@@ -303,9 +302,9 @@ def test_property_11_error_handling_robustness(callback_type, exception_type, ha
     current_button = current_header.controls[1]
     
     if callback is None:
-        assert current_button.disabled == True, "Кнопка должна оставаться отключенной при None callback"
+        assert current_button.disabled, "Кнопка должна оставаться отключенной при None callback"
     else:
-        assert current_button.disabled != True, "Кнопка должна оставаться активной после обработки ошибок"
+        assert not current_button.disabled, "Кнопка должна оставаться активной после обработки ошибок"
     
     assert current_button.on_click is not None, "on_click должен оставаться установленным"
     
@@ -378,7 +377,7 @@ def test_error_handling_ui_robustness(page_available, snackbar_fails, update_fai
     # Кнопка должна оставаться функциональной
     header_row = panel._build_header()
     add_button = header_row.controls[1]
-    assert add_button.disabled != True  # Должна быть активна с callback
+    assert not add_button.disabled  # Должна быть активна с callback
     assert add_button.on_click is not None
 
 
@@ -442,8 +441,8 @@ def test_error_handling_consistency_across_calls(callback_sequence):
         add_button = header_row.controls[1]
         
         if callback is None:
-            assert add_button.disabled == True, f"Кнопка должна быть отключена при None callback на итерации {i + 1}"
+            assert add_button.disabled, f"Кнопка должна быть отключена при None callback на итерации {i + 1}"
         else:
-            assert add_button.disabled != True, f"Кнопка должна быть активна на итерации {i + 1}"
+            assert not add_button.disabled, f"Кнопка должна быть активна на итерации {i + 1}"
         
         assert add_button.on_click is not None, f"on_click должен быть установлен на итерации {i + 1}"

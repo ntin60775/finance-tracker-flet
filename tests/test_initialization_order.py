@@ -5,10 +5,9 @@
 и корректность порядка загрузки данных в UI компонентах.
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, MagicMock, patch
 import datetime
 import flet as ft
-import pytest
 from hypothesis import given, strategies as st, settings
 
 from test_view_base import ViewTestBase
@@ -618,7 +617,7 @@ class TestInitializationOrder(ViewTestBase):
         home_view = HomeView(self.mock_page, self.mock_session, navigate_callback=Mock())
         
         # Патчим did_mount для вызова ошибки
-        original_did_mount = home_view.did_mount if hasattr(home_view, 'did_mount') else None
+        home_view.did_mount if hasattr(home_view, 'did_mount') else None
         
         def error_did_mount():
             raise Exception("Error in did_mount")
@@ -696,7 +695,7 @@ def test_property_6_component_lifecycle_consistency(view_names, lifecycle_operat
     # Явно настраиваем методы для современного Flet Dialog API (>= 0.25.0)
     mock_page.open = MagicMock()
     mock_page.close = MagicMock()
-    mock_session = Mock()
+    Mock()
     
     # Отслеживание lifecycle событий
     lifecycle_events = []

@@ -4,13 +4,12 @@ import logging
 import flet as ft
 
 from .calendar_legend_types import (
-    IndicatorType, 
     DisplayMode, 
     LegendIndicator, 
     INDICATOR_CONFIGS
 )
 from .modal_manager import ModalManager
-from .width_calculator import WidthCalculator, WidthCalculationResult
+from .width_calculator import WidthCalculator
 from .page_access_manager import PageAccessManager
 
 logger = logging.getLogger(__name__)
@@ -295,8 +294,8 @@ class CalendarLegend(ft.Container):
             else:
                 content = self._build_compact_legend()
                 logger.debug(
-                    f"Построена сокращённая легенда: "
-                    f"приоритетные индикаторы + кнопка 'Подробнее'"
+                    "Построена сокращённая легенда: "
+                    "приоритетные индикаторы + кнопка 'Подробнее'"
                 )
             
             # Настраиваем контейнер с улучшенным стилем
@@ -681,9 +680,9 @@ class CalendarLegend(ft.Container):
             
             if success:
                 logger.info(
-                    f"✓ Модальное окно календарной легенды успешно открыто: "
-                    f"использован_улучшенный_ModalManager=True, "
-                    f"PageAccessManager_стратегии=множественные"
+                    "✓ Модальное окно календарной легенды успешно открыто: "
+                    "использован_улучшенный_ModalManager=True, "
+                    "PageAccessManager_стратегии=множественные"
                 )
             else:
                 logger.warning(
@@ -770,8 +769,8 @@ class CalendarLegend(ft.Container):
             else:
                 self.content = self._build_compact_legend()
                 logger.info(
-                    f"🔄 UI легенды перестроен в сокращённый режим: "
-                    f"приоритетные индикаторы + кнопка 'Подробнее'"
+                    "🔄 UI легенды перестроен в сокращённый режим: "
+                    "приоритетные индикаторы + кнопка 'Подробнее'"
                 )
             
             # Обновляем стиль контейнера
@@ -791,7 +790,7 @@ class CalendarLegend(ft.Container):
             try:
                 self._build_fallback_ui()
                 logger.info(
-                    f"Использован fallback UI после ошибки перестройки календарной легенды"
+                    "Использован fallback UI после ошибки перестройки календарной легенды"
                 )
             except Exception as fallback_error:
                 logger.error(f"Критическая ошибка даже в fallback UI: {fallback_error}")

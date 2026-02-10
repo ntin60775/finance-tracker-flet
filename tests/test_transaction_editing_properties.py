@@ -10,11 +10,10 @@ Property-based тесты для функциональности редакти
 - Property 9: Удаление вызывает delete_transaction
 """
 
-import pytest
 from unittest.mock import Mock, MagicMock, patch
-from hypothesis import given, strategies as st, settings, assume
-from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from hypothesis import given, strategies as st, settings
+from datetime import date, datetime
+from decimal import Decimal
 import uuid
 import flet as ft
 
@@ -107,12 +106,12 @@ class TestTransactionEditingProperties:
                 controls = trailing_row.controls
                 
                 # Первый элемент - сумма (Text), остальные - кнопки
-                assert len(controls) >= 1, f"Trailing должен содержать минимум сумму"
-                assert isinstance(controls[0], ft.Text), f"Первый элемент должен быть суммой (Text)"
+                assert len(controls) >= 1, "Trailing должен содержать минимум сумму"
+                assert isinstance(controls[0], ft.Text), "Первый элемент должен быть суммой (Text)"
                 
                 # Проверяем кнопки (всегда есть 2 кнопки - edit и delete, но могут быть disabled)
                 action_buttons = controls[1:]  # Все кроме суммы
-                assert len(action_buttons) == 2, f"Должно быть 2 кнопки действий (edit и delete)"
+                assert len(action_buttons) == 2, "Должно быть 2 кнопки действий (edit и delete)"
                 
                 # Проверяем кнопку редактирования (первая)
                 edit_button = action_buttons[0]
@@ -123,14 +122,14 @@ class TestTransactionEditingProperties:
                 
                 if edit_callback is not None:
                     assert edit_button.tooltip == "Редактировать", \
-                        f"Активная кнопка редактирования должна иметь tooltip 'Редактировать'"
-                    assert edit_button.disabled != True, \
-                        f"Кнопка редактирования должна быть активна при наличии callback"
+                        "Активная кнопка редактирования должна иметь tooltip 'Редактировать'"
+                    assert not edit_button.disabled, \
+                        "Кнопка редактирования должна быть активна при наличии callback"
                 else:
                     assert edit_button.tooltip == "Редактирование недоступно", \
-                        f"Неактивная кнопка редактирования должна иметь соответствующий tooltip"
-                    assert edit_button.disabled == True, \
-                        f"Кнопка редактирования должна быть неактивна при отсутствии callback"
+                        "Неактивная кнопка редактирования должна иметь соответствующий tooltip"
+                    assert edit_button.disabled, \
+                        "Кнопка редактирования должна быть неактивна при отсутствии callback"
                 
                 # Проверяем кнопку удаления (вторая)
                 delete_button = action_buttons[1]
@@ -141,18 +140,18 @@ class TestTransactionEditingProperties:
                 
                 if delete_callback is not None:
                     assert delete_button.tooltip == "Удалить", \
-                        f"Активная кнопка удаления должна иметь tooltip 'Удалить'"
-                    assert delete_button.disabled != True, \
-                        f"Кнопка удаления должна быть активна при наличии callback"
+                        "Активная кнопка удаления должна иметь tooltip 'Удалить'"
+                    assert not delete_button.disabled, \
+                        "Кнопка удаления должна быть активна при наличии callback"
                 else:
                     assert delete_button.tooltip == "Удаление недоступно", \
-                        f"Неактивная кнопка удаления должна иметь соответствующий tooltip"
-                    assert delete_button.disabled == True, \
-                        f"Кнопка удаления должна быть неактивна при отсутствии callback"
+                        "Неактивная кнопка удаления должна иметь соответствующий tooltip"
+                    assert delete_button.disabled, \
+                        "Кнопка удаления должна быть неактивна при отсутствии callback"
             else:
                 # Если нет кнопок действий, trailing это просто Text с суммой
                 assert isinstance(list_tile.trailing, ft.Text), \
-                    f"При отсутствии кнопок trailing должен быть Text с суммой"
+                    "При отсутствии кнопок trailing должен быть Text с суммой"
 
     @given(
         transaction_data=st.fixed_dictionaries({
@@ -224,7 +223,7 @@ class TestTransactionEditingProperties:
             # Assert - проверяем предзаполнение всех полей
             
             # 1. Режим редактирования должен быть установлен
-            assert modal.edit_mode == True, "Должен быть установлен режим редактирования"
+            assert modal.edit_mode, "Должен быть установлен режим редактирования"
             assert modal.editing_transaction == mock_transaction, \
                 "Должна быть сохранена ссылка на редактируемую транзакцию"
             
@@ -503,8 +502,6 @@ class TestTransactionEditingProperties:
             modal.open_edit(mock_page, mock_transaction)
             
             # Act - изменяем данные (но не сохраняем)
-            original_amount = modal.amount_field.value
-            original_description = modal.description_field.value
             
             # Изменяем поля
             modal.amount_field.value = str(Decimal('999.99'))
@@ -610,7 +607,7 @@ class TestTransactionEditingProperties:
         delete_button = action_buttons[1]  # Вторая кнопка - delete
         
         assert delete_button.icon == ft.Icons.DELETE, "Вторая кнопка должна быть кнопкой удаления"
-        assert delete_button.disabled != True, "Кнопка удаления должна быть активна"
+        assert not delete_button.disabled, "Кнопка удаления должна быть активна"
         
         # Симулируем нажатие кнопки удаления через безопасный метод
         panel._safe_delete_transaction(mock_transaction)

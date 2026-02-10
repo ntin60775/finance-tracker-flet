@@ -5,10 +5,9 @@
 с правильными индексами разделов.
 """
 
-import datetime
 import pytest
 import flet as ft
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from sqlalchemy.orm import Session
 
 from finance_tracker.views.home_view import HomeView

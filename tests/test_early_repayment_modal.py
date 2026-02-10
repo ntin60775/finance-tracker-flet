@@ -13,10 +13,9 @@
 Requirements: 10.7
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 from decimal import Decimal
 import datetime
-import flet as ft
 
 from finance_tracker.components.early_repayment_modal import EarlyRepaymentModal
 from finance_tracker.models.models import LoanDB

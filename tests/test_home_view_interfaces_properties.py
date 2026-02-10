@@ -1,4 +1,3 @@
-import pytest
 from hypothesis import given, strategies as st
 from datetime import date
 from typing import List, Tuple, Any

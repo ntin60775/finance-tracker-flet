@@ -13,13 +13,12 @@
 Requirements: 5.4, 5.5
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 from decimal import Decimal
 import datetime
-import flet as ft
 
 from finance_tracker.components.execute_occurrence_modal import ExecuteOccurrenceModal
-from finance_tracker.models import PlannedOccurrence, OccurrenceStatus, TransactionType
+from finance_tracker.models import PlannedOccurrence
 
 
 class TestExecuteOccurrenceModal(unittest.TestCase):

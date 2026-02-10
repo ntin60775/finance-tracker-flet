@@ -5,8 +5,7 @@
 компоненты будут полностью добавлены на страницу.
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
-import datetime
+from unittest.mock import Mock, MagicMock, patch
 import flet as ft
 import pytest
 from hypothesis import given, strategies as st, settings

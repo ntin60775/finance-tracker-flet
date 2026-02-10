@@ -8,12 +8,12 @@
 - Граничных случаев и ошибок
 """
 from hypothesis import strategies as st
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 import uuid
 
-from finance_tracker.models.enums import TransactionType, LenderType, LoanType
+from finance_tracker.models.enums import TransactionType
 
 
 # =============================================================================

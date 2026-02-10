@@ -625,7 +625,7 @@ class TestPendingPaymentProperties:
             )
 
             # Создаём платёж через сервис
-            created_payment = create_pending_payment(session, payment_data)
+            create_pending_payment(session, payment_data)
 
             # Получаем статистику ПОСЛЕ создания платежа
             stats_after = get_pending_payments_statistics(session)
@@ -937,7 +937,7 @@ class TestPendingPaymentProperties:
             # Pydantic может выдавать разные сообщения: "greater than", "finite number" и т.д.
             error_messages = [error['msg'] for error in errors if error['loc'] == ('amount',)]
             assert len(error_messages) > 0, (
-                f"Должно быть сообщение об ошибке для поля 'amount'"
+                "Должно быть сообщение об ошибке для поля 'amount'"
             )
 
             # Тест 2: Невалидное описание (пустое или только пробелы)
@@ -960,7 +960,7 @@ class TestPendingPaymentProperties:
             # Может быть "Описание не может быть пустым" или "at least 1 characters"
             error_messages = [error['msg'] for error in errors if error['loc'] == ('description',)]
             assert len(error_messages) > 0, (
-                f"Должно быть сообщение об ошибке для поля 'description'"
+                "Должно быть сообщение об ошибке для поля 'description'"
             )
             
             # Проверяем, что сообщение содержит информацию о проблеме
@@ -1005,7 +1005,7 @@ class TestPendingPaymentProperties:
             
             # Проверяем, что невалидные данные не могут пройти через Pydantic
             try:
-                invalid_payment_data = PendingPaymentCreate(
+                PendingPaymentCreate(
                     amount=invalid_amount,
                     category_id=expense_category.id,
                     description=invalid_description,

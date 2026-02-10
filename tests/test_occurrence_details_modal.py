@@ -11,8 +11,6 @@
 import unittest
 from unittest.mock import Mock, MagicMock
 from decimal import Decimal
-import datetime
-import flet as ft
 
 from finance_tracker.components.occurrence_details_modal import OccurrenceDetailsModal
 from finance_tracker.models.enums import OccurrenceStatus

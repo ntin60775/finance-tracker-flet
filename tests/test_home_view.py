@@ -2,7 +2,7 @@
 Тесты для HomeView.
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, ANY
+from unittest.mock import Mock, MagicMock, patch
 import datetime
 
 import pytest

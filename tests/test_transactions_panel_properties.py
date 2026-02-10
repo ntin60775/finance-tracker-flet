@@ -8,8 +8,7 @@ Property-based тесты для TransactionsPanel.
 import pytest
 from unittest.mock import Mock, MagicMock
 from hypothesis import given, strategies as st, settings
-from datetime import date, timedelta
-from decimal import Decimal
+from datetime import date
 import flet as ft
 
 from finance_tracker.components.transactions_panel import TransactionsPanel
@@ -81,9 +80,9 @@ class TestTransactionsPanelProperties:
         
         # 7. Проверяем состояние кнопки в зависимости от callback
         if callback is None:
-            assert add_button.disabled == True, "Кнопка должна быть отключена при отсутствии callback"
+            assert add_button.disabled, "Кнопка должна быть отключена при отсутствии callback"
         else:
-            assert add_button.disabled != True, "Кнопка должна быть активна при наличии callback"
+            assert not add_button.disabled, "Кнопка должна быть активна при наличии callback"
         
         # 8. Проверяем, что on_click установлен (всегда должен быть установлен для безопасности)
         assert add_button.on_click is not None, "on_click должен быть установлен"
@@ -135,7 +134,7 @@ class TestTransactionsPanelProperties:
         assert add_button.style is not None
         assert add_button.style.bgcolor is not None
         assert add_button.style.icon_color is not None
-        assert add_button.disabled != True  # Должна быть активна с валидным callback
+        assert not add_button.disabled  # Должна быть активна с валидным callback
         assert add_button.on_click is not None
 
     @given(
@@ -177,7 +176,7 @@ class TestTransactionsPanelProperties:
         # Проверяем, что кнопка правильно настроена
         assert add_button is not None, "Кнопка добавления должна существовать"
         assert add_button.on_click is not None, "У кнопки должен быть установлен on_click"
-        assert add_button.disabled != True, "Кнопка должна быть активна с валидным callback"
+        assert not add_button.disabled, "Кнопка должна быть активна с валидным callback"
         
         # Симулируем нажатие кнопки через _safe_add_transaction
         panel._safe_add_transaction(None)
@@ -234,9 +233,9 @@ class TestTransactionsPanelProperties:
         
         # Проверяем состояние кнопки
         if callback is None:
-            assert add_button.disabled == True
+            assert add_button.disabled
         else:
-            assert add_button.disabled != True
+            assert not add_button.disabled
         
         # on_click всегда должен быть установлен для безопасности
         assert add_button.on_click is not None
@@ -276,7 +275,7 @@ class TestTransactionsPanelProperties:
         
         assert add_button.icon == ft.Icons.ADD
         assert add_button.tooltip == "Добавить транзакцию"
-        assert add_button.disabled != True
+        assert not add_button.disabled
         assert add_button.on_click is not None
         
         # Дата должна быть сохранена корректно
@@ -353,7 +352,7 @@ class TestTransactionsPanelProperties:
         # Кнопка должна оставаться функциональной
         header_row = panel._build_header()
         add_button = header_row.controls[1]
-        assert add_button.disabled != True
+        assert not add_button.disabled
 
     @given(
         exception_type=st.sampled_from([
@@ -392,7 +391,7 @@ class TestTransactionsPanelProperties:
         # Кнопка должна оставаться функциональной
         header_row = panel._build_header()
         add_button = header_row.controls[1]
-        assert add_button.disabled != True
+        assert not add_button.disabled
 
     @given(
         click_sequence=st.lists(
@@ -425,7 +424,7 @@ class TestTransactionsPanelProperties:
         header_row = panel._build_header()
         add_button = header_row.controls[1]
         assert add_button is not None, "Кнопка добавления должна существовать"
-        assert add_button.disabled != True, "Кнопка должна быть активна"
+        assert not add_button.disabled, "Кнопка должна быть активна"
         
         # Act - выполняем последовательность серий нажатий
         total_expected_calls = 0
@@ -466,7 +465,7 @@ class TestTransactionsPanelProperties:
             # Проверяем, что кнопка остается функциональной
             current_header = panel._build_header()
             current_button = current_header.controls[1]
-            assert current_button.disabled != True, \
+            assert not current_button.disabled, \
                 f"Кнопка должна оставаться активной после серии {series_index + 1}"
             assert current_button.on_click is not None, \
                 f"on_click должен оставаться установленным после серии {series_index + 1}"
@@ -497,7 +496,7 @@ class TestTransactionsPanelProperties:
         # 4. Кнопка должна оставаться функциональной
         final_header = panel._build_header()
         final_button = final_header.controls[1]
-        assert final_button.disabled != True, \
+        assert not final_button.disabled, \
             "Кнопка должна оставаться активной после всех нажатий"
         assert final_button.on_click is not None, \
             "on_click должен оставаться установленным после всех нажатий"

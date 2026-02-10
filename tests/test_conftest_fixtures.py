@@ -1,7 +1,6 @@
 """
 Тесты для проверки работы фикстур из conftest.py.
 """
-import pytest
 from datetime import date, datetime
 from decimal import Decimal
 import uuid
@@ -66,7 +65,7 @@ def test_sample_categories_fixture(sample_categories):
         assert category.name is not None
     
     # Проверяем, что первая категория доходов системная
-    assert sample_categories['income'][0].is_system == True
+    assert sample_categories['income'][0].is_system
 
 
 def test_sample_transactions_fixture(sample_transactions):

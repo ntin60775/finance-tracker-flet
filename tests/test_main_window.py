@@ -10,6 +10,7 @@
 import unittest
 from unittest.mock import Mock, ANY
 from decimal import Decimal
+from hypothesis import given, strategies as st, settings
 
 from finance_tracker.views.main_window import MainWindow
 from test_view_base import ViewTestBase
@@ -473,28 +474,28 @@ class TestMainWindow(ViewTestBase):
         self.assertEqual(view_0, self.window.home_view)
 
         # Остальные view создаются при каждом вызове get_view
-        view_1 = self.window.get_view(1)
+        self.window.get_view(1)
         self.mock_planned_transactions_view.assert_called_once_with(self.page)
 
-        view_2 = self.window.get_view(2)
+        self.window.get_view(2)
         self.mock_loans_view.assert_called_once_with(self.page)
 
-        view_3 = self.window.get_view(3)
+        self.window.get_view(3)
         self.mock_pending_payments_view.assert_called_once_with(self.page)
 
-        view_4 = self.window.get_view(4)
+        self.window.get_view(4)
         self.mock_transaction_history_view.assert_called_once_with()
 
-        view_5 = self.window.get_view(5)
+        self.window.get_view(5)
         self.mock_plan_fact_view.assert_called_once_with()
 
-        view_6 = self.window.get_view(6)
+        self.window.get_view(6)
         self.mock_lenders_view.assert_called_once_with(self.page)
 
-        view_7 = self.window.get_view(7)
+        self.window.get_view(7)
         self.mock_categories_view.assert_called_once_with(self.page)
 
-        view_8 = self.window.get_view(8)
+        self.window.get_view(8)
         self.mock_settings_view.assert_called_once_with(self.page)
 
     def test_get_view_returns_error_for_invalid_index(self):
@@ -576,13 +577,6 @@ class TestMainWindow(ViewTestBase):
 if __name__ == '__main__':
     unittest.main()
 
-
-
-# =============================================================================
-# Property-Based Tests
-# =============================================================================
-
-from hypothesis import given, strategies as st, settings
 
 
 class TestMainWindowProperties(ViewTestBase):
@@ -763,7 +757,6 @@ class TestMainWindowProperties(ViewTestBase):
         window.navigate(first_index)
 
         # Запоминаем количество вызовов после первой навигации
-        first_save_count = self.mock_settings.save.call_count
 
         # Сбрасываем счетчики
         self.mock_home_view.reset_mock()

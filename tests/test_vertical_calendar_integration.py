@@ -10,15 +10,13 @@
 
 import unittest
 from unittest.mock import Mock, MagicMock, patch
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import date
 
 import flet as ft
 
 from finance_tracker.views.home_view import HomeView
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.components.pending_payments_widget import PendingPaymentsWidget
-from finance_tracker.models.enums import TransactionType
 
 
 class TestVerticalCalendarFullInteraction(unittest.TestCase):
@@ -290,7 +288,6 @@ class TestVerticalCalendarDataConsistency(unittest.TestCase):
         calendar_widget._update_calendar()
 
         # Assert - проверяем консистентность
-        seen_dates = set()
 
         for row_idx, row in enumerate(calendar_widget.days_grid.controls):
             for col_idx, cell in enumerate(row.controls[1:]):  # Пропускаем метку дня недели

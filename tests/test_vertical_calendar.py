@@ -13,7 +13,7 @@ Unit тесты для вертикального календаря.
 import calendar
 import datetime
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock
 
 import flet as ft
 

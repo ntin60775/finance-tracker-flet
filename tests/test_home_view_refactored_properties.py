@@ -4,12 +4,10 @@ Property-based тесты для проверки рефакторинга HomeV
 Feature: home-view-testability-refactoring
 Проверяет соответствие requirements из спецификации.
 """
-import datetime
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch
 from hypothesis import given, strategies as st, settings
 
 from finance_tracker.views.home_view import HomeView
-from finance_tracker.models.models import PlannedOccurrence, TransactionCreate
 
 
 @settings(max_examples=100)
@@ -221,7 +219,7 @@ def test_property_21_presenter_ui_isolation(message):
 
     with patch('finance_tracker.views.home_view.HomePresenter') as MockPresenter:
         # Создаем HomeView
-        view = HomeView(mock_page, mock_session, navigate_callback=Mock())
+        HomeView(mock_page, mock_session, navigate_callback=Mock())
 
         # Получаем переданный callback интерфейс
         presenter_call_args = MockPresenter.call_args

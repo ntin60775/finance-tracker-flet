@@ -16,7 +16,6 @@ Property-based тесты для вертикального календаря.
 
 import calendar
 import datetime
-from decimal import Decimal
 from unittest.mock import Mock, MagicMock
 
 import flet as ft
@@ -25,8 +24,6 @@ from hypothesis import given, strategies as st, assume, settings
 
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.views.home_view import HomeView
-from finance_tracker.components.calendar_legend import CalendarLegend
-from finance_tracker.models.enums import TransactionType
 
 
 # --- Strategies ---

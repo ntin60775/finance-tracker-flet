@@ -2,10 +2,9 @@
 Unit тесты для HomePresenter.
 """
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from datetime import date, timedelta
+from unittest.mock import Mock, patch
+from datetime import date
 from decimal import Decimal
-from typing import Any, List, Tuple
 import uuid
 
 from sqlalchemy.orm import Session

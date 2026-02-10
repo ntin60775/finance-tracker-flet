@@ -14,16 +14,11 @@ import uuid
 import flet as ft
 
 from ui_test_helpers import (
-    assert_modal_opened, assert_modal_not_opened, assert_modal_closed,
-    assert_modal_state, assert_form_field_value, assert_button_state,
+    assert_modal_opened, assert_modal_not_opened, assert_form_field_value, assert_button_state,
     create_test_category, create_test_transaction, create_test_transaction_create_data,
     create_test_categories_list, create_test_transactions_list,
     simulate_button_click, simulate_text_input, simulate_dropdown_selection,
     create_mock_callback, create_mock_db_context_manager
-)
-from property_generators import (
-    valid_amounts, invalid_amounts, transaction_dates, transaction_descriptions,
-    category_names, uuid_strings, transaction_create_data
 )
 from finance_tracker.models.enums import TransactionType
 

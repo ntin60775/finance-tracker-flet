@@ -12,12 +12,10 @@ from finance_tracker.models.models import (
     CategoryDB,
     PlannedTransactionDB,
     PlannedOccurrenceDB,
-    RecurrenceRuleDB,
 )
 from finance_tracker.models.enums import (
     TransactionType,
     OccurrenceStatus,
-    RecurrenceType,
 )
 from finance_tracker.services import planned_transaction_service
 

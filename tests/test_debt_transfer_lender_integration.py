@@ -164,7 +164,6 @@ class TestDebtTransferStatisticsIntegration(unittest.TestCase):
         Validates: Requirements 7.2
         """
         from finance_tracker.services.loan_statistics_service import get_summary_statistics
-        from finance_tracker.models.enums import LoanStatus
         
         # Настройка mock для возврата статистики по держателям
         mock_get_holder_stats.return_value = {

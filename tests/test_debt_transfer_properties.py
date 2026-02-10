@@ -15,8 +15,7 @@ Property-based тесты для передачи долга между кред
 from datetime import date
 from contextlib import contextmanager
 import uuid
-import pytest
-from hypothesis import given, strategies as st, settings, assume, HealthCheck, Verbosity, Phase
+from hypothesis import given, strategies as st, settings, assume, Verbosity, Phase
 from decimal import Decimal
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -25,7 +24,6 @@ from finance_tracker.models.models import (
     Base,
     LenderDB,
     LoanDB,
-    DebtTransferDB,
     LoanPaymentDB,
 )
 from finance_tracker.models.enums import (
@@ -40,8 +38,7 @@ from finance_tracker.services.debt_transfer_service import (
     validate_transfer,
     create_debt_transfer,
     get_remaining_debt,
-    get_transfer_history,
-    update_payments_on_transfer
+    get_transfer_history
 )
 
 # Создаём тестовый движок БД в памяти
@@ -635,7 +632,7 @@ class TestDebtTransferCreationProperties:
             loan_id = loan.id
 
             # Act: первая передача долга
-            transfer_1 = create_debt_transfer(
+            create_debt_transfer(
                 session=session,
                 loan_id=loan_id,
                 to_lender_id=new_lender_1_id,
@@ -648,7 +645,7 @@ class TestDebtTransferCreationProperties:
             assert loan.original_lender_id == loan.lender_id
 
             # Act: вторая передача долга (от первого коллектора ко второму)
-            transfer_2 = create_debt_transfer(
+            create_debt_transfer(
                 session=session,
                 loan_id=loan_id,
                 to_lender_id=new_lender_2_id,
@@ -1064,7 +1061,7 @@ class TestDebtTransferPaymentUpdateProperties:
             original_holder_ids = {p.id: p.holder_id for p in executed_payments}
 
             # Act: создаём передачу долга
-            transfer = create_debt_transfer(
+            create_debt_transfer(
                 session=session,
                 loan_id=loan_id,
                 to_lender_id=new_lender_id,
@@ -1213,7 +1210,7 @@ class TestDebtTransferPaymentUpdateProperties:
             session.flush()
 
             # Act: создаём передачу долга
-            transfer = create_debt_transfer(
+            create_debt_transfer(
                 session=session,
                 loan_id=loan_id,
                 to_lender_id=new_lender_id,
@@ -1384,7 +1381,7 @@ class TestDebtTransferPaymentUpdateProperties:
             original_executed_holder_ids = {p.id: p.holder_id for p in executed_payments}
 
             # Act: создаём передачу долга
-            transfer = create_debt_transfer(
+            create_debt_transfer(
                 session=session,
                 loan_id=loan_id,
                 to_lender_id=new_lender_id,

@@ -7,10 +7,16 @@ import pytest
 from unittest.mock import MagicMock, patch, Mock
 from datetime import date, datetime
 from decimal import Decimal
+import logging
 
 from finance_tracker.views.home_view import HomeView
 from finance_tracker.models import TransactionType, TransactionCreate
 from finance_tracker.services.transaction_service import create_transaction, get_transactions_by_date
+
+
+logger = logging.getLogger(__name__)
+
+
 @pytest.fixture
 def mock_page():
     page = MagicMock()
@@ -274,7 +280,7 @@ def test_validation_error_scenario_flow(db_session, sample_categories, mock_page
     """
     from finance_tracker.views.home_view import HomeView
     from finance_tracker.services.transaction_service import get_transactions_by_date
-    from finance_tracker.models import TransactionDB, TransactionCreate, CategoryDB
+    from finance_tracker.models import TransactionCreate, CategoryDB
     from decimal import Decimal
     
     # Arrange - подготовка тестовых данных
@@ -907,7 +913,6 @@ def test_show_all_planned_transactions_button_navigation_flow(db_session, mock_p
     from finance_tracker.views.main_window import MainWindow
     from finance_tracker.views.home_view import HomeView
     from finance_tracker.views.planned_transactions_view import PlannedTransactionsView
-    from finance_tracker.config import settings
     
     # Arrange - подготовка тестовых данных
     

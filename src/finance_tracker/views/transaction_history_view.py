@@ -15,7 +15,6 @@ from decimal import Decimal
 from collections import defaultdict
 
 import flet as ft
-from sqlalchemy.orm import Session
 
 from finance_tracker.database import get_db
 from finance_tracker.models import TransactionDB, TransactionType

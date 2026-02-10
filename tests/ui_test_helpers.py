@@ -8,19 +8,17 @@
 - Функции для проверки состояния кнопок и форм
 """
 from unittest.mock import Mock, MagicMock
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
 import uuid
 import flet as ft
 
 from finance_tracker.models.models import (
-    CategoryDB, TransactionDB, TransactionCreate, 
-    PlannedTransactionDB, LenderDB, LoanDB
+    CategoryDB, TransactionDB, TransactionCreate
 )
 from finance_tracker.models.enums import (
-    TransactionType, LenderType, LoanType, 
-    LoanStatus, RecurrenceType
+    TransactionType
 )
 
 

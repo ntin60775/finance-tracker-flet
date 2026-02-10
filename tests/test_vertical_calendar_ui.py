@@ -206,7 +206,7 @@ class TestVerticalCalendarRendering(unittest.TestCase):
             if cell.on_click is not None:  # Ячейка с датой
                 # Ячейка должна иметь aspect_ratio для адаптивного размера
                 self.assertIsNotNone(cell.aspect_ratio,
-                                   f"Cell should have aspect_ratio")
+                                   "Cell should have aspect_ratio")
                 self.assertIn(cell.aspect_ratio, [0.7, 1],
                             f"Cell aspect_ratio should be 0.7 or 1, got {cell.aspect_ratio}")
 
@@ -245,7 +245,7 @@ class TestVerticalCalendarRendering(unittest.TestCase):
             day_label = row.controls[0]
             if is_weekend:
                 self.assertEqual(day_label.bgcolor, ft.Colors.BLUE_50,
-                               f"Weekend label should have BLUE_50 background")
+                               "Weekend label should have BLUE_50 background")
 
             # 2. Ячейки дней не имеют специальной стилизации для выходных
             # (они стилизуются только для selected, today, cash_gap, overdue)
@@ -350,7 +350,7 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         # Проверяем стилизацию
         if test_date == calendar_widget.selected_date:
             self.assertEqual(cell.bgcolor, "primaryContainer",
-                           f"Selected cell should have primaryContainer background")
+                           "Selected cell should have primaryContainer background")
             # Проверяем рамку
             if cell.border is not None:
                 # Ищем зелёную рамку
@@ -440,7 +440,7 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
             new_calendar_width = max(new_calendar_width, 300)
 
             # При увеличении width на 400px, ширина календаря должна увеличиться
-            expected_increase = int(400 * (4 / 11))
+            int(400 * (4 / 11))
             actual_increase = new_calendar_width - old_calendar_width
 
             # Допускаем небольшую погрешность из-за rounding

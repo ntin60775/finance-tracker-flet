@@ -1941,7 +1941,6 @@ class TestTransactionModalCancelProperties:
             
             # Сохраняем исходное состояние для проверки
             initial_date = modal.current_date
-            initial_page_update_call_count = mock_page.update.call_count
             
             # Act - закрываем модальное окно выбранным способом
             if closure_method == 'cancel_button':
@@ -2061,7 +2060,7 @@ class TestTransactionModalCancelProperties:
             modal.description_field.value = initial_description if initial_description is not None else ""
             
             # Проверяем, что данные заполнены (потенциально готовы к сохранению)
-            form_has_data = (
+            (
                 (modal.amount_field.value and modal.amount_field.value.strip()) or
                 (modal.description_field.value and modal.description_field.value.strip()) or
                 modal.category_dropdown.value is not None
@@ -2259,7 +2258,7 @@ class TestTransactionModalCancelProperties:
             }
             
             # Проверяем, что форма действительно заполнена
-            form_has_data = any([
+            any([
                 form_state_before_cancel['amount'],
                 form_state_before_cancel['description'],
                 form_state_before_cancel['category'],

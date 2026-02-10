@@ -15,9 +15,7 @@ from hypothesis import given, strategies as st
 
 from finance_tracker.components.calendar_legend import CalendarLegend
 from finance_tracker.components.calendar_legend_types import (
-    IndicatorType,
-    DisplayMode,
-    INDICATOR_CONFIGS
+    IndicatorType
 )
 
 
