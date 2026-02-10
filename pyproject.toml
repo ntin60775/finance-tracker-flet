@@ -22,6 +22,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.21.0",
     "hypothesis>=6.80.0",
+    "ruff>=0.15.0",
 ]
 
 [project.scripts]
@@ -41,3 +42,7 @@ filterwarnings = [
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::sqlalchemy.exc.SAWarning",
 ]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100

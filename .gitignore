@@ -22,11 +22,17 @@ build/
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .hypothesis/
+.pytest_full_review.log
 
 # Linting
 .ruff_cache/
+.basedpyright/
+.pyright/
+.mypy_cache/
 
 # User data (должна храниться локально, не в репозитории)
 .finance_tracker_data/
