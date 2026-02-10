@@ -28,14 +28,14 @@ class OccurrenceDetailsModal(ft.AlertDialog):
             page: Текущая страница Flet.
             details: Словарь с деталями вхождения (из get_occurrence_details или get_plan_fact_analysis).
         """
-        self.page = page
+        self._page = page
         self._build_content(details)
         page.open(self)
 
     def close(self, e=None):
         """Закрывает модальное окно."""
-        if self.page:
-            self.page.close(self)
+        if self._page:
+            self._page.close(self)
 
     def _build_content(self, details: dict):
         """Строит содержимое окна на основе данных."""

@@ -39,7 +39,7 @@ class TransactionModal:
         self.session = session
         self.on_save = on_save
         self.on_update = on_update
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.current_date = datetime.date.today()
         
         # Атрибуты для режима редактирования
@@ -60,14 +60,14 @@ class TransactionModal:
         )
         
         self.date_button = ft.ElevatedButton(
-            text=self.current_date.strftime("%d.%m.%Y"),
+            content=self.current_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
         )
         
         self.amount_field = ft.TextField(
             label="Сумма",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(allow=True, regex_string=r"^-?(\d+\.?\d{0,2}|0\.?\d{0,2}|\.\d{1,2})$", replacement_string=""),
             on_change=self._on_amount_change
@@ -76,7 +76,7 @@ class TransactionModal:
         self.category_dropdown = ft.Dropdown(
             label="Категория",
             options=[],
-            on_change=self._on_category_change
+            on_select=self._on_category_change
         )
         
         self.description_field = ft.TextField(
@@ -140,7 +140,7 @@ class TransactionModal:
             if not page:
                 raise ValueError("Page не может быть None")
                 
-            self.page = page
+            self._page = page
             self.current_date = date or datetime.date.today()
             
             # Устанавливаем режим создания
@@ -195,7 +195,7 @@ class TransactionModal:
             if not transaction:
                 raise ValueError("Transaction не может быть None")
                 
-            self.page = page
+            self._page = page
             self.current_date = transaction.transaction_date
             
             # Устанавливаем режим редактирования
@@ -233,8 +233,8 @@ class TransactionModal:
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.dialog and self.page:
-            self.page.close(self.dialog)
+        if self.dialog and self._page:
+            self._page.close(self.dialog)
         
         # Сбрасываем режим редактирования при закрытии
         self._reset_edit_mode()
@@ -258,8 +258,8 @@ class TransactionModal:
             self._validate_date()
             self._update_save_button_state()
             
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             else:
                 self.date_button.update()
 
@@ -275,8 +275,8 @@ class TransactionModal:
         self._validate_category()
         self._update_save_button_state()
         
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _load_categories(self, t_type: TransactionType):
         """Загрузка категорий выбранного типа."""
@@ -382,22 +382,22 @@ class TransactionModal:
         """Обработка изменения суммы с валидацией."""
         self._validate_amount()
         self._update_save_button_state()
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _on_category_change(self, e):
         """Обработка изменения категории с валидацией."""
         self._validate_category()
         self._update_save_button_state()
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _on_description_change(self, e):
         """Обработка изменения описания с валидацией."""
         self._validate_description()
         self._update_save_button_state()
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _validate_amount(self) -> bool:
         """
@@ -538,8 +538,8 @@ class TransactionModal:
             e.control.error_text = None
         elif isinstance(e.control, ft.Dropdown):
             e.control.error_text = None
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     @safe_handler()
     def _save(self, e):
@@ -554,16 +554,16 @@ class TransactionModal:
             if self._validation_errors:
                 logger.debug("Попытка сохранения при наличии ошибок валидации")
                 self.error_text.value = "Исправьте ошибки валидации перед сохранением"
-                if self.page:
-                    self.page.update()
+                if self._page:
+                    self._page.update()
                 return
             
             # Выполняем полную валидацию всех полей
             if not self._validate_all_fields():
                 logger.debug("Обнаружены ошибки валидации при полной проверке")
                 self.error_text.value = "Проверьте правильность заполнения всех полей"
-                if self.page:
-                    self.page.update()
+                if self._page:
+                    self._page.update()
                 return
 
             # Получаем валидированные данные
@@ -620,8 +620,8 @@ class TransactionModal:
             # Ошибки валидации или конфигурации
             logger.warning(f"Ошибка валидации при сохранении транзакции: {ve}")
             self.error_text.value = f"Ошибка валидации: {str(ve)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
                 
         except Exception as e:
             # Неожиданные ошибки (сеть, БД и т.д.)
@@ -638,8 +638,8 @@ class TransactionModal:
                 error_msg = f"Произошла ошибка: {str(e)}"
             
             self.error_text.value = error_msg
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
             
             # Поднимаем исключение дальше для тестов
             # Проверяем, находимся ли мы в тестовой среде

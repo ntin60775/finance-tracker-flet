@@ -41,14 +41,14 @@ class PendingPaymentModal:
         self.session = session
         self.on_save = on_save
         self.on_update = on_update
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.edit_payment_id: Optional[str] = None
         self.planned_date: Optional[datetime.date] = None
 
         # UI Controls
         self.amount_field = ft.TextField(
             label="Сумма",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -61,7 +61,7 @@ class PendingPaymentModal:
         self.category_dropdown = ft.Dropdown(
             label="Категория (расход)",
             options=[],
-            on_change=self._clear_error
+            on_select=self._clear_error
         )
 
         self.description_field = ft.TextField(
@@ -101,7 +101,7 @@ class PendingPaymentModal:
         )
 
         self.date_button = ft.ElevatedButton(
-            text="Выбрать дату",
+            content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker,
             visible=False
@@ -154,12 +154,12 @@ class PendingPaymentModal:
             page: Ссылка на страницу Flet.
             payment: Платёж для редактирования (если None - создание нового).
         """
-        self.page = page
+        self._page = page
 
         # Setup Date Picker - добавляем в overlay если ещё не добавлен
-        if self.date_picker not in self.page.overlay:
-            self.page.overlay.append(self.date_picker)
-            self.page.update()
+        if self.date_picker not in self._page.overlay:
+            self._page.overlay.append(self.date_picker)
+            self._page.update()
 
         # Load categories
         self._load_categories()
@@ -200,12 +200,12 @@ class PendingPaymentModal:
         self.amount_field.error_text = None
         self.error_text.value = ""
 
-        self.page.open(self.dialog)
+        self._page.open(self.dialog)
 
     def close(self, e=None):
         """Закрытие модального окна."""
-        if self.page:
-            self.page.close(self.dialog)
+        if self._page:
+            self._page.close(self.dialog)
 
     def _load_categories(self):
         """Загружает категории расходов."""
@@ -222,8 +222,8 @@ class PendingPaymentModal:
 
         except Exception as e:
             self.error_text.value = f"Ошибка загрузки категорий: {str(e)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _on_has_date_change(self, e):
         """Обработка изменения чекбокса 'Установить плановую дату'."""
@@ -231,12 +231,12 @@ class PendingPaymentModal:
         if not self.has_date_checkbox.value:
             self.planned_date = None
             self.date_button.text = "Выбрать дату"
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _open_date_picker(self, e):
         """Открытие выбора даты."""
-        if not self.page:
+        if not self._page:
             return
             
         if self.planned_date:
@@ -245,22 +245,22 @@ class PendingPaymentModal:
             self.date_picker.value = datetime.date.today()
         
         # Открываем DatePicker через page.open()
-        self.page.open(self.date_picker)
+        self._page.open(self.date_picker)
 
     def _on_date_change(self, e):
         """Обработка изменения даты."""
         if self.date_picker.value:
             self.planned_date = self.date_picker.value
             self.date_button.text = self.planned_date.strftime("%d.%m.%Y")
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _clear_error(self, e=None):
         """Очистка сообщений об ошибках."""
         self.amount_field.error_text = None
         self.error_text.value = ""
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _validate(self) -> bool:
         """
@@ -291,8 +291,8 @@ class PendingPaymentModal:
             self.error_text.value = "Введите описание"
             is_valid = False
 
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
         return is_valid
 
@@ -334,9 +334,9 @@ class PendingPaymentModal:
 
         except ValueError as ve:
             self.error_text.value = str(ve)
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
         except Exception as ex:
             self.error_text.value = f"Ошибка сохранения: {str(ex)}"
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()

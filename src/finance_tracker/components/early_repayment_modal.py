@@ -52,7 +52,7 @@ class EarlyRepaymentModal:
         self.session = session
         self.loan = loan
         self.on_repay = on_repay
-        self.page: Optional[ft.Page] = None
+        self._page: Optional[ft.Page] = None
         self.repayment_date: Optional[datetime.date] = datetime.date.today()
 
         # UI Controls
@@ -73,7 +73,7 @@ class EarlyRepaymentModal:
 
         self.amount_field = ft.TextField(
             label="Сумма погашения *",
-            suffix_text="₽",
+            suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 allow=True,
@@ -84,7 +84,7 @@ class EarlyRepaymentModal:
         )
 
         self.repayment_date_button = ft.ElevatedButton(
-            text=f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}",
+            content=f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker
         )
@@ -182,7 +182,7 @@ class EarlyRepaymentModal:
         Args:
             page: Страница Flet для отображения диалога
         """
-        self.page = page
+        self._page = page
         page.overlay.append(self.date_picker)
         page.open(self.dialog)
 
@@ -190,8 +190,8 @@ class EarlyRepaymentModal:
 
     def _close_dialog(self, e=None):
         """Закрывает модальное окно."""
-        if self.page:
-            self.page.close(self.dialog)
+        if self._page:
+            self._page.close(self.dialog)
             logger.debug("Модальное окно досрочного погашения закрыто")
 
     def _on_type_change(self, e):
@@ -200,12 +200,12 @@ class EarlyRepaymentModal:
         self.warning_text.visible = is_full
         self.partial_warning_text.visible = not is_full
         self._clear_error()
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _open_date_picker(self, e):
         """Открывает выбор даты погашения."""
-        if self.page:
+        if self._page:
             self.date_picker.pick_date()
 
     def _on_date_change(self, e):
@@ -214,14 +214,14 @@ class EarlyRepaymentModal:
             self.repayment_date = e.control.value
             self.repayment_date_button.text = f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}"
             self._clear_error()
-            if self.page:
-                self.page.update()
+            if self._page:
+                self._page.update()
 
     def _clear_error(self, e=None):
         """Очищает сообщение об ошибке."""
         self.error_text.value = ""
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _show_error(self, message: str):
         """
@@ -231,8 +231,8 @@ class EarlyRepaymentModal:
             message: Текст ошибки
         """
         self.error_text.value = message
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()
 
     def _validate_inputs(self) -> bool:
         """

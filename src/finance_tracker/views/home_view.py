@@ -57,7 +57,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         navigate_callback: Optional[Callable[[int], None]] = None
     ):
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.session = session
         self.selected_date = datetime.date.today()
         self.navigate_callback = navigate_callback
@@ -66,7 +66,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.presenter = HomePresenter(session, self)
         
         # Получаем высоту страницы для адаптивных размеров календаря
-        page_height = self.page.height if hasattr(self.page, 'height') and self.page.height else None
+        page_height = self._page.height if hasattr(self._page, 'height') and self._page.height else None
 
         # UI Components
         self.calendar_widget = CalendarWidget(
@@ -208,8 +208,8 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """
         try:
             # Получаем ширину страницы
-            if hasattr(self.page, 'width') and self.page.width:
-                page_width = self.page.width
+            if hasattr(self._page, 'width') and self._page.width:
+                page_width = self._page.width
             else:
                 # Fallback к стандартной ширине
                 page_width = 1200
@@ -300,11 +300,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def show_message(self, message: str) -> None:
         """Показать информационное сообщение."""
-        self.page.open(ft.SnackBar(content=ft.Text(message)))
+        self._page.open(ft.SnackBar(content=ft.Text(message)))
 
     def show_error(self, error: str) -> None:
         """Показать сообщение об ошибке."""
-        self.page.open(ft.SnackBar(content=ft.Text(error), bgcolor=ft.Colors.ERROR))
+        self._page.open(ft.SnackBar(content=ft.Text(error), bgcolor=ft.Colors.ERROR))
     
     def update_calendar_selection(self, date_obj: datetime.date) -> None:
         """
@@ -343,7 +343,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             logger.debug(f"Открытие модального окна добавления транзакции для даты: {self.selected_date}")
             
-            if not self.page:
+            if not self._page:
                 logger.error("Page не инициализирована для открытия модального окна")
                 return
                 
@@ -351,14 +351,14 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 logger.error("TransactionModal не инициализирован")
                 return
                 
-            self.transaction_modal.open(self.page, self.selected_date)
+            self.transaction_modal.open(self._page, self.selected_date)
             logger.info("Модальное окно добавления транзакции успешно открыто")
             
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна добавления транзакции: {e}", exc_info=True)
-            if self.page:
+            if self._page:
                 try:
-                    self.page.open(ft.SnackBar(
+                    self._page.open(ft.SnackBar(
                         content=ft.Text("Не удалось открыть форму добавления транзакции"),
                         bgcolor=ft.Colors.ERROR
                     ))
@@ -369,7 +369,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Закрытие BottomSheet."""
         try:
             if hasattr(self, 'bottom_sheet'):
-                self.page.close(self.bottom_sheet)
+                self._page.close(self.bottom_sheet)
                 logger.info("BottomSheet закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии BottomSheet: {e}")
@@ -384,7 +384,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 logger.error("TransactionModal не инициализирован")
                 return
                 
-            self.transaction_modal.open(self.page, self.selected_date)
+            self.transaction_modal.open(self._page, self.selected_date)
             logger.info("Настоящее модальное окно добавления транзакции открыто")
             
         except Exception as e:
@@ -399,7 +399,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             logger.debug(f"Открытие модального окна редактирования для транзакции: {transaction.id}")
             
-            if not self.page:
+            if not self._page:
                 logger.error("Page не инициализирована для открытия модального окна редактирования")
                 return
                 
@@ -407,14 +407,14 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 logger.error("TransactionModal не инициализирован")
                 return
                 
-            self.transaction_modal.open_edit(self.page, transaction)
+            self.transaction_modal.open_edit(self._page, transaction)
             logger.info("Модальное окно редактирования транзакции успешно открыто")
             
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна редактирования транзакции: {e}", exc_info=True)
-            if self.page:
+            if self._page:
                 try:
-                    self.page.open(ft.SnackBar(
+                    self._page.open(ft.SnackBar(
                         content=ft.Text("Не удалось открыть форму редактирования транзакции"),
                         bgcolor=ft.Colors.ERROR
                     ))
@@ -435,12 +435,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 pass
 
             def confirm_delete(e):
-                self.page.close(dialog)
+                self._page.close(dialog)
                 # Делегируем в Presenter
                 self.presenter.delete_transaction(transaction.id)
 
             def cancel_delete(e):
-                self.page.close(dialog)
+                self._page.close(dialog)
 
             dialog = ft.AlertDialog(
                 modal=True,
@@ -469,15 +469,15 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             )
 
             # Используем page.open() вместо page.dialog
-            self.page.open(dialog)
+            self._page.open(dialog)
             
             logger.info("Диалог подтверждения удаления транзакции показан")
             
         except Exception as e:
             logger.error(f"Ошибка при показе диалога удаления транзакции: {e}", exc_info=True)
-            if self.page:
+            if self._page:
                 try:
-                    self.page.open(ft.SnackBar(
+                    self._page.open(ft.SnackBar(
                         content=ft.Text("Ошибка при открытии диалога удаления"),
                         bgcolor=ft.Colors.ERROR
                     ))
@@ -491,9 +491,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             self.presenter.update_transaction(transaction_id, data)
         except Exception as e:
             logger.error(f"Ошибка при обработке обновления транзакции: {e}", exc_info=True)
-            if self.page:
+            if self._page:
                 try:
-                    self.page.open(ft.SnackBar(
+                    self._page.open(ft.SnackBar(
                         content=ft.Text("Ошибка при сохранении изменений транзакции"),
                         bgcolor=ft.Colors.ERROR
                     ))
@@ -502,11 +502,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_execute_occurrence(self, occurrence: PlannedOccurrence):
         """Открытие модального окна для исполнения планового вхождения."""
-        self.execute_occurrence_modal.open(self.page, occurrence)
+        self.execute_occurrence_modal.open(self._page, occurrence)
 
     def on_skip_occurrence(self, occurrence: PlannedOccurrence):
         """Открытие модального окна для пропуска планового вхождения."""
-        self.execute_occurrence_modal.open(self.page, occurrence)
+        self.execute_occurrence_modal.open(self._page, occurrence)
 
     def on_occurrence_executed_confirm(self, occurrence_id: str, amount: Decimal, execution_date: datetime.date):
         """Подтверждение исполнения вхождения - делегирует в Presenter."""
@@ -568,7 +568,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_execute_payment(self, payment):
         """Открытие модального окна для исполнения отложенного платежа."""
-        self.execute_payment_modal.open(self.page, payment)
+        self.execute_payment_modal.open(self._page, payment)
 
     def on_cancel_payment(self, payment):
         """Отмена отложенного платежа."""
@@ -581,12 +581,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         def confirm_cancel(e):
             reason = reason_field.value or None
-            self.page.close(dialog)
+            self._page.close(dialog)
             # Делегируем в Presenter
             self.presenter.cancel_pending_payment(payment.id, reason)
 
         def cancel_dialog(e):
-            self.page.close(dialog)
+            self._page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
@@ -607,17 +607,17 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             ],
         )
 
-        self.page.open(dialog)
+        self._page.open(dialog)
 
     def on_delete_payment(self, payment_id: int):
         """Удаление отложенного платежа."""
         def confirm_delete(e):
-            self.page.close(dialog)
+            self._page.close(dialog)
             # Делегируем в Presenter
             self.presenter.delete_pending_payment(payment_id)
 
         def cancel_delete(e):
-            self.page.close(dialog)
+            self._page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
@@ -629,7 +629,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             ],
         )
 
-        self.page.open(dialog)
+        self._page.open(dialog)
 
     def on_payment_executed_confirm(self, payment_id: int, executed_amount: float, executed_date: datetime.date):
         """Подтверждение исполнения отложенного платежа - делегирует в Presenter."""
@@ -652,7 +652,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             logger.debug("Открытие модального окна добавления отложенного платежа")
             
-            if not self.page:
+            if not self._page:
                 logger.error("Page не инициализирована")
                 return
                 
@@ -660,13 +660,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 logger.error("PendingPaymentModal не инициализирован")
                 return
                 
-            self.payment_modal.open(self.page)
+            self.payment_modal.open(self._page)
             logger.info("Модальное окно добавления отложенного платежа открыто")
             
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна: {e}", exc_info=True)
-            if self.page:
-                self.page.open(ft.SnackBar(
+            if self._page:
+                self._page.open(ft.SnackBar(
                     content=ft.Text("Не удалось открыть форму добавления платежа"),
                     bgcolor=ft.Colors.ERROR
                 ))
@@ -685,7 +685,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             logger.debug(f"Открытие модального окна редактирования платежа: {payment.id}")
 
-            if not self.page:
+            if not self._page:
                 logger.error("Page не инициализирована")
                 return
 
@@ -693,13 +693,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 logger.error("PendingPaymentModal не инициализирован")
                 return
 
-            self.payment_modal.open(self.page, payment=payment)
+            self.payment_modal.open(self._page, payment=payment)
             logger.info("Модальное окно редактирования отложенного платежа открыто")
 
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна редактирования: {e}", exc_info=True)
-            if self.page:
-                self.page.open(ft.SnackBar(
+            if self._page:
+                self._page.open(ft.SnackBar(
                     content=ft.Text("Не удалось открыть форму редактирования платежа"),
                     bgcolor=ft.Colors.ERROR
                 ))
@@ -723,11 +723,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             logger.debug("Открытие модального окна добавления плановой транзакции")
             
-            if not self.page:
+            if not self._page:
                 logger.error("Page не инициализирована")
                 return
                 
-            self.planned_transaction_modal.open(self.page, self.selected_date)
+            self.planned_transaction_modal.open(self._page, self.selected_date)
             logger.info("Модальное окно добавления плановой транзакции открыто")
             
         except Exception as e:
@@ -750,7 +750,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             label="Сумма платежа",
             value=str(float(payment.total_amount)),
             keyboard_type=ft.KeyboardType.NUMBER,
-            suffix_text="₽"
+            suffix="₽"
         )
 
         date_field = ft.TextField(
@@ -766,17 +766,17 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 if amount <= 0:
                     raise ValueError("Сумма должна быть больше 0")
             except (ValueError, Exception) as ex:
-                self.page.open(ft.SnackBar(content=ft.Text(f"Некорректная сумма: {ex}")))
+                self._page.open(ft.SnackBar(content=ft.Text(f"Некорректная сумма: {ex}")))
                 return
 
             # Валидация даты
             try:
                 exec_date = datetime.datetime.strptime(date_field.value, "%Y-%m-%d").date()
             except ValueError:
-                self.page.open(ft.SnackBar(content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)")))
+                self._page.open(ft.SnackBar(content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)")))
                 return
 
-            self.page.close(dialog)
+            self._page.close(dialog)
             # Делегируем в Presenter
             self.presenter.execute_loan_payment(payment, amount, exec_date)
 
@@ -786,7 +786,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             loan_name = "Неизвестный кредит"
 
         def cancel_execute(e):
-            self.page.close(dialog)
+            self._page.close(dialog)
 
         dialog = ft.AlertDialog(
             modal=True,
@@ -809,4 +809,4 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             ],
         )
 
-        self.page.open(dialog)
+        self._page.open(dialog)

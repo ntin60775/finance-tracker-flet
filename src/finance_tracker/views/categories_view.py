@@ -56,7 +56,7 @@ class CategoryDialog(ft.AlertDialog):
                         icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP),
                     ),
                 ],
-                selected={TransactionType.EXPENSE.value},
+                selected=[TransactionType.EXPENSE.value],
             )
         else:
             # При редактировании показываем тип как текст (нельзя изменить)
@@ -135,8 +135,8 @@ class CategoryDialog(ft.AlertDialog):
 
     def close(self, e):
         """Закрытие диалога."""
-        if self.page:
-            self.page.close(self)
+        if self._page:
+            self._page.close(self)
 
 
 class CategoriesView(ft.Column):
@@ -145,7 +145,7 @@ class CategoriesView(ft.Column):
     """
     def __init__(self, page: ft.Page):
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.current_filter: Optional[TransactionType] = None
         
         # Persistent session pattern for View
@@ -154,13 +154,14 @@ class CategoriesView(ft.Column):
         
         # UI Components
         self.filter_tabs = ft.Tabs(
+            content=ft.TabBar(tabs=[
+                ft.Tab(label="Все"),
+                ft.Tab(label="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
+                ft.Tab(label="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
+            ]),
+            length=3,
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="Все"),
-                ft.Tab(text="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
-                ft.Tab(text="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
-            ],
             on_change=self.on_filter_change
         )
         
@@ -215,7 +216,7 @@ class CategoriesView(ft.Column):
                 self.categories_list.controls.append(
                     ft.Container(
                         content=ft.Text("Категории не найдены", color="outline"),
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                         padding=20
                     )
                 )
@@ -228,9 +229,9 @@ class CategoriesView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка загрузки категорий: {e}")
             # Показываем сообщение об ошибке пользователю
-            if self.page:
+            if self._page:
                 snack = ft.SnackBar(content=ft.Text(f"Ошибка загрузки категорий: {e}"))
-                self.page.open(snack)
+                self._page.open(snack)
 
     def _create_category_tile(self, category: CategoryDB) -> ft.Container:
         """Создание элемента списка для категории."""
@@ -312,7 +313,7 @@ class CategoriesView(ft.Column):
         logger.info("Нажата кнопка создания категории")
 
         # Получаем page из event control (кнопка добавления)
-        page = e.control.page if e and e.control else self.page
+        page = e.control.page if e and e.control else self._page
         if not page:
             logger.error("Page не инициализирована")
             return
@@ -334,7 +335,7 @@ class CategoriesView(ft.Column):
         """Открытие диалога редактирования категории."""
         logger.info(f"Открытие диалога редактирования для категории '{category.name}' (ID {category.id})")
 
-        if not self.page:
+        if not self._page:
             logger.error("Page не инициализирована")
             return
 
@@ -346,20 +347,20 @@ class CategoriesView(ft.Column):
         )
 
         # Открываем диалог
-        self.page.open(dialog)
-        self.page.update()
+        self._page.open(dialog)
+        self._page.update()
 
     def confirm_delete(self, category_id: str, name: str):
         """Диалог подтверждения удаления."""
         @safe_handler()
         def delete_action(e):
             delete_category(self.session, category_id)
-            self.page.close(dlg)
+            self._page.close(dlg)
             self.refresh_data()
-            self.page.open(ft.SnackBar(content=ft.Text(f"Категория '{name}' удалена")))
+            self._page.open(ft.SnackBar(content=ft.Text(f"Категория '{name}' удалена")))
 
         def cancel_action(e):
-            self.page.close(dlg)
+            self._page.close(dlg)
 
         dlg = ft.AlertDialog(
             modal=True,
@@ -372,4 +373,4 @@ class CategoriesView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
         
-        self.page.open(dlg)
+        self._page.open(dlg)

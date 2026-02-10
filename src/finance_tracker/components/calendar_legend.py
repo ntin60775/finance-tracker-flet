@@ -481,7 +481,7 @@ class CalendarLegend(ft.Container):
             Кнопка "Подробнее" с консистентным стилем
         """
         return ft.TextButton(
-            text="Подробнее...",
+            content="Подробнее...",
             on_click=self._open_modal_safe,
             height=30,
             style=ft.ButtonStyle(

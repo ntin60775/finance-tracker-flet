@@ -58,7 +58,7 @@ class LoansView(ft.Column):
             page: Страница Flet для отображения UI
         """
         super().__init__(expand=True, spacing=20, alignment=ft.MainAxisAlignment.START)
-        self.page = page
+        self._page = page
         self.status_filter: Optional[LoanStatus] = None
         self.selected_loan: Optional[LoanDB] = None
 
@@ -119,7 +119,7 @@ class LoansView(ft.Column):
                 ft.dropdown.Option(key=LoanStatus.OVERDUE.value, text="Просроченные"),
             ],
             value="all",
-            on_change=self.on_status_filter_change
+            on_select=self.on_status_filter_change
         )
 
         # Список кредитов
@@ -226,7 +226,7 @@ class LoansView(ft.Column):
                 stats_content = main_stats
 
             self.stats_card.content = stats_content
-            self.page.update()
+            self._page.update()
 
             logger.info(
                 f"Загружена статистика: активных кредитов={summary['total_active_loans']}, "
@@ -239,7 +239,7 @@ class LoansView(ft.Column):
                 "Не удалось загрузить статистику",
                 color=ft.Colors.ERROR
             )
-            self.page.update()
+            self._page.update()
 
     def _create_stat_item(
         self,
@@ -353,7 +353,7 @@ class LoansView(ft.Column):
                             color=ft.Colors.GREY_400,
                             text_align=ft.TextAlign.CENTER
                         ),
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                         padding=40
                     )
                 )
@@ -363,7 +363,7 @@ class LoansView(ft.Column):
                         self._create_loan_card(loan)
                     )
 
-            self.page.update()
+            self._page.update()
             logger.info(f"Загружено {len(loans)} кредитов")
 
         except Exception as e:
@@ -695,7 +695,7 @@ class LoansView(ft.Column):
     def open_create_dialog(self, e):
         """Открывает диалог создания нового кредита."""
         self.selected_loan = None
-        self.loan_modal.open(self.page, loan=None)
+        self.loan_modal.open(self._page, loan=None)
 
     def open_loan_details(self, loan: LoanDB):
         """
@@ -707,7 +707,7 @@ class LoansView(ft.Column):
         try:
             # Создаём LoanDetailsView и показываем его вместо списка
             details_view = LoanDetailsView(
-                page=self.page,
+                page=self._page,
                 loan_id=loan.id,
                 on_back=self.return_from_details
             )
@@ -719,7 +719,7 @@ class LoansView(ft.Column):
             self.controls.clear()
             self.controls.extend(details_view.controls)
 
-            if self.page:
+            if self._page:
                 self.update()
 
             logger.info(f"Открыт экран деталей кредита ID {loan.id}")
@@ -741,7 +741,7 @@ class LoansView(ft.Column):
             self.load_statistics()
             self.load_loans()
 
-            if self.page:
+            if self._page:
                 self.update()
 
             logger.info("Возврат к списку кредитов")
@@ -763,7 +763,7 @@ class LoansView(ft.Column):
                 delete_loan(self.session, loan.id, keep_transactions=True)
                 logger.info(f"Кредит удалён: {loan.name} (ID {loan.id})")
                 self._show_success(f"Кредит '{loan.name}' успешно удалён")
-                self.page.close(confirm_dialog)
+                self._page.close(confirm_dialog)
                 self.load_statistics()
                 self.load_loans()
 
@@ -775,7 +775,7 @@ class LoansView(ft.Column):
                 self._show_error(f"Не удалось удалить кредит: {str(ex)}")
 
         def cancel(e):
-            self.page.close(confirm_dialog)
+            self._page.close(confirm_dialog)
 
         confirm_dialog = ft.AlertDialog(
             modal=True,
@@ -797,7 +797,7 @@ class LoansView(ft.Column):
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        self.page.open(confirm_dialog)
+        self._page.open(confirm_dialog)
 
     def _show_success(self, message: str):
         """Показывает snackbar с сообщением об успехе."""
@@ -806,7 +806,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.GREEN,
             duration=3000
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def _show_error(self, message: str):
         """Показывает snackbar с сообщением об ошибке."""
@@ -815,7 +815,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.ERROR,
             duration=5000
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def _show_info(self, message: str):
         """Показывает snackbar с информационным сообщением."""
@@ -824,7 +824,7 @@ class LoansView(ft.Column):
             bgcolor=ft.Colors.BLUE,
             duration=3000
         )
-        self.page.open(snack)
+        self._page.open(snack)
 
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""
