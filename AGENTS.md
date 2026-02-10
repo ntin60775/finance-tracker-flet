@@ -69,12 +69,16 @@ pytest tests/test_integration*.py
 ```
 
 ### Lint / typecheck status
-No official lint/typecheck command is configured in repo files.
-- No `ruff`/`black`/`flake8` config found
+Ruff linting is configured via `pyproject.toml`.
+
+```bash
+ruff check src tests
+ruff check src tests --fix
+```
+
+No strict typecheck command is configured in repo files.
 - No `mypy`/`pyright` config found
 - No `pre-commit` config found
-
-Do not invent mandatory lint/typecheck gates unless user asks.
 
 ### Dependency pin policy
 - keep Flet pinned to compatible minor series: `flet~=0.80.5`

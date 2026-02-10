@@ -302,6 +302,20 @@ pytest tests/ -k "error or exception or robustness"
 pytest tests/test_performance_properties.py
 ```
 
+### Линтинг
+
+Проверка качества кода:
+
+```bash
+ruff check src tests
+```
+
+Автоисправление поддерживаемых замечаний:
+
+```bash
+ruff check src tests --fix
+```
+
 ### Дополнительные опции pytest
 
 Подробный вывод:
@@ -532,7 +546,7 @@ pip install pyinstaller
 pyinstaller finance_tracker.spec
 ```
 
-Готовый .exe файл будет находиться в директории `dist/FinanceTracker.exe`
+Готовый .exe файл будет находиться в директории `dist/finance_tracker.exe`
 
 ### Особенности .exe версии
 
