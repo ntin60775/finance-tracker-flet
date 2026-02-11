@@ -34,6 +34,45 @@ _engine: Engine = None
 _SessionLocal: sessionmaker = None
 
 
+def _get_sqlite_table_columns(connection, table_name: str) -> set[str]:
+    rows = connection.exec_driver_sql(f"PRAGMA table_info({table_name})").fetchall()
+    return {row[1] for row in rows}
+
+
+def _migrate_obligations_schema(engine: Engine) -> None:
+    migration_plan = {
+        "planned_transactions": [
+            (
+                "parent_planned_transaction_id",
+                "parent_planned_transaction_id VARCHAR(36) REFERENCES planned_transactions(id)",
+            ),
+            ("is_obligation", "is_obligation BOOLEAN NOT NULL DEFAULT 0"),
+            ("target_amount", "target_amount NUMERIC(10, 2)"),
+            ("target_month", "target_month DATE"),
+        ],
+        "transactions": [
+            (
+                "obligation_id",
+                "obligation_id VARCHAR(36) REFERENCES planned_transactions(id)",
+            ),
+        ],
+    }
+
+    with engine.begin() as connection:
+        for table_name, columns_to_add in migration_plan.items():
+            existing_columns = _get_sqlite_table_columns(connection, table_name)
+            for column_name, ddl_sql in columns_to_add:
+                if column_name in existing_columns:
+                    continue
+
+                connection.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {ddl_sql}")
+                logger.info(
+                    "Добавлена колонка %s.%s в рамках obligations-миграции",
+                    table_name,
+                    column_name,
+                )
+
+
 def init_default_categories(session: Session) -> None:
     """
     Создаёт предопределённые категории при первом запуске.
@@ -44,21 +83,18 @@ def init_default_categories(session: Session) -> None:
     try:
         # Проверяем, есть ли уже категории в БД
         existing_count = session.query(CategoryDB).count()
-        
+
         if existing_count > 0:
-            logger.info(f"Категории уже существуют ({existing_count} шт.), пропускаем инициализацию")
+            logger.info(
+                f"Категории уже существуют ({existing_count} шт.), пропускаем инициализацию"
+            )
             return
-        
+
         logger.info("Инициализация предопределённых категорий...")
-        
+
         # Категории доходов
-        income_categories = [
-            "Зарплата",
-            "Фриланс",
-            "Инвестиции",
-            "Прочие доходы"
-        ]
-        
+        income_categories = ["Зарплата", "Фриланс", "Инвестиции", "Прочие доходы"]
+
         # Категории расходов
         expense_categories = [
             "Продукты",
@@ -67,35 +103,27 @@ def init_default_categories(session: Session) -> None:
             "Связь",
             "Развлечения",
             "Здоровье",
-            "Прочие расходы"
+            "Прочие расходы",
         ]
-        
+
         # Создаём категории доходов
         for name in income_categories:
-            category = CategoryDB(
-                name=name,
-                type=TransactionType.INCOME,
-                is_system=True
-            )
+            category = CategoryDB(name=name, type=TransactionType.INCOME, is_system=True)
             session.add(category)
             logger.debug(f"Добавлена категория дохода: {name}")
-        
+
         # Создаём категории расходов
         for name in expense_categories:
-            category = CategoryDB(
-                name=name,
-                type=TransactionType.EXPENSE,
-                is_system=True
-            )
+            category = CategoryDB(name=name, type=TransactionType.EXPENSE, is_system=True)
             session.add(category)
             logger.debug(f"Добавлена категория расхода: {name}")
-        
+
         # Сохраняем все категории
         session.commit()
-        
+
         total_created = len(income_categories) + len(expense_categories)
         logger.info(f"Успешно создано {total_created} предопределённых категорий")
-        
+
     except SQLAlchemyError as e:
         logger.error(f"Ошибка при инициализации категорий: {e}")
         session.rollback()
@@ -105,26 +133,26 @@ def init_default_categories(session: Session) -> None:
 def init_db() -> Engine:
     """
     Инициализирует подключение к базе данных и создаёт таблицы.
-    
+
     Путь к базе данных берётся из settings.db_path (определён в config.py).
     """
     global _engine, _SessionLocal
-    
+
     # Import inside function
     from finance_tracker.models import Base
-    
+
     try:
         # Получаем путь к БД из конфигурации
         db_path = settings.db_path
         database_url = f"sqlite:///{db_path}"
-        
+
         logger.info(f"Инициализация базы данных: {database_url}")
-        
+
         # Создаём engine с настройками для SQLite
         _engine = create_engine(
             database_url,
             connect_args={"check_same_thread": False},  # Для SQLite
-            echo=False
+            echo=False,
         )
 
         # Проверка схемы на устаревший Integer ID
@@ -136,7 +164,9 @@ def init_db() -> Engine:
                 if id_column:
                     type_name = str(id_column["type"]).upper()
                     if "INT" in type_name:
-                        logger.warning("Обнаружена устаревшая схема (Integer ID). Пересоздание базы данных...")
+                        logger.warning(
+                            "Обнаружена устаревшая схема (Integer ID). Пересоздание базы данных..."
+                        )
                         _engine.dispose()
                         if os.path.exists(db_path):
                             try:
@@ -144,27 +174,24 @@ def init_db() -> Engine:
                                 logger.info("Старая база данных удалена.")
                             except PermissionError:
                                 logger.error("Не удалось удалить файл БД (занят другим процессом).")
-                        
+
                         # Пересоздаем engine
                         _engine = create_engine(
-                            database_url,
-                            connect_args={"check_same_thread": False},
-                            echo=False
+                            database_url, connect_args={"check_same_thread": False}, echo=False
                         )
         except Exception as e:
             logger.warning(f"Ошибка при проверке схемы БД: {e}")
-        
+
         # Создаём все таблицы на основе моделей
         Base.metadata.create_all(bind=_engine)
+
+        _migrate_obligations_schema(_engine)
+
         logger.info("Таблицы базы данных успешно созданы/проверены")
-        
+
         # Создаём фабрику сессий
-        _SessionLocal = sessionmaker(
-            autocommit=False,
-            autoflush=False,
-            bind=_engine
-        )
-        
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+
         # Инициализируем предопределённые категории
         with get_db_session() as session:
             init_default_categories(session)
@@ -175,7 +202,7 @@ def init_db() -> Engine:
 
         logger.info("База данных успешно инициализирована")
         return _engine
-        
+
     except SQLAlchemyError as e:
         logger.error(f"Ошибка при инициализации базы данных: {e}")
         raise
@@ -193,26 +220,26 @@ def get_db_session() -> Generator[Session, None, None]:
         error_msg = "База данных не инициализирована. Вызовите init_db() перед использованием."
         logger.error(error_msg)
         raise RuntimeError(error_msg)
-    
+
     # Создаём новую сессию
     session: Session = _SessionLocal()
-    
+
     try:
         logger.debug("Создана новая сессия БД")
         yield session
-        
+
     except SQLAlchemyError as e:
         # Откатываем транзакцию при ошибке БД
         logger.error(f"Ошибка SQLAlchemy, откат транзакции: {e}")
         session.rollback()
         raise
-        
+
     except Exception as e:
         # Откатываем транзакцию при любой другой ошибке
         logger.error(f"Неожиданная ошибка, откат транзакции: {e}")
         session.rollback()
         raise
-        
+
     finally:
         # Всегда закрываем сессию
         session.close()
@@ -226,11 +253,11 @@ get_db = get_db_session
 def close_db() -> None:
     """
     Закрывает соединение с базой данных и освобождает ресурсы.
-    
+
     Должна вызываться при завершении работы приложения.
     """
     global _engine, _SessionLocal
-    
+
     if _engine is not None:
         logger.info("Закрытие соединения с базой данных...")
         _engine.dispose()
