@@ -25,6 +25,64 @@ from finance_tracker.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _filter_transactions(transactions, selected_category_id, selected_type, search_query):
+    filtered = list(transactions)
+
+    if selected_category_id:
+        filtered = [
+            transaction
+            for transaction in filtered
+            if transaction.category_id == selected_category_id
+        ]
+
+    if selected_type:
+        filtered = [transaction for transaction in filtered if transaction.type == selected_type]
+
+    if search_query:
+        query_lower = search_query.lower()
+        filtered = [
+            transaction
+            for transaction in filtered
+            if transaction.description and query_lower in transaction.description.lower()
+        ]
+
+    return filtered
+
+
+def _sort_transactions(transactions, sort_by: str):
+    reverse = sort_by.endswith("_desc")
+
+    if sort_by.startswith("date"):
+        return sorted(
+            transactions, key=lambda transaction: transaction.transaction_date, reverse=reverse
+        )
+    if sort_by.startswith("amount"):
+        return sorted(transactions, key=lambda transaction: transaction.amount, reverse=reverse)
+
+    return list(transactions)
+
+
+def _calculate_statistics(transactions):
+    total_income = sum(
+        (
+            transaction.amount
+            for transaction in transactions
+            if transaction.type == TransactionType.INCOME
+        ),
+        Decimal("0.0"),
+    )
+    total_expense = sum(
+        (
+            transaction.amount
+            for transaction in transactions
+            if transaction.type == TransactionType.EXPENSE
+        ),
+        Decimal("0.0"),
+    )
+    balance = total_income - total_expense
+    return total_income, total_expense, balance, len(transactions)
+
+
 class TransactionHistoryView(ft.Container):
     """
     Экран истории операций.
@@ -59,15 +117,11 @@ class TransactionHistoryView(ft.Container):
         # UI Components - фильтры
         self.date_range_text = ft.Text(
             f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}",
-            size=14
+            size=14,
         )
 
         self.category_dropdown = ft.Dropdown(
-            label="Категория",
-            width=200,
-            options=[],
-            on_select=self._on_filter_change,
-            dense=True
+            label="Категория", width=200, options=[], on_select=self._on_filter_change, dense=True
         )
 
         self.type_dropdown = ft.Dropdown(
@@ -76,11 +130,11 @@ class TransactionHistoryView(ft.Container):
             options=[
                 ft.dropdown.Option("all", "Все"),
                 ft.dropdown.Option("income", "Доходы"),
-                ft.dropdown.Option("expense", "Расходы")
+                ft.dropdown.Option("expense", "Расходы"),
             ],
             value="all",
             on_select=self._on_filter_change,
-            dense=True
+            dense=True,
         )
 
         self.search_field = ft.TextField(
@@ -88,7 +142,7 @@ class TransactionHistoryView(ft.Container):
             width=250,
             on_change=self._on_search_change,
             dense=True,
-            prefix_icon=ft.Icons.SEARCH
+            prefix_icon=ft.Icons.SEARCH,
         )
 
         self.group_dropdown = ft.Dropdown(
@@ -97,11 +151,11 @@ class TransactionHistoryView(ft.Container):
             options=[
                 ft.dropdown.Option("date", "По дате"),
                 ft.dropdown.Option("category", "По категории"),
-                ft.dropdown.Option("month", "По месяцам")
+                ft.dropdown.Option("month", "По месяцам"),
             ],
             value="date",
             on_select=self._on_group_change,
-            dense=True
+            dense=True,
         )
 
         self.sort_dropdown = ft.Dropdown(
@@ -111,25 +165,30 @@ class TransactionHistoryView(ft.Container):
                 ft.dropdown.Option("date_desc", "Дата ↓"),
                 ft.dropdown.Option("date_asc", "Дата ↑"),
                 ft.dropdown.Option("amount_desc", "Сумма ↓"),
-                ft.dropdown.Option("amount_asc", "Сумма ↑")
+                ft.dropdown.Option("amount_asc", "Сумма ↑"),
             ],
             value="date_desc",
             on_select=self._on_sort_change,
-            dense=True
+            dense=True,
         )
 
         # UI Components - статистика
-        self.stat_income = self._build_stat_card("Доходы", "0.00 ₽", ft.Icons.ARROW_UPWARD, ft.Colors.GREEN)
-        self.stat_expense = self._build_stat_card("Расходы", "0.00 ₽", ft.Icons.ARROW_DOWNWARD, ft.Colors.RED)
-        self.stat_balance = self._build_stat_card("Баланс", "0.00 ₽", ft.Icons.ACCOUNT_BALANCE_WALLET, ft.Colors.BLUE)
-        self.stat_count = self._build_stat_card("Операций", "0", ft.Icons.RECEIPT_LONG, ft.Colors.ORANGE)
+        self.stat_income = self._build_stat_card(
+            "Доходы", "0.00 ₽", ft.Icons.ARROW_UPWARD, ft.Colors.GREEN
+        )
+        self.stat_expense = self._build_stat_card(
+            "Расходы", "0.00 ₽", ft.Icons.ARROW_DOWNWARD, ft.Colors.RED
+        )
+        self.stat_balance = self._build_stat_card(
+            "Баланс", "0.00 ₽", ft.Icons.ACCOUNT_BALANCE_WALLET, ft.Colors.BLUE
+        )
+        self.stat_count = self._build_stat_card(
+            "Операций", "0", ft.Icons.RECEIPT_LONG, ft.Colors.ORANGE
+        )
 
         # UI Components - данные
         self.transactions_container = ft.Column(
-            controls=[],
-            scroll=ft.ScrollMode.AUTO,
-            spacing=10,
-            expand=True
+            controls=[], scroll=ft.ScrollMode.AUTO, spacing=10, expand=True
         )
 
         # График по категориям
@@ -139,14 +198,12 @@ class TransactionHistoryView(ft.Container):
             border=ft.Border.all(1, "outlineVariant"),
             border_radius=10,
             padding=20,
-            height=300
+            height=300,
         )
 
         # Кнопки действий
         self.show_chart_button = ft.Button(
-            "Показать график",
-            icon=ft.Icons.PIE_CHART,
-            on_click=self._toggle_chart
+            "Показать график", icon=ft.Icons.PIE_CHART, on_click=self._toggle_chart
         )
 
         # Layout
@@ -157,17 +214,16 @@ class TransactionHistoryView(ft.Container):
                     controls=[
                         ft.Text("История операций", size=24, weight=ft.FontWeight.BOLD),
                         ft.Container(expand=True),
-                        self.show_chart_button
+                        self.show_chart_button,
                     ]
                 ),
-
                 # Фильтры - верхняя строка
                 ft.Row(
                     controls=[
                         ft.Button(
                             "Выбрать период",
                             icon=ft.Icons.DATE_RANGE,
-                            on_click=self._open_date_picker
+                            on_click=self._open_date_picker,
                         ),
                         self.date_range_text,
                         self.category_dropdown,
@@ -176,57 +232,51 @@ class TransactionHistoryView(ft.Container):
                     ],
                     alignment=ft.MainAxisAlignment.START,
                     spacing=10,
-                    wrap=True
+                    wrap=True,
                 ),
-
                 # Фильтры - нижняя строка
                 ft.Row(
                     controls=[
                         self.group_dropdown,
                         self.sort_dropdown,
                         ft.IconButton(
-                            icon=ft.Icons.REFRESH,
-                            on_click=self._refresh_data,
-                            tooltip="Обновить"
+                            icon=ft.Icons.REFRESH, on_click=self._refresh_data, tooltip="Обновить"
                         ),
                         ft.IconButton(
                             icon=ft.Icons.CLEAR,
                             on_click=self._reset_filters,
-                            tooltip="Сбросить фильтры"
-                        )
+                            tooltip="Сбросить фильтры",
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.START,
-                    spacing=10
+                    spacing=10,
                 ),
-
                 # Статистика
                 ft.Row(
                     controls=[
                         self.stat_income,
                         self.stat_expense,
                         self.stat_balance,
-                        self.stat_count
+                        self.stat_count,
                     ],
                     scroll=ft.ScrollMode.AUTO,
-                    spacing=15
+                    spacing=15,
                 ),
-
                 # График (скрыт по умолчанию)
                 self.chart_container,
-
                 # Список транзакций
                 ft.Container(
                     content=self.transactions_container,
                     border=ft.Border.all(1, "outlineVariant"),
                     border_radius=10,
                     padding=15,
-                    expand=True
-                )
+                    expand=True,
+                ),
             ],
             spacing=20,
             scroll=ft.ScrollMode.AUTO,
             expand=True,
-            alignment=ft.MainAxisAlignment.START
+            alignment=ft.MainAxisAlignment.START,
         )
 
     def did_mount(self):
@@ -244,9 +294,7 @@ class TransactionHistoryView(ft.Container):
         try:
             with get_db() as session:
                 categories = get_all_categories(session)
-                self.category_dropdown.options = [
-                    ft.dropdown.Option("all", "Все категории")
-                ] + [
+                self.category_dropdown.options = [ft.dropdown.Option("all", "Все категории")] + [
                     ft.dropdown.Option(str(c.id), c.name) for c in categories
                 ]
                 self.category_dropdown.value = "all"
@@ -265,54 +313,25 @@ class TransactionHistoryView(ft.Container):
         except Exception as e:
             logger.error(f"Ошибка загрузки данных: {e}")
             if self.page:
-                self.page.open(ft.SnackBar(
-                    content=ft.Text(f"Ошибка загрузки данных: {e}"),
-                    bgcolor=ft.Colors.ERROR
-                ))
+                self.page.open(
+                    ft.SnackBar(
+                        content=ft.Text(f"Ошибка загрузки данных: {e}"), bgcolor=ft.Colors.ERROR
+                    )
+                )
 
     def _apply_filters(self):
         """Применяет фильтры к транзакциям."""
-        self.filtered_transactions = self.transactions.copy()
-
-        # Фильтр по категории
-        if self.selected_category_id:
-            self.filtered_transactions = [
-                t for t in self.filtered_transactions
-                if t.category_id == self.selected_category_id
-            ]
-
-        # Фильтр по типу
-        if self.selected_type:
-            self.filtered_transactions = [
-                t for t in self.filtered_transactions
-                if t.type == self.selected_type
-            ]
-
-        # Поиск по описанию
-        if self.search_query:
-            query_lower = self.search_query.lower()
-            self.filtered_transactions = [
-                t for t in self.filtered_transactions
-                if t.description and query_lower in t.description.lower()
-            ]
-
-        # Сортировка
-        self._apply_sorting()
+        self.filtered_transactions = _filter_transactions(
+            self.transactions,
+            self.selected_category_id,
+            self.selected_type,
+            self.search_query,
+        )
+        self.filtered_transactions = _sort_transactions(self.filtered_transactions, self.sort_by)
 
     def _apply_sorting(self):
         """Применяет сортировку к отфильтрованным транзакциям."""
-        reverse = self.sort_by.endswith("_desc")
-
-        if self.sort_by.startswith("date"):
-            self.filtered_transactions.sort(
-                key=lambda t: t.transaction_date,
-                reverse=reverse
-            )
-        elif self.sort_by.startswith("amount"):
-            self.filtered_transactions.sort(
-                key=lambda t: t.amount,
-                reverse=reverse
-            )
+        self.filtered_transactions = _sort_transactions(self.filtered_transactions, self.sort_by)
 
     def _update_ui(self):
         """Обновляет UI на основе отфильтрованных данных."""
@@ -333,16 +352,9 @@ class TransactionHistoryView(ft.Container):
 
     def _update_statistics(self):
         """Обновляет карточки статистики."""
-        total_income = sum(
-            (t.amount for t in self.filtered_transactions if t.type == TransactionType.INCOME),
-            Decimal('0.0')
+        total_income, total_expense, balance, count = _calculate_statistics(
+            self.filtered_transactions
         )
-        total_expense = sum(
-            (t.amount for t in self.filtered_transactions if t.type == TransactionType.EXPENSE),
-            Decimal('0.0')
-        )
-        balance = total_income - total_expense
-        count = len(self.filtered_transactions)
 
         self._update_stat_card(self.stat_income, f"{total_income:,.2f} ₽".replace(",", " "))
         self._update_stat_card(self.stat_expense, f"{total_expense:,.2f} ₽".replace(",", " "))
@@ -371,13 +383,9 @@ class TransactionHistoryView(ft.Container):
         if not self.filtered_transactions:
             self.transactions_container.controls.append(
                 ft.Container(
-                    content=ft.Text(
-                        "Нет транзакций за выбранный период",
-                        size=16,
-                        color="outline"
-                    ),
+                    content=ft.Text("Нет транзакций за выбранный период", size=16, color="outline"),
                     alignment=ft.Alignment.CENTER,
-                    padding=40
+                    padding=40,
                 )
             )
             return
@@ -402,8 +410,13 @@ class TransactionHistoryView(ft.Container):
 
         for date_obj in sorted_dates:
             transactions = by_date[date_obj]
-            day_income = sum((t.amount for t in transactions if t.type == TransactionType.INCOME), Decimal('0.0'))
-            day_expense = sum((t.amount for t in transactions if t.type == TransactionType.EXPENSE), Decimal('0.0'))
+            day_income = sum(
+                (t.amount for t in transactions if t.type == TransactionType.INCOME), Decimal("0.0")
+            )
+            day_expense = sum(
+                (t.amount for t in transactions if t.type == TransactionType.EXPENSE),
+                Decimal("0.0"),
+            )
             day_balance = day_income - day_expense
 
             # Заголовок дня
@@ -414,17 +427,29 @@ class TransactionHistoryView(ft.Container):
                             ft.Text(
                                 date_obj.strftime("%d.%m.%Y (%A)"),
                                 size=16,
-                                weight=ft.FontWeight.BOLD
+                                weight=ft.FontWeight.BOLD,
                             ),
                             ft.Container(expand=True),
-                            ft.Text(f"Доходы: {day_income:,.2f} ₽".replace(",", " "), color=ft.Colors.GREEN, size=12),
-                            ft.Text(f"Расходы: {day_expense:,.2f} ₽".replace(",", " "), color=ft.Colors.RED, size=12),
-                            ft.Text(f"Баланс: {day_balance:+,.2f} ₽".replace(",", " "), size=12, weight=ft.FontWeight.BOLD)
+                            ft.Text(
+                                f"Доходы: {day_income:,.2f} ₽".replace(",", " "),
+                                color=ft.Colors.GREEN,
+                                size=12,
+                            ),
+                            ft.Text(
+                                f"Расходы: {day_expense:,.2f} ₽".replace(",", " "),
+                                color=ft.Colors.RED,
+                                size=12,
+                            ),
+                            ft.Text(
+                                f"Баланс: {day_balance:+,.2f} ₽".replace(",", " "),
+                                size=12,
+                                weight=ft.FontWeight.BOLD,
+                            ),
                         ]
                     ),
                     bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
-                    border_radius=5
+                    border_radius=5,
                 )
             )
 
@@ -447,7 +472,7 @@ class TransactionHistoryView(ft.Container):
 
         for category_name in sorted_categories:
             transactions = by_category[category_name]
-            cat_total = sum((t.amount for t in transactions), Decimal('0.0'))
+            cat_total = sum((t.amount for t in transactions), Decimal("0.0"))
 
             # Заголовок категории
             self.transactions_container.controls.append(
@@ -457,12 +482,12 @@ class TransactionHistoryView(ft.Container):
                             ft.Text(category_name, size=16, weight=ft.FontWeight.BOLD),
                             ft.Container(expand=True),
                             ft.Text(f"Всего: {cat_total:,.2f} ₽".replace(",", " "), size=12),
-                            ft.Text(f"Операций: {len(transactions)}", size=12)
+                            ft.Text(f"Операций: {len(transactions)}", size=12),
                         ]
                     ),
                     bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
-                    border_radius=5
+                    border_radius=5,
                 )
             )
 
@@ -484,15 +509,29 @@ class TransactionHistoryView(ft.Container):
         sorted_months = sorted(by_month.keys(), reverse=True)
 
         month_names = {
-            1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
-            5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
-            9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
+            1: "Январь",
+            2: "Февраль",
+            3: "Март",
+            4: "Апрель",
+            5: "Май",
+            6: "Июнь",
+            7: "Июль",
+            8: "Август",
+            9: "Сентябрь",
+            10: "Октябрь",
+            11: "Ноябрь",
+            12: "Декабрь",
         }
 
         for year, month in sorted_months:
             transactions = by_month[(year, month)]
-            month_income = sum((t.amount for t in transactions if t.type == TransactionType.INCOME), Decimal('0.0'))
-            month_expense = sum((t.amount for t in transactions if t.type == TransactionType.EXPENSE), Decimal('0.0'))
+            month_income = sum(
+                (t.amount for t in transactions if t.type == TransactionType.INCOME), Decimal("0.0")
+            )
+            month_expense = sum(
+                (t.amount for t in transactions if t.type == TransactionType.EXPENSE),
+                Decimal("0.0"),
+            )
             month_balance = month_income - month_expense
 
             # Заголовок месяца
@@ -501,19 +540,29 @@ class TransactionHistoryView(ft.Container):
                     content=ft.Row(
                         controls=[
                             ft.Text(
-                                f"{month_names[month]} {year}",
-                                size=16,
-                                weight=ft.FontWeight.BOLD
+                                f"{month_names[month]} {year}", size=16, weight=ft.FontWeight.BOLD
                             ),
                             ft.Container(expand=True),
-                            ft.Text(f"Доходы: {month_income:,.2f} ₽".replace(",", " "), color=ft.Colors.GREEN, size=12),
-                            ft.Text(f"Расходы: {month_expense:,.2f} ₽".replace(",", " "), color=ft.Colors.RED, size=12),
-                            ft.Text(f"Баланс: {month_balance:+,.2f} ₽".replace(",", " "), size=12, weight=ft.FontWeight.BOLD)
+                            ft.Text(
+                                f"Доходы: {month_income:,.2f} ₽".replace(",", " "),
+                                color=ft.Colors.GREEN,
+                                size=12,
+                            ),
+                            ft.Text(
+                                f"Расходы: {month_expense:,.2f} ₽".replace(",", " "),
+                                color=ft.Colors.RED,
+                                size=12,
+                            ),
+                            ft.Text(
+                                f"Баланс: {month_balance:+,.2f} ₽".replace(",", " "),
+                                size=12,
+                                weight=ft.FontWeight.BOLD,
+                            ),
                         ]
                     ),
                     bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                     padding=10,
-                    border_radius=5
+                    border_radius=5,
                 )
             )
 
@@ -528,7 +577,9 @@ class TransactionHistoryView(ft.Container):
         category_name = transaction.category.name if transaction.category else "Без категории"
 
         # Цвет в зависимости от типа
-        amount_color = ft.Colors.GREEN if transaction.type == TransactionType.INCOME else ft.Colors.RED
+        amount_color = (
+            ft.Colors.GREEN if transaction.type == TransactionType.INCOME else ft.Colors.RED
+        )
         amount_prefix = "+" if transaction.type == TransactionType.INCOME else "-"
 
         return ft.Container(
@@ -536,46 +587,40 @@ class TransactionHistoryView(ft.Container):
                 controls=[
                     # Дата
                     ft.Container(
-                        content=ft.Text(
-                            transaction.transaction_date.strftime("%d.%m.%Y"),
-                            size=12
-                        ),
-                        width=80
+                        content=ft.Text(transaction.transaction_date.strftime("%d.%m.%Y"), size=12),
+                        width=80,
                     ),
                     # Категория
-                    ft.Container(
-                        content=ft.Text(category_name, size=12),
-                        width=150
-                    ),
+                    ft.Container(content=ft.Text(category_name, size=12), width=150),
                     # Описание
                     ft.Container(
                         content=ft.Text(
                             transaction.description or "",
                             size=12,
-                            overflow=ft.TextOverflow.ELLIPSIS
+                            overflow=ft.TextOverflow.ELLIPSIS,
                         ),
-                        expand=True
+                        expand=True,
                     ),
                     # Сумма
                     ft.Text(
                         f"{amount_prefix}{transaction.amount:,.2f} ₽".replace(",", " "),
                         size=14,
                         weight=ft.FontWeight.BOLD,
-                        color=amount_color
+                        color=amount_color,
                     ),
                     # Кнопка деталей
                     ft.IconButton(
                         icon=ft.Icons.INFO_OUTLINE,
                         icon_size=16,
                         tooltip="Детали",
-                        on_click=lambda _, t=transaction: self._show_transaction_details(t)
-                    )
+                        on_click=lambda _, t=transaction: self._show_transaction_details(t),
+                    ),
                 ],
-                alignment=ft.MainAxisAlignment.START
+                alignment=ft.MainAxisAlignment.START,
             ),
             padding=10,
             border=ft.border.only(bottom=ft.BorderSide(1, "outlineVariant")),
-            on_hover=lambda e: self._on_card_hover(e)
+            on_hover=lambda e: self._on_card_hover(e),
         )
 
     def _on_card_hover(self, e):
@@ -592,23 +637,37 @@ class TransactionHistoryView(ft.Container):
             title=ft.Text("Детали транзакции"),
             content=ft.Column(
                 controls=[
-                    ft.Row([ft.Text("Дата:", weight=ft.FontWeight.BOLD), ft.Text(transaction.transaction_date.strftime("%d.%m.%Y"))]),
+                    ft.Row(
+                        [
+                            ft.Text("Дата:", weight=ft.FontWeight.BOLD),
+                            ft.Text(transaction.transaction_date.strftime("%d.%m.%Y")),
+                        ]
+                    ),
                     ft.Row([ft.Text("Тип:", weight=ft.FontWeight.BOLD), ft.Text(type_text)]),
-                    ft.Row([ft.Text("Категория:", weight=ft.FontWeight.BOLD), ft.Text(category_name)]),
-                    ft.Row([ft.Text("Сумма:", weight=ft.FontWeight.BOLD), ft.Text(f"{transaction.amount:,.2f} ₽".replace(",", " "))]),
+                    ft.Row(
+                        [ft.Text("Категория:", weight=ft.FontWeight.BOLD), ft.Text(category_name)]
+                    ),
+                    ft.Row(
+                        [
+                            ft.Text("Сумма:", weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{transaction.amount:,.2f} ₽".replace(",", " ")),
+                        ]
+                    ),
                     ft.Divider(),
                     ft.Text("Описание:", weight=ft.FontWeight.BOLD),
                     ft.Text(transaction.description or "Нет описания", size=12),
                     ft.Divider(),
                     ft.Text(f"ID: {transaction.id}", size=10, color="outline"),
-                    ft.Text(f"Создано: {transaction.created_at.strftime('%d.%m.%Y %H:%M')}", size=10, color="outline")
+                    ft.Text(
+                        f"Создано: {transaction.created_at.strftime('%d.%m.%Y %H:%M')}",
+                        size=10,
+                        color="outline",
+                    ),
                 ],
                 tight=True,
-                spacing=10
+                spacing=10,
             ),
-            actions=[
-                ft.TextButton("Закрыть", on_click=lambda _: self.page.close(dialog))
-            ]
+            actions=[ft.TextButton("Закрыть", on_click=lambda _: self.page.close(dialog))],
         )
 
         self.page.open(dialog)
@@ -616,7 +675,7 @@ class TransactionHistoryView(ft.Container):
     def _update_chart(self):
         """Обновляет график распределения по категориям."""
         # Группируем по категориям
-        by_category: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+        by_category: Dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
         for transaction in self.filtered_transactions:
             category_name = transaction.category.name if transaction.category else "Без категории"
             by_category[category_name] += transaction.amount
@@ -637,24 +696,30 @@ class TransactionHistoryView(ft.Container):
                         controls=[
                             ft.Row(
                                 controls=[
-                                    ft.Text(category, size=12, width=120, overflow=ft.TextOverflow.ELLIPSIS),
+                                    ft.Text(
+                                        category,
+                                        size=12,
+                                        width=120,
+                                        overflow=ft.TextOverflow.ELLIPSIS,
+                                    ),
                                     ft.Container(
                                         content=ft.Container(
-                                            bgcolor=ft.Colors.PRIMARY,
-                                            height=20,
-                                            border_radius=3
+                                            bgcolor=ft.Colors.PRIMARY, height=20, border_radius=3
                                         ),
                                         width=int(percentage * 3),  # Масштаб
-                                        height=20
+                                        height=20,
                                     ),
-                                    ft.Text(f"{amount:,.2f} ₽ ({percentage:.1f}%)".replace(",", " "), size=12)
+                                    ft.Text(
+                                        f"{amount:,.2f} ₽ ({percentage:.1f}%)".replace(",", " "),
+                                        size=12,
+                                    ),
                                 ],
                                 alignment=ft.MainAxisAlignment.START,
-                                spacing=10
+                                spacing=10,
                             )
                         ]
                     ),
-                    padding=5
+                    padding=5,
                 )
             )
 
@@ -662,9 +727,9 @@ class TransactionHistoryView(ft.Container):
             controls=[
                 ft.Text("Распределение по категориям", size=16, weight=ft.FontWeight.BOLD),
                 ft.Divider(),
-                ft.Column(controls=bars, scroll=ft.ScrollMode.AUTO, spacing=5)
+                ft.Column(controls=bars, scroll=ft.ScrollMode.AUTO, spacing=5),
             ],
-            spacing=10
+            spacing=10,
         )
 
     def _build_stat_card(self, title: str, value: str, icon: str, color: str) -> ft.Container:
@@ -676,18 +741,18 @@ class TransactionHistoryView(ft.Container):
                     ft.Column(
                         controls=[
                             ft.Text(title, size=12, color="outline"),
-                            ft.Text(value, size=18, weight=ft.FontWeight.BOLD)
+                            ft.Text(value, size=18, weight=ft.FontWeight.BOLD),
                         ],
-                        spacing=2
-                    )
+                        spacing=2,
+                    ),
                 ],
                 alignment=ft.MainAxisAlignment.START,
-                spacing=15
+                spacing=15,
             ),
             padding=15,
             width=220,
             bgcolor="surfaceVariant",
-            border_radius=10
+            border_radius=10,
         )
 
     def _update_stat_card(self, card: ft.Container, value: str):
@@ -750,7 +815,9 @@ class TransactionHistoryView(ft.Container):
         self.sort_by = "date_desc"
 
         # Обновляем UI контролы
-        self.date_range_text.value = f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}"
+        self.date_range_text.value = (
+            f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}"
+        )
         self.category_dropdown.value = "all"
         self.type_dropdown.value = "all"
         self.search_field.value = ""
@@ -766,14 +833,14 @@ class TransactionHistoryView(ft.Container):
             label="Дата начала",
             value=self.start_date.strftime("%Y-%m-%d"),
             hint_text="YYYY-MM-DD",
-            width=150
+            width=150,
         )
 
         end_field = ft.TextField(
             label="Дата окончания",
             value=self.end_date.strftime("%Y-%m-%d"),
             hint_text="YYYY-MM-DD",
-            width=150
+            width=150,
         )
 
         def apply_dates(_):
@@ -782,23 +849,29 @@ class TransactionHistoryView(ft.Container):
                 new_end = datetime.datetime.strptime(end_field.value, "%Y-%m-%d").date()
 
                 if new_start > new_end:
-                    self.page.open(ft.SnackBar(
-                        content=ft.Text("Дата начала не может быть позже даты окончания"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
+                    self.page.open(
+                        ft.SnackBar(
+                            content=ft.Text("Дата начала не может быть позже даты окончания"),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
                     return
 
                 self.start_date = new_start
                 self.end_date = new_end
-                self.date_range_text.value = f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}"
+                self.date_range_text.value = (
+                    f"{self.start_date.strftime('%d.%m.%Y')} - {self.end_date.strftime('%d.%m.%Y')}"
+                )
                 self.page.close(dialog)
                 self._load_data()
 
             except ValueError:
-                self.page.open(ft.SnackBar(
-                    content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)"),
-                    bgcolor=ft.Colors.ERROR
-                ))
+                self.page.open(
+                    ft.SnackBar(
+                        content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)"),
+                        bgcolor=ft.Colors.ERROR,
+                    )
+                )
 
         def cancel(_):
             self.page.close(dialog)
@@ -834,20 +907,23 @@ class TransactionHistoryView(ft.Container):
                     ft.Row([start_field, end_field]),
                     ft.Divider(),
                     ft.Text("Быстрый выбор:", size=12, weight=ft.FontWeight.BOLD),
-                    ft.Row([
-                ft.Button("Текущий месяц", on_click=set_current_month),
-                ft.Button("Прошлый месяц", on_click=set_last_month),
-                ft.Button("Текущий год", on_click=set_current_year)
-                    ], wrap=True)
+                    ft.Row(
+                        [
+                            ft.Button("Текущий месяц", on_click=set_current_month),
+                            ft.Button("Прошлый месяц", on_click=set_last_month),
+                            ft.Button("Текущий год", on_click=set_current_year),
+                        ],
+                        wrap=True,
+                    ),
                 ],
                 tight=True,
                 spacing=10,
-                width=400
+                width=400,
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel),
-                ft.Button("Применить", on_click=apply_dates)
-            ]
+                ft.Button("Применить", on_click=apply_dates),
+            ],
         )
 
         self.page.open(dialog)
@@ -855,7 +931,9 @@ class TransactionHistoryView(ft.Container):
     def _toggle_chart(self, e):
         """Переключает видимость графика."""
         self.chart_container.visible = not self.chart_container.visible
-        self.show_chart_button.text = "Скрыть график" if self.chart_container.visible else "Показать график"
+        self.show_chart_button.text = (
+            "Скрыть график" if self.chart_container.visible else "Показать график"
+        )
 
         if self.chart_container.visible:
             self._update_chart()
