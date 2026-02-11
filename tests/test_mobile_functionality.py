@@ -2,7 +2,7 @@
 
 import pytest
 
-import finance_tracker.mobile
+from finance_tracker import mobile as finance_mobile
 from finance_tracker.mobile import (
     CloudSyncService,
     ExportService,
@@ -18,7 +18,7 @@ class TestMobileModuleImport:
     """Базовые проверки импорта mobile-модуля."""
 
     def test_module_imports_successfully(self):
-        assert finance_tracker.mobile is not None
+        assert finance_mobile is not None
 
     def test_export_service_available(self):
         assert ExportService is not None
@@ -33,14 +33,14 @@ class TestMobileModuleImport:
 
 
 class TestExportImportAvailability:
-    """Экспорт/импорт пока недоступны и должны поднимать понятную ошибку."""
+    """Экспорт/импорт доступны, но требуют инициализированную БД."""
 
-    def test_export_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError, match=ISSUE_MARKER):
+    def test_export_requires_initialized_db(self):
+        with pytest.raises(RuntimeError, match="не инициализирована"):
             ExportService.export_to_file()
 
-    def test_import_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError, match=ISSUE_MARKER):
+    def test_import_requires_initialized_db(self):
+        with pytest.raises(RuntimeError, match="не инициализирована"):
             ImportService.import_from_file("backup.json")
 
 
