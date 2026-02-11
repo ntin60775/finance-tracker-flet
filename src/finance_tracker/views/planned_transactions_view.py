@@ -9,6 +9,7 @@
 """
 
 import flet as ft
+from datetime import date
 from typing import Optional
 
 from finance_tracker.models import (
@@ -17,17 +18,24 @@ from finance_tracker.models import (
     PlannedOccurrenceDB,
     OccurrenceStatus,
     CategoryDB,
-    RecurrenceType
+    RecurrenceType,
 )
 from finance_tracker.database import get_db_session
 from finance_tracker.services.planned_transaction_service import (
     get_all_planned_transactions,
     deactivate_planned_transaction,
     delete_planned_transaction,
-    create_planned_transaction
+    create_planned_transaction,
+)
+from finance_tracker.services.obligations_service import (
+    create_obligation,
+    get_obligations_metrics_for_month,
+    link_transaction_to_obligation,
+    update_obligation_target,
 )
 from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
 from finance_tracker.utils.logger import get_logger
+from finance_tracker.utils.exceptions import BusinessLogicError, ValidationError
 
 logger = get_logger(__name__)
 
@@ -59,6 +67,7 @@ class PlannedTransactionsView(ft.Column):
         self.status_filter: Optional[bool] = True  # True = активные, None = все
         self.type_filter: Optional[TransactionType] = None
         self.selected_planned_tx: Optional[PlannedTransactionDB] = None
+        self.obligations_month: date = date.today().replace(day=1)
 
         # Persistent session pattern for View
         self.cm = get_db_session()
@@ -78,36 +87,75 @@ class PlannedTransactionsView(ft.Column):
                     bgcolor=ft.Colors.PRIMARY,
                     icon_color=ft.Colors.ON_PRIMARY,
                     tooltip="Добавить плановую транзакцию",
-                    on_click=self.open_create_dialog
-                )
+                    on_click=self.open_create_dialog,
+                ),
             ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+
+        self.obligations_list = ft.Column(spacing=8)
+
+        self.obligations_container = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Text("Обязательства", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Row(
+                                controls=[
+                                    ft.Text(
+                                        self.obligations_month.strftime("%m.%Y"),
+                                        size=12,
+                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.ADD,
+                                        tooltip="Добавить обязательство",
+                                        on_click=self.open_create_obligation_dialog,
+                                    ),
+                                ],
+                                spacing=5,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    self.obligations_list,
+                ],
+                spacing=10,
+            ),
+            bgcolor="surfaceVariant",
+            padding=10,
+            border_radius=10,
         )
 
         # Фильтры по статусу
         self.status_tabs = ft.Tabs(
-            content=ft.TabBar(tabs=[
-                ft.Tab(label="Активные"),
-                ft.Tab(label="Неактивные"),
-                ft.Tab(label="Все"),
-            ]),
+            content=ft.TabBar(
+                tabs=[
+                    ft.Tab(label="Активные"),
+                    ft.Tab(label="Неактивные"),
+                    ft.Tab(label="Все"),
+                ]
+            ),
             length=3,
             selected_index=0,
             animation_duration=300,
-            on_change=self.on_status_filter_change
+            on_change=self.on_status_filter_change,
         )
 
         # Фильтры по типу
         self.type_tabs = ft.Tabs(
-            content=ft.TabBar(tabs=[
-                ft.Tab(label="Все"),
-                ft.Tab(label="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
-                ft.Tab(label="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
-            ]),
+            content=ft.TabBar(
+                tabs=[
+                    ft.Tab(label="Все"),
+                    ft.Tab(label="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
+                    ft.Tab(label="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
+                ]
+            ),
             length=3,
             selected_index=0,
             animation_duration=300,
-            on_change=self.on_type_filter_change
+            on_change=self.on_type_filter_change,
         )
 
         # Список плановых транзакций
@@ -131,7 +179,7 @@ class PlannedTransactionsView(ft.Column):
                             self.status_tabs,
                             self.type_tabs,
                             ft.Divider(height=1),
-                            self.transactions_list
+                            self.transactions_list,
                         ],
                         spacing=10,
                         expand=True,
@@ -146,6 +194,7 @@ class PlannedTransactionsView(ft.Column):
 
         self.controls = [
             self.header,
+            self.obligations_container,
             ft.Divider(height=1),
             self.main_content,
         ]
@@ -190,44 +239,167 @@ class PlannedTransactionsView(ft.Column):
             if self.status_filter is None:
                 # Все транзакции
                 transactions = get_all_planned_transactions(
-                    self.session,
-                    active_only=False,
-                    transaction_type=self.type_filter
+                    self.session, active_only=False, transaction_type=self.type_filter
                 )
             else:
                 # Фильтруем по статусу
                 all_txs = get_all_planned_transactions(
-                    self.session,
-                    active_only=False,
-                    transaction_type=self.type_filter
+                    self.session, active_only=False, transaction_type=self.type_filter
                 )
                 transactions = [tx for tx in all_txs if tx.is_active == self.status_filter]
 
+            transactions = [tx for tx in transactions if not getattr(tx, "is_obligation", False)]
+
             self.transactions_list.controls.clear()
+            self._refresh_obligations_block()
 
             if not transactions:
                 self.transactions_list.controls.append(
                     ft.Container(
                         content=ft.Text("Плановые транзакции не найдены", color="outline"),
                         alignment=ft.Alignment.CENTER,
-                        padding=20
+                        padding=20,
                     )
                 )
             else:
                 for tx in transactions:
-                    self.transactions_list.controls.append(
-                        self._create_transaction_tile(tx)
-                    )
+                    self.transactions_list.controls.append(self._create_transaction_tile(tx))
 
             self.update()
 
         except Exception as e:
             logger.error(f"Ошибка загрузки плановых транзакций: {e}")
             if self._page:
-                snack = ft.SnackBar(
-                    content=ft.Text(f"Ошибка загрузки плановых транзакций: {e}")
-                )
+                snack = ft.SnackBar(content=ft.Text(f"Ошибка загрузки плановых транзакций: {e}"))
                 self._page.open(snack)
+
+    def _refresh_obligations_block(self) -> None:
+        self.obligations_list.controls.clear()
+
+        try:
+            metrics_list = get_obligations_metrics_for_month(self.session, self.obligations_month)
+        except Exception as ex:
+            self.obligations_list.controls.append(
+                ft.Text(f"Ошибка загрузки обязательств: {ex}", color=ft.Colors.ERROR)
+            )
+            return
+
+        if not metrics_list:
+            self.obligations_list.controls.append(
+                ft.Text("Нет обязательств на этот месяц", color="outline")
+            )
+            return
+
+        for metrics in metrics_list:
+            obligation = (
+                self.session.query(PlannedTransactionDB).filter_by(id=metrics.obligation_id).first()
+            )
+            if not obligation:
+                continue
+
+            category = self.session.query(CategoryDB).filter_by(id=obligation.category_id).first()
+            category_name = category.name if category else "Неизвестная категория"
+
+            progress = 0.0
+            if metrics.target and metrics.target > 0:
+                progress = float(metrics.paid / metrics.target)
+                progress = max(0.0, min(1.0, progress))
+
+            title = obligation.description or category_name
+
+            self.obligations_list.controls.append(
+                ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    ft.Text(title, weight=ft.FontWeight.BOLD, expand=True),
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT,
+                                        tooltip="Изменить цель",
+                                        on_click=lambda _, o=obligation, m=metrics: (
+                                            self.open_edit_obligation_dialog(o, m)
+                                        ),
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            ),
+                            ft.Text(
+                                f"цель: {metrics.target:.2f} ₽ • оплачено: {metrics.paid:.2f} ₽ • остаток: {metrics.remaining:.2f} ₽",
+                                size=12,
+                                color=ft.Colors.ON_SURFACE_VARIANT,
+                            ),
+                            ft.ProgressBar(value=progress),
+                        ],
+                        spacing=6,
+                    ),
+                    bgcolor=ft.Colors.SURFACE,
+                    padding=10,
+                    border_radius=8,
+                )
+            )
+
+    def open_create_obligation_dialog(self, e=None):
+        modal = PlannedTransactionModal(
+            session=self.session,
+            on_save=self._on_planned_transaction_saved,
+            on_save_obligation=self._on_obligation_saved,
+        )
+        modal.open(self._page, mode="obligation", target_month=self.obligations_month)
+
+    def open_edit_obligation_dialog(self, obligation: PlannedTransactionDB, metrics):
+        modal = PlannedTransactionModal(
+            session=self.session,
+            on_save=self._on_planned_transaction_saved,
+            on_save_obligation=self._on_obligation_saved,
+        )
+        modal.open(
+            self._page,
+            mode="obligation",
+            obligation_id=obligation.id,
+            target_month=metrics.month,
+            target_amount=metrics.target,
+            category_id=obligation.category_id,
+            tx_type=obligation.type,
+            description=obligation.description,
+        )
+
+    def _on_obligation_saved(self, payload: dict) -> None:
+        try:
+            obligation_id = payload.get("obligation_id")
+            if obligation_id:
+                update_obligation_target(
+                    self.session,
+                    obligation_id=obligation_id,
+                    target_amount=payload["target_amount"],
+                )
+                message = "Цель обязательства обновлена"
+            else:
+                create_obligation(
+                    self.session,
+                    category_id=payload["category_id"],
+                    target_amount=payload["target_amount"],
+                    target_month=payload["target_month"],
+                    t_type=payload["type"],
+                    description=payload.get("description"),
+                )
+                message = "Обязательство создано"
+
+            if self._page:
+                self._page.open(ft.SnackBar(content=ft.Text(message)))
+
+            self.refresh_data()
+        except (ValidationError, BusinessLogicError) as ex:
+            if self._page:
+                self._page.open(
+                    ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                )
+        except Exception as ex:
+            logger.error("Ошибка сохранения обязательства: %s", ex)
+            if self._page:
+                self._page.open(
+                    ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                )
 
     def _create_transaction_tile(self, tx: PlannedTransactionDB) -> ft.ListTile:
         """
@@ -240,10 +412,12 @@ class PlannedTransactionsView(ft.Column):
             ListTile с информацией о плановой транзакции
         """
         # Иконка и цвет по типу
-        icon = (ft.Icons.ARROW_CIRCLE_DOWN if tx.type == TransactionType.EXPENSE
-                else ft.Icons.ARROW_CIRCLE_UP)
-        color = (ft.Colors.RED if tx.type == TransactionType.EXPENSE
-                 else ft.Colors.GREEN)
+        icon = (
+            ft.Icons.ARROW_CIRCLE_DOWN
+            if tx.type == TransactionType.EXPENSE
+            else ft.Icons.ARROW_CIRCLE_UP
+        )
+        color = ft.Colors.RED if tx.type == TransactionType.EXPENSE else ft.Colors.GREEN
 
         # Получаем название категории
         category = self.session.query(CategoryDB).filter_by(id=tx.category_id).first()
@@ -271,10 +445,7 @@ class PlannedTransactionsView(ft.Column):
                     ft.Text(category_name, weight=ft.FontWeight.BOLD, size=16),
                     ft.Container(
                         content=ft.Text(
-                            status_text,
-                            size=11,
-                            color=ft.Colors.WHITE,
-                            weight=ft.FontWeight.BOLD
+                            status_text, size=11, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD
                         ),
                         bgcolor=status_color,
                         padding=ft.Padding.symmetric(horizontal=8, vertical=2),
@@ -287,7 +458,9 @@ class PlannedTransactionsView(ft.Column):
                 controls=[
                     ft.Text(f"{tx.amount:.2f} ₽ • {recurrence_info}", size=14),
                     ft.Text(date_range, size=12, color=ft.Colors.ON_SURFACE_VARIANT),
-                    ft.Text(tx.description or "", size=12, italic=True) if tx.description else ft.Container(),
+                    ft.Text(tx.description or "", size=12, italic=True)
+                    if tx.description
+                    else ft.Container(),
                 ],
                 spacing=2,
             ),
@@ -342,10 +515,12 @@ class PlannedTransactionsView(ft.Column):
         category_name = category.name if category else "Неизвестная категория"
 
         # Получаем вхождения
-        occurrences = (self.session.query(PlannedOccurrenceDB)
-                      .filter_by(planned_transaction_id=tx.id)
-                      .order_by(PlannedOccurrenceDB.occurrence_date.desc())
-                      .all())
+        occurrences = (
+            self.session.query(PlannedOccurrenceDB)
+            .filter_by(planned_transaction_id=tx.id)
+            .order_by(PlannedOccurrenceDB.occurrence_date.desc())
+            .all()
+        )
 
         # Статистика по вхождениям
         total = len(occurrences)
@@ -366,31 +541,26 @@ class PlannedTransactionsView(ft.Column):
                         ft.IconButton(
                             icon=ft.Icons.CLOSE,
                             tooltip="Закрыть",
-                            on_click=lambda _: self.hide_details()
-                        )
+                            on_click=lambda _: self.hide_details(),
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
                 ft.Divider(),
-
                 # Основная информация
                 ft.Text(category_name, size=18, weight=ft.FontWeight.BOLD),
                 ft.Text(
                     f"{tx.amount:.2f} ₽",
                     size=24,
                     weight=ft.FontWeight.BOLD,
-                    color=ft.Colors.RED if tx.type == TransactionType.EXPENSE else ft.Colors.GREEN
+                    color=ft.Colors.RED if tx.type == TransactionType.EXPENSE else ft.Colors.GREEN,
                 ),
                 ft.Text(tx.description or "Без описания", size=14, italic=True),
-
                 ft.Divider(),
-
                 # Правило повторения
                 ft.Text("Правило повторения", size=14, weight=ft.FontWeight.BOLD),
                 recurrence_info,
-
                 ft.Divider(),
-
                 # Статистика вхождений
                 ft.Text("Статистика вхождений", size=14, weight=ft.FontWeight.BOLD),
                 ft.Row(
@@ -402,15 +572,13 @@ class PlannedTransactionsView(ft.Column):
                     ],
                     spacing=5,
                 ),
-
                 ft.Divider(),
-
                 # История вхождений
                 ft.Text("История вхождений", size=14, weight=ft.FontWeight.BOLD),
                 ft.Container(
                     content=ft.ListView(
                         controls=[
-                            self._create_occurrence_item(occ) for occ in occurrences[:10]
+                            self._create_occurrence_item(occ, tx) for occ in occurrences[:10]
                         ],
                         spacing=5,
                     ),
@@ -419,27 +587,25 @@ class PlannedTransactionsView(ft.Column):
                     border_radius=5,
                     padding=5,
                 ),
-
                 ft.Divider(),
-
                 # Кнопки действий
                 ft.Row(
                     controls=[
                         ft.Button(
                             "Редактировать",
                             icon=ft.Icons.EDIT,
-                            on_click=lambda _: self.edit_planned_transaction(tx)
+                            on_click=lambda _: self.edit_planned_transaction(tx),
                         ),
                         ft.Button(
                             "Деактивировать" if tx.is_active else "Активировать",
                             icon=ft.Icons.PAUSE_CIRCLE if tx.is_active else ft.Icons.PLAY_CIRCLE,
-                            on_click=lambda _: self.toggle_active(tx)
+                            on_click=lambda _: self.toggle_active(tx),
                         ),
                         ft.Button(
                             "Удалить",
                             icon=ft.Icons.DELETE,
                             color=ft.Colors.ERROR,
-                            on_click=lambda _: self.confirm_delete(tx)
+                            on_click=lambda _: self.confirm_delete(tx),
                         ),
                     ],
                     spacing=10,
@@ -491,10 +657,9 @@ class PlannedTransactionsView(ft.Column):
                 ft.Text(f"Тип: {recurrence_text}", size=12),
                 ft.Text(f"Начало: {tx.start_date.strftime('%d.%m.%Y')}", size=12),
                 ft.Text(f"Окончание: {end_condition}", size=12),
-                ft.Text(
-                    f"Только рабочие дни: {'Да' if rule.only_workdays else 'Нет'}",
-                    size=12
-                ) if rule.only_workdays else ft.Container(),
+                ft.Text(f"Только рабочие дни: {'Да' if rule.only_workdays else 'Нет'}", size=12)
+                if rule.only_workdays
+                else ft.Container(),
             ],
             spacing=2,
         )
@@ -526,7 +691,9 @@ class PlannedTransactionsView(ft.Column):
             expand=True,
         )
 
-    def _create_occurrence_item(self, occ: PlannedOccurrenceDB) -> ft.Container:
+    def _create_occurrence_item(
+        self, occ: PlannedOccurrenceDB, tx: PlannedTransactionDB
+    ) -> ft.Container:
         """
         Создание элемента истории вхождений.
 
@@ -545,7 +712,7 @@ class PlannedTransactionsView(ft.Column):
         status_text, status_color = status_map.get(occ.status, ("Неизвестно", ft.Colors.GREY_700))
 
         # Дата
-        date_str = occ.occurrence_date.strftime('%d.%m.%Y')
+        date_str = occ.occurrence_date.strftime("%d.%m.%Y")
 
         # Сумма
         amount_str = f"{occ.amount:.2f} ₽"
@@ -555,28 +722,149 @@ class PlannedTransactionsView(ft.Column):
                 deviation = occ.executed_amount - occ.amount
                 amount_str += f" ({deviation:+.2f})"
 
-        return ft.Container(
-            content=ft.Row(
-                controls=[
-                    ft.Text(date_str, size=12, expand=True),
-                    ft.Text(amount_str, size=12, expand=True),
-                    ft.Container(
-                        content=ft.Text(
-                            status_text,
-                            size=10,
-                            color=ft.Colors.WHITE,
-                        ),
-                        bgcolor=status_color,
-                        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
-                        border_radius=4,
-                    ),
-                ],
-                spacing=10,
+        controls = [
+            ft.Text(date_str, size=12, expand=True),
+            ft.Text(amount_str, size=12, expand=True),
+            ft.Container(
+                content=ft.Text(
+                    status_text,
+                    size=10,
+                    color=ft.Colors.WHITE,
+                ),
+                bgcolor=status_color,
+                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                border_radius=4,
             ),
+        ]
+
+        if occ.status == OccurrenceStatus.EXECUTED and occ.actual_transaction_id:
+            controls.append(
+                ft.IconButton(
+                    icon=ft.Icons.LINK,
+                    tooltip="Привязать транзакцию к обязательству",
+                    on_click=lambda _, tid=occ.actual_transaction_id, cid=tx.category_id, m=occ.occurrence_date: (
+                        self.open_link_to_obligation_dialog(
+                            transaction_id=tid,
+                            category_id=cid,
+                            month=m,
+                        )
+                    ),
+                )
+            )
+
+        return ft.Container(
+            content=ft.Row(controls=controls, spacing=10),
             padding=5,
             border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=5,
         )
+
+    def open_link_to_obligation_dialog(
+        self, *, transaction_id: str, category_id: str, month: date
+    ) -> None:
+        normalized_month = date(month.year, month.month, 1)
+        try:
+            metrics_list = get_obligations_metrics_for_month(
+                self.session,
+                normalized_month,
+                category_id=category_id,
+            )
+        except Exception as ex:
+            if self._page:
+                self._page.open(
+                    ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                )
+            return
+
+        if not metrics_list:
+            if self._page:
+                self._page.open(
+                    ft.SnackBar(content=ft.Text("Нет обязательств для выбранного месяца"))
+                )
+            return
+
+        obligation_dropdown = ft.Dropdown(
+            label="Обязательство",
+            options=[],
+        )
+        for m in metrics_list:
+            obligation = (
+                self.session.query(PlannedTransactionDB).filter_by(id=m.obligation_id).first()
+            )
+            if not obligation:
+                continue
+            title = obligation.description or "Обязательство"
+            obligation_dropdown.options.append(
+                ft.dropdown.Option(
+                    key=m.obligation_id,
+                    text=f"{title} (остаток {m.remaining:.2f} ₽)",
+                )
+            )
+
+        def link_action(e):
+            if not obligation_dropdown.value:
+                obligation_dropdown.error_text = "Выберите обязательство"
+                self._page.update()
+                return
+
+            try:
+                link_transaction_to_obligation(
+                    self.session,
+                    transaction_id=transaction_id,
+                    obligation_id=obligation_dropdown.value,
+                )
+                self._page.close(dlg)
+                self._page.open(
+                    ft.SnackBar(content=ft.Text("Транзакция привязана к обязательству"))
+                )
+                self.refresh_data()
+            except BusinessLogicError as ex:
+                message = str(ex)
+                if "превышает остаток" in message:
+                    self._page.open(
+                        ft.SnackBar(
+                            content=ft.Text(
+                                "Сумма транзакции больше остатка по обязательству — разбейте транзакцию вручную"
+                            ),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
+                else:
+                    self._page.open(
+                        ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                    )
+            except ValidationError as ex:
+                self._page.open(
+                    ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                )
+            except Exception as ex:
+                logger.error("Ошибка привязки транзакции к обязательству: %s", ex)
+                self._page.open(
+                    ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"), bgcolor=ft.Colors.ERROR)
+                )
+
+        dlg = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Привязка к обязательству"),
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        normalized_month.strftime("%m.%Y"),
+                        size=12,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                    ),
+                    obligation_dropdown,
+                ],
+                tight=True,
+            ),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self._page.close(dlg)),
+                ft.Button("Привязать", on_click=link_action),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        self._page.open(dlg)
 
     def hide_details(self):
         """Скрытие панели деталей."""
@@ -588,39 +876,34 @@ class PlannedTransactionsView(ft.Column):
     def open_create_dialog(self, e):
         """Открытие диалога создания плановой транзакции."""
         logger.info("Открытие диалога создания плановой транзакции")
-        
+
         modal = PlannedTransactionModal(
-            session=self.session,
-            on_save=self._on_planned_transaction_saved
+            session=self.session, on_save=self._on_planned_transaction_saved
         )
         modal.open(self._page)
 
     def _on_planned_transaction_saved(self, planned_tx_data):
         """
         Callback при сохранении плановой транзакции из модального окна.
-        
+
         Args:
             planned_tx_data: Данные плановой транзакции (PlannedTransactionCreate)
         """
         try:
             create_planned_transaction(self.session, planned_tx_data)
-            
+
             logger.info("Плановая транзакция успешно создана")
-            
+
             if self._page:
-                snack = ft.SnackBar(
-                    content=ft.Text("Плановая транзакция создана")
-                )
+                snack = ft.SnackBar(content=ft.Text("Плановая транзакция создана"))
                 self._page.open(snack)
-            
+
             self.refresh_data()
-            
+
         except Exception as ex:
             logger.error(f"Ошибка создания плановой транзакции: {ex}")
             if self._page:
-                snack = ft.SnackBar(
-                    content=ft.Text(f"Ошибка: {ex}")
-                )
+                snack = ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"))
                 self._page.open(snack)
 
     def edit_planned_transaction(self, tx: PlannedTransactionDB):
@@ -658,9 +941,7 @@ class PlannedTransactionsView(ft.Column):
             logger.info(f"Плановая транзакция ID {tx.id} {action}")
 
             if self._page:
-                snack = ft.SnackBar(
-                    content=ft.Text(f"Плановая транзакция {action}")
-                )
+                snack = ft.SnackBar(content=ft.Text(f"Плановая транзакция {action}"))
                 self._page.open(snack)
 
             self.hide_details()
@@ -669,9 +950,7 @@ class PlannedTransactionsView(ft.Column):
         except Exception as e:
             logger.error(f"Ошибка изменения статуса плановой транзакции: {e}")
             if self._page:
-                snack = ft.SnackBar(
-                    content=ft.Text(f"Ошибка: {e}")
-                )
+                snack = ft.SnackBar(content=ft.Text(f"Ошибка: {e}"))
                 self._page.open(snack)
 
     def confirm_delete(self, tx: PlannedTransactionDB):
@@ -681,23 +960,18 @@ class PlannedTransactionsView(ft.Column):
         Args:
             tx: Плановая транзакция для удаления
         """
+
         def delete_action(e):
             try:
                 # Спрашиваем, удалять ли связанные транзакции
-                delete_planned_transaction(
-                    self.session,
-                    tx.id,
-                    delete_actual_transactions=False
-                )
+                delete_planned_transaction(self.session, tx.id, delete_actual_transactions=False)
 
                 self._page.close(dlg)
 
                 logger.info(f"Плановая транзакция ID {tx.id} удалена")
 
                 if self._page:
-                    snack = ft.SnackBar(
-                        content=ft.Text("Плановая транзакция удалена")
-                    )
+                    snack = ft.SnackBar(content=ft.Text("Плановая транзакция удалена"))
                     self._page.open(snack)
 
                 self.hide_details()
@@ -708,9 +982,7 @@ class PlannedTransactionsView(ft.Column):
                 self._page.close(dlg)
 
                 if self._page:
-                    snack = ft.SnackBar(
-                        content=ft.Text(f"Ошибка: {ex}")
-                    )
+                    snack = ft.SnackBar(content=ft.Text(f"Ошибка: {ex}"))
                     self._page.open(snack)
 
         # Получаем категорию для отображения
@@ -726,11 +998,7 @@ class PlannedTransactionsView(ft.Column):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda e: self._page.close(dlg)),
-                ft.Button(
-                    "Удалить",
-                    color=ft.Colors.ERROR,
-                    on_click=delete_action
-                ),
+                ft.Button("Удалить", color=ft.Colors.ERROR, on_click=delete_action),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

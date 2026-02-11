@@ -9,7 +9,7 @@
 """
 
 import datetime
-from typing import Optional, Callable
+from typing import Optional, Callable, Literal
 from decimal import Decimal
 import flet as ft
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from finance_tracker.models import (
     PlannedTransactionCreate,
     RecurrenceRuleCreate,
     RecurrenceType,
-    EndConditionType
+    EndConditionType,
 )
 from finance_tracker.services.category_service import get_all_categories
 
@@ -45,6 +45,7 @@ class PlannedTransactionModal:
         self,
         session: Session,
         on_save: Callable[[PlannedTransactionCreate], None],
+        on_save_obligation: Optional[Callable[[dict], None]] = None,
     ):
         """
         Инициализация модального окна.
@@ -56,9 +57,15 @@ class PlannedTransactionModal:
         """
         self.session = session
         self.on_save = on_save
+        self.on_save_obligation = on_save_obligation
         self._page: Optional[ft.Page] = None
+
+        self._mode: Literal["planned", "obligation"] = "planned"
+        self._editing_obligation_id: Optional[str] = None
+
         self.current_start_date = datetime.date.today()
         self.current_end_date: Optional[datetime.date] = None
+        self.current_target_month: datetime.date = datetime.date.today().replace(day=1)
 
         # UI Controls - Basic fields
         self.type_segment = ft.SegmentedButton(
@@ -81,7 +88,14 @@ class PlannedTransactionModal:
         self.start_date_button = ft.Button(
             content=self.current_start_date.strftime("%d.%m.%Y"),
             icon=ft.Icons.CALENDAR_TODAY,
-            on_click=self._open_start_date_picker
+            on_click=self._open_start_date_picker,
+        )
+
+        self.target_month_button = ft.Button(
+            content=self.current_target_month.strftime("%m.%Y"),
+            icon=ft.Icons.CALENDAR_TODAY,
+            on_click=self._open_target_month_picker,
+            visible=False,
         )
 
         self.amount_field = ft.TextField(
@@ -89,23 +103,17 @@ class PlannedTransactionModal:
             suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
-                allow=True,
-                regex_string=r"^\d*\.?\d{0,2}$",
-                replacement_string=""
+                allow=True, regex_string=r"^\d*\.?\d{0,2}$", replacement_string=""
             ),
-            on_change=self._clear_error
+            on_change=self._clear_error,
         )
 
         self.category_dropdown = ft.Dropdown(
-            label="Категория",
-            options=[],
-            on_select=self._clear_error
+            label="Категория", options=[], on_select=self._clear_error
         )
 
         self.description_field = ft.TextField(
-            label="Описание (необязательно)",
-            multiline=True,
-            max_lines=3
+            label="Описание (необязательно)", multiline=True, max_lines=3
         )
 
         # Recurrence settings
@@ -120,7 +128,7 @@ class PlannedTransactionModal:
                 ft.dropdown.Option(key=RecurrenceType.CUSTOM.value, text="Кастомная"),
             ],
             value=RecurrenceType.NONE.value,
-            on_select=self._on_recurrence_type_change
+            on_select=self._on_recurrence_type_change,
         )
 
         # Custom interval fields (for CUSTOM type)
@@ -129,7 +137,7 @@ class PlannedTransactionModal:
             keyboard_type=ft.KeyboardType.NUMBER,
             width=100,
             visible=False,
-            on_change=self._clear_error
+            on_change=self._clear_error,
         )
 
         self.interval_unit_dropdown = ft.Dropdown(
@@ -142,7 +150,7 @@ class PlannedTransactionModal:
             ],
             value="days",
             width=150,
-            visible=False
+            visible=False,
         )
 
         # End condition settings
@@ -151,18 +159,20 @@ class PlannedTransactionModal:
             options=[
                 ft.dropdown.Option(key=EndConditionType.NEVER.value, text="Бессрочно"),
                 ft.dropdown.Option(key=EndConditionType.UNTIL_DATE.value, text="До даты"),
-                ft.dropdown.Option(key=EndConditionType.AFTER_COUNT.value, text="После N повторений"),
+                ft.dropdown.Option(
+                    key=EndConditionType.AFTER_COUNT.value, text="После N повторений"
+                ),
             ],
             value=EndConditionType.NEVER.value,
             on_select=self._on_end_condition_change,
-            visible=False  # Initially hidden until recurrence is set
+            visible=False,  # Initially hidden until recurrence is set
         )
 
         self.end_date_button = ft.Button(
             content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_end_date_picker,
-            visible=False
+            visible=False,
         )
 
         self.occurrences_count_field = ft.TextField(
@@ -170,7 +180,7 @@ class PlannedTransactionModal:
             keyboard_type=ft.KeyboardType.NUMBER,
             width=200,
             visible=False,
-            on_change=self._clear_error
+            on_change=self._clear_error,
         )
 
         self.error_text = ft.Text(color=ft.Colors.ERROR, size=12)
@@ -188,6 +198,12 @@ class PlannedTransactionModal:
             last_date=datetime.date(2030, 12, 31),
         )
 
+        self.target_month_picker = ft.DatePicker(
+            on_change=self._on_target_month_change,
+            first_date=datetime.date(2020, 1, 1),
+            last_date=datetime.date(2030, 12, 31),
+        )
+
         # Recurrence section container
         self.recurrence_section = ft.Column(
             controls=[
@@ -199,7 +215,7 @@ class PlannedTransactionModal:
                 self.occurrences_count_field,
             ],
             spacing=10,
-            visible=True
+            visible=True,
         )
 
         # Dialog
@@ -211,6 +227,7 @@ class PlannedTransactionModal:
                     ft.Row([self.type_segment], alignment=ft.MainAxisAlignment.CENTER),
                     ft.Container(height=10),
                     self.start_date_button,
+                    self.target_month_button,
                     self.amount_field,
                     self.category_dropdown,
                     self.description_field,
@@ -230,21 +247,61 @@ class PlannedTransactionModal:
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-    def open(self, page: ft.Page, date: Optional[datetime.date] = None):
-        """
-        Открытие модального окна.
-
-        Args:
-            page: Ссылка на страницу Flet.
-            date: Предустановленная дата начала (по умолчанию сегодня).
-        """
+    def open(
+        self,
+        page: ft.Page,
+        date: Optional[datetime.date] = None,
+        *,
+        mode: Literal["planned", "obligation"] = "planned",
+        obligation_id: Optional[str] = None,
+        target_month: Optional[datetime.date] = None,
+        target_amount: Optional[Decimal] = None,
+        category_id: Optional[str] = None,
+        tx_type: Optional[TransactionType] = None,
+        description: Optional[str] = None,
+    ):
         self._page = page
+        self._mode = mode
+        self._editing_obligation_id = obligation_id if mode == "obligation" else None
 
         # Setup Date Pickers if not added
         if self.start_date_picker not in self._page.overlay:
             self._page.overlay.append(self.start_date_picker)
         if self.end_date_picker not in self._page.overlay:
             self._page.overlay.append(self.end_date_picker)
+        if self.target_month_picker not in self._page.overlay:
+            self._page.overlay.append(self.target_month_picker)
+
+        self._reset_common_fields()
+
+        if mode == "planned":
+            self._prepare_planned_mode(date=date)
+        else:
+            self._prepare_obligation_mode(
+                target_month=target_month,
+                target_amount=target_amount,
+                category_id=category_id,
+                tx_type=tx_type,
+                description=description,
+            )
+
+        self._page.open(self.dialog)
+
+    def _reset_common_fields(self) -> None:
+        self.amount_field.error_text = None
+        self.category_dropdown.error_text = None
+        self.error_text.value = ""
+
+    def _prepare_planned_mode(self, *, date: Optional[datetime.date]) -> None:
+        self.dialog.title.value = "Новая плановая транзакция"
+        self.start_date_button.visible = True
+        self.target_month_button.visible = False
+        self.recurrence_section.visible = True
+        self.amount_field.label = "Сумма"
+
+        self.target_month_button.disabled = False
+        self.category_dropdown.disabled = False
+        self.type_segment.disabled = False
 
         # Reset fields
         self.current_start_date = date or datetime.date.today()
@@ -253,9 +310,7 @@ class PlannedTransactionModal:
         self.start_date_picker.value = self.current_start_date
 
         self.amount_field.value = ""
-        self.amount_field.error_text = None
         self.description_field.value = ""
-        self.error_text.value = ""
 
         # Default to Expense
         self.type_segment.selected = [TransactionType.EXPENSE.value]
@@ -273,7 +328,38 @@ class PlannedTransactionModal:
         # Load categories
         self._load_categories(TransactionType.EXPENSE)
 
-        self._page.open(self.dialog)
+    def _prepare_obligation_mode(
+        self,
+        *,
+        target_month: Optional[datetime.date],
+        target_amount: Optional[Decimal],
+        category_id: Optional[str],
+        tx_type: Optional[TransactionType],
+        description: Optional[str],
+    ) -> None:
+        is_edit = self._editing_obligation_id is not None
+        self.dialog.title.value = "Цель обязательства" if is_edit else "Новое обязательство"
+
+        self.start_date_button.visible = False
+        self.target_month_button.visible = True
+        self.recurrence_section.visible = False
+        self.amount_field.label = "Цель"
+
+        self.target_month_button.disabled = is_edit
+        self.category_dropdown.disabled = is_edit
+        self.type_segment.disabled = is_edit
+
+        resolved_type = tx_type or TransactionType.EXPENSE
+        self.type_segment.selected = [resolved_type.value]
+        self._load_categories(resolved_type)
+
+        self.current_target_month = (target_month or datetime.date.today()).replace(day=1)
+        self.target_month_picker.value = self.current_target_month
+        self.target_month_button.text = self.current_target_month.strftime("%m.%Y")
+
+        self.amount_field.value = f"{target_amount}" if target_amount is not None else ""
+        self.category_dropdown.value = category_id
+        self.description_field.value = description or ""
 
     def close(self, e=None):
         """Закрытие модального окна."""
@@ -284,6 +370,10 @@ class PlannedTransactionModal:
         """Открытие выбора даты начала."""
         self._page.open(self.start_date_picker)
 
+    def _open_target_month_picker(self, e):
+        """Открытие выбора месяца обязательства."""
+        self._page.open(self.target_month_picker)
+
     def _on_start_date_change(self, e):
         """Обработка выбора даты начала."""
         if self.start_date_picker.value:
@@ -293,6 +383,16 @@ class PlannedTransactionModal:
             else:
                 self.current_start_date = self.start_date_picker.value
             self.start_date_button.text = self.current_start_date.strftime("%d.%m.%Y")
+            self._page.update()
+
+    def _on_target_month_change(self, e):
+        """Обработка выбора месяца обязательства."""
+        if self.target_month_picker.value:
+            raw_value = self.target_month_picker.value
+            if isinstance(raw_value, datetime.datetime):
+                raw_value = raw_value.date()
+            self.current_target_month = raw_value.replace(day=1)
+            self.target_month_button.text = self.current_target_month.strftime("%m.%Y")
             self._page.update()
 
     def _open_end_date_picker(self, e):
@@ -366,8 +466,8 @@ class PlannedTransactionModal:
         """Обновление видимости полей в зависимости от условия окончания."""
         end_cond = self.end_condition_dropdown.value
 
-        self.end_date_button.visible = (end_cond == EndConditionType.UNTIL_DATE.value)
-        self.occurrences_count_field.visible = (end_cond == EndConditionType.AFTER_COUNT.value)
+        self.end_date_button.visible = end_cond == EndConditionType.UNTIL_DATE.value
+        self.occurrences_count_field.visible = end_cond == EndConditionType.AFTER_COUNT.value
 
     def _clear_error(self, e):
         """Сброс ошибок при вводе."""
@@ -386,7 +486,6 @@ class PlannedTransactionModal:
         """
         errors = False
 
-        # Validate Amount
         try:
             amount = float(self.amount_field.value)
             if amount <= 0:
@@ -400,6 +499,9 @@ class PlannedTransactionModal:
         if not self.category_dropdown.value:
             self.category_dropdown.error_text = "Выберите категорию"
             errors = True
+
+        if self._mode != "planned":
+            return not errors
 
         # Validate custom interval (if CUSTOM type selected)
         if self.recurrence_type_dropdown.value == RecurrenceType.CUSTOM.value:
@@ -483,13 +585,32 @@ class PlannedTransactionModal:
             selected_type = list(self.type_segment.selected)[0]
             amount = Decimal(self.amount_field.value)
 
+            if self._mode == "obligation":
+                if not self.on_save_obligation:
+                    raise RuntimeError("on_save_obligation не задан")
+
+                payload = {
+                    "obligation_id": self._editing_obligation_id,
+                    "target_amount": amount,
+                    "target_month": self.current_target_month,
+                    "category_id": self.category_dropdown.value,
+                    "type": TransactionType(selected_type),
+                    "description": self.description_field.value or None,
+                }
+                self.on_save_obligation(payload)
+                self.close()
+                return
+
             # Build recurrence rule (if periodic)
             recurrence_rule = self._build_recurrence_rule()
 
             # Calculate end_date for planned transaction
             # If periodic with UNTIL_DATE, use that; otherwise None
             end_date = None
-            if recurrence_rule and recurrence_rule.end_condition_type == EndConditionType.UNTIL_DATE:
+            if (
+                recurrence_rule
+                and recurrence_rule.end_condition_type == EndConditionType.UNTIL_DATE
+            ):
                 end_date = self.current_end_date
 
             planned_tx_data = PlannedTransactionCreate(
@@ -500,7 +621,7 @@ class PlannedTransactionModal:
                 start_date=self.current_start_date,
                 end_date=end_date,
                 recurrence_rule=recurrence_rule,
-                is_active=True
+                is_active=True,
             )
 
             self.on_save(planned_tx_data)
