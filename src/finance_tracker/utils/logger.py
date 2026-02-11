@@ -10,6 +10,7 @@
 
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 from datetime import datetime, date
@@ -18,53 +19,83 @@ from decimal import Decimal
 
 from finance_tracker.config import settings
 
+
+PLANNED_TX_DELETE_PATTERN = re.compile(
+    r"Плановая транзакция ID ([^\s]+) удалена|Удалена плановая транзакция ID ([^,\s]+)"
+)
+
+
 class JsonFormatter(logging.Formatter):
     """
     Форматтер для вывода логов в формате JSON.
     Соответствует требованиям структурированного логирования.
     """
+
     def format(self, record: logging.LogRecord) -> str:
         """
         Форматирует запись лога в JSON строку.
-        
+
         Args:
             record: Запись лога
-            
+
         Returns:
             str: JSON строка
         """
         log_record: Dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S'),
+            "timestamp": datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S"),
             "level": record.levelname,
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
             "message": record.getMessage(),
         }
-        
+
         # Добавляем дополнительные поля из extra, если они есть
         # Пример: logger.info("message", extra={"user_id": 1})
         for key, value in record.__dict__.items():
-            if key not in ["args", "asctime", "created", "exc_info", "exc_text", "filename",
-                          "funcName", "levelname", "levelno", "lineno", "module",
-                          "msecs", "message", "msg", "name", "pathname", "process",
-                          "processName", "relativeCreated", "stack_info", "thread", "threadName"]:
+            if key not in [
+                "args",
+                "asctime",
+                "created",
+                "exc_info",
+                "exc_text",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "message",
+                "msg",
+                "name",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "thread",
+                "threadName",
+            ]:
                 # Преобразуем несериализуемые типы в строки
                 log_record[key] = self._serialize_value(value)
 
+        if "event_type" not in log_record:
+            self._apply_domain_journal_fallback(log_record)
+
         # Обработка исключений
         if record.exc_info:
-            log_record['exception'] = self.formatException(record.exc_info)
-            
+            log_record["exception"] = self.formatException(record.exc_info)
+
         return json.dumps(log_record, ensure_ascii=False)
-    
+
     def _serialize_value(self, value: Any) -> Any:
         """
         Преобразует значение в JSON-сериализуемый формат.
-        
+
         Args:
             value: Значение для сериализации
-            
+
         Returns:
             JSON-сериализуемое значение
         """
@@ -72,16 +103,28 @@ class JsonFormatter(logging.Formatter):
             return value.isoformat()
         elif isinstance(value, Decimal):
             return float(value)
-        elif hasattr(value, '__dict__'):
+        elif hasattr(value, "__dict__"):
             # Для объектов с атрибутами возвращаем строковое представление
             return str(value)
         else:
             return value
 
+    def _apply_domain_journal_fallback(self, log_record: Dict[str, Any]) -> None:
+        message = str(log_record.get("message", ""))
+        match = PLANNED_TX_DELETE_PATTERN.search(message)
+        if match:
+            entity_id = match.group(1) or match.group(2)
+            log_record["event_type"] = "domain_journal"
+            log_record["operation"] = "planned_transaction_delete"
+            log_record["entity"] = "planned_transaction"
+            log_record["entity_id"] = entity_id
+            log_record["status"] = "success"
+
+
 def setup_logging() -> None:
     """
     Настраивает систему логирования приложения.
-    
+
     - Создаёт директорию для логов
     - Создаёт новый файл лога для каждого сеанса (формат: finance_tracker_YYYYMMDD_HHMMSS.log)
     - Настраивает JSON форматирование для файла
@@ -89,7 +132,7 @@ def setup_logging() -> None:
     """
     log_file = Path(settings.log_file)
     log_dir = log_file.parent
-    
+
     # Создаем директорию, если нет
     if not log_dir.exists():
         try:
@@ -99,12 +142,12 @@ def setup_logging() -> None:
             return
 
     # Создаём уникальное имя файла для текущего сеанса
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     session_log_file = log_dir / f"finance_tracker_{timestamp}.log"
 
     root_logger = logging.getLogger()
     root_logger.setLevel(settings.log_level)
-    
+
     # Удаляем существующие хендлеры
     root_logger.handlers = []
 
@@ -112,10 +155,7 @@ def setup_logging() -> None:
 
     # 1. Файловый хендлер для текущего сеанса
     try:
-        file_handler = logging.FileHandler(
-            session_log_file,
-            encoding='utf-8'
-        )
+        file_handler = logging.FileHandler(session_log_file, encoding="utf-8")
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
     except Exception as e:
@@ -123,11 +163,11 @@ def setup_logging() -> None:
 
     # 2. Консольный хендлер с текстовым форматом для удобства разработки
     console_handler = logging.StreamHandler(sys.stdout)
-    
+
     # Для консоли используем более читаемый формат
     console_formatter = logging.Formatter(
-        fmt='%(asctime)s | %(levelname)-8s | %(module)s:%(funcName)s | %(message)s',
-        datefmt='%H:%M:%S'
+        fmt="%(asctime)s | %(levelname)-8s | %(module)s:%(funcName)s | %(message)s",
+        datefmt="%H:%M:%S",
     )
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
@@ -135,13 +175,14 @@ def setup_logging() -> None:
     logging.info("Система логирования инициализирована")
     logging.info(f"Логи записываются в: {session_log_file}")
 
+
 def get_logger(name: str) -> logging.Logger:
     """
     Возвращает логгер с указанным именем.
-    
+
     Args:
         name: Имя логгера (обычно __name__)
-        
+
     Returns:
         logging.Logger: Настроенный логгер
     """
