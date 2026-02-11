@@ -7,18 +7,22 @@ Unit тесты для TransactionsPanel.
 - Обработку callback функций
 - Состояние UI компонентов
 """
+
 import unittest
 from unittest.mock import Mock
 from datetime import date
 from decimal import Decimal
 import flet as ft
 
-from finance_tracker.components.transactions_panel import TransactionsPanel
-from finance_tracker.models.enums import TransactionType
-from ui_test_helpers import (
-    create_test_transaction,
-    create_mock_callback
+from finance_tracker.components.transactions_panel import (
+    TransactionsPanel,
+    _build_loan_payment_subtitle,
+    _calculate_day_totals,
+    _transaction_amount_meta,
 )
+from finance_tracker.models.enums import TransactionType, PaymentStatus
+from test_factories import create_test_loan_payment
+from ui_test_helpers import create_test_transaction, create_mock_callback
 
 
 class TestTransactionsPanel(unittest.TestCase):
@@ -37,19 +41,19 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_add_button_initialization_with_valid_callback(self):
         """
         Тест инициализации кнопки добавления с валидным callback.
-        
+
         Проверяет:
         - Создание кнопки с корректными атрибутами (icon, tooltip, bgcolor)
         - Установку callback функции
         - Видимость и доступность кнопки
-        
+
         Requirements: 1.4, 1.5
         """
         # Arrange - создаем панель с валидным callback
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
 
         # Act - получаем заголовок с кнопкой
@@ -68,37 +72,41 @@ class TestTransactionsPanel(unittest.TestCase):
 
         # Проверяем атрибуты кнопки
         self.assertEqual(add_button.icon, ft.Icons.ADD, "Кнопка должна иметь иконку ADD")
-        self.assertEqual(add_button.tooltip, "Добавить транзакцию", "Кнопка должна иметь правильный tooltip")
+        self.assertEqual(
+            add_button.tooltip, "Добавить транзакцию", "Кнопка должна иметь правильный tooltip"
+        )
         # Цвета теперь в style, проверяем что style существует
         self.assertIsNotNone(add_button.style, "Кнопка должна иметь стиль")
         self.assertIsNotNone(add_button.style.bgcolor, "Стиль должен содержать bgcolor")
         self.assertIsNotNone(add_button.style.icon_color, "Стиль должен содержать icon_color")
 
         # Проверяем состояние кнопки
-        self.assertNotEqual(add_button.disabled, True, "Кнопка должна быть активна с валидным callback")
+        self.assertNotEqual(
+            add_button.disabled, True, "Кнопка должна быть активна с валидным callback"
+        )
 
         # Проверяем установку обработчика события
         self.assertIsNotNone(add_button.on_click, "on_click должен быть установлен")
 
         # Проверяем сохранение callback в панели
-        self.assertEqual(panel.on_add_transaction, self.mock_callback, "Callback должен быть сохранен в панели")
+        self.assertEqual(
+            panel.on_add_transaction, self.mock_callback, "Callback должен быть сохранен в панели"
+        )
 
     def test_add_button_initialization_with_none_callback(self):
         """
         Тест инициализации кнопки добавления с None callback.
-        
+
         Проверяет:
         - Создание кнопки с корректными атрибутами
         - Отключение кнопки при отсутствии callback
         - Безопасную обработку None callback
-        
+
         Requirements: 1.4, 1.5
         """
         # Arrange - создаем панель без callback
         panel = TransactionsPanel(
-            date_obj=self.test_date,
-            transactions=self.test_transactions,
-            on_add_transaction=None
+            date_obj=self.test_date, transactions=self.test_transactions, on_add_transaction=None
         )
 
         # Act - получаем заголовок с кнопкой
@@ -107,17 +115,23 @@ class TestTransactionsPanel(unittest.TestCase):
 
         # Assert - проверяем атрибуты кнопки (должны быть такими же)
         self.assertEqual(add_button.icon, ft.Icons.ADD, "Иконка должна быть ADD даже без callback")
-        self.assertEqual(add_button.tooltip, "Добавить транзакцию", "Tooltip должен быть установлен")
+        self.assertEqual(
+            add_button.tooltip, "Добавить транзакцию", "Tooltip должен быть установлен"
+        )
         # Цвета теперь в style, проверяем что style существует
         self.assertIsNotNone(add_button.style, "Кнопка должна иметь стиль")
         self.assertIsNotNone(add_button.style.bgcolor, "Стиль должен содержать bgcolor")
         self.assertIsNotNone(add_button.style.icon_color, "Стиль должен содержать icon_color")
 
         # Проверяем состояние кнопки - должна быть отключена
-        self.assertEqual(add_button.disabled, True, "Кнопка должна быть отключена при отсутствии callback")
+        self.assertEqual(
+            add_button.disabled, True, "Кнопка должна быть отключена при отсутствии callback"
+        )
 
         # Проверяем, что on_click все равно установлен для безопасности
-        self.assertIsNotNone(add_button.on_click, "on_click должен быть установлен даже без callback")
+        self.assertIsNotNone(
+            add_button.on_click, "on_click должен быть установлен даже без callback"
+        )
 
         # Проверяем сохранение None callback
         self.assertIsNone(panel.on_add_transaction, "None callback должен быть сохранен")
@@ -125,24 +139,24 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_add_button_click_with_valid_callback(self):
         """
         Тест нажатия на кнопку добавления с валидным callback.
-        
+
         Проверяет:
         - Вызов callback функции при нажатии
         - Передачу корректных параметров
-        
+
         Requirements: 1.1, 2.3
         """
         # Arrange - создаем панель с mock callback
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
 
         # Act - симулируем нажатие кнопки
         header_row = panel._build_header()
         add_button = header_row.controls[1]
-        
+
         # Нажимаем кнопку (Flet передает event, но мы его не используем)
         add_button.on_click(None)
 
@@ -152,24 +166,22 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_add_button_click_with_none_callback(self):
         """
         Тест нажатия на кнопку добавления без callback.
-        
+
         Проверяет:
         - Безопасную обработку нажатия без callback
         - Отсутствие исключений при нажатии
-        
+
         Requirements: 8.1, 8.2
         """
         # Arrange - создаем панель без callback
         panel = TransactionsPanel(
-            date_obj=self.test_date,
-            transactions=self.test_transactions,
-            on_add_transaction=None
+            date_obj=self.test_date, transactions=self.test_transactions, on_add_transaction=None
         )
 
         # Act & Assert - нажатие не должно вызывать исключений
         header_row = panel._build_header()
         add_button = header_row.controls[1]
-        
+
         try:
             add_button.on_click(None)
             # Если дошли сюда, значит исключений не было
@@ -179,18 +191,18 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_safe_add_transaction_method_with_valid_callback(self):
         """
         Тест метода _safe_add_transaction с валидным callback.
-        
+
         Проверяет:
         - Корректный вызов callback через безопасный метод
         - Логирование операции
-        
+
         Requirements: 3.1, 3.2
         """
         # Arrange
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
 
         # Act - вызываем безопасный метод напрямую
@@ -202,19 +214,17 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_safe_add_transaction_method_with_none_callback(self):
         """
         Тест метода _safe_add_transaction с None callback.
-        
+
         Проверяет:
         - Безопасную обработку None callback
         - Логирование предупреждения
         - Отсутствие исключений
-        
+
         Requirements: 8.1, 8.2
         """
         # Arrange
         panel = TransactionsPanel(
-            date_obj=self.test_date,
-            transactions=self.test_transactions,
-            on_add_transaction=None
+            date_obj=self.test_date, transactions=self.test_transactions, on_add_transaction=None
         )
 
         # Act & Assert - метод не должен вызывать исключений
@@ -227,12 +237,12 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_safe_add_transaction_method_with_exception_in_callback(self):
         """
         Тест метода _safe_add_transaction с исключением в callback.
-        
+
         Проверяет:
         - Обработку исключений в callback
         - Логирование ошибки
         - Отсутствие "всплытия" исключения
-        
+
         Requirements: 8.2, 8.4
         """
         # Arrange - создаем callback, который выбрасывает исключение
@@ -240,7 +250,7 @@ class TestTransactionsPanel(unittest.TestCase):
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=failing_callback
+            on_add_transaction=failing_callback,
         )
 
         # Act & Assert - исключение должно быть обработано внутри метода
@@ -256,24 +266,22 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_button_attributes_consistency(self):
         """
         Тест консистентности атрибутов кнопки при разных условиях.
-        
+
         Проверяет:
         - Одинаковые атрибуты кнопки независимо от callback
         - Различие только в состоянии disabled
-        
+
         Requirements: 1.4, 1.5
         """
         # Arrange - создаем две панели: с callback и без
         panel_with_callback = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
-        
+
         panel_without_callback = TransactionsPanel(
-            date_obj=self.test_date,
-            transactions=self.test_transactions,
-            on_add_transaction=None
+            date_obj=self.test_date, transactions=self.test_transactions, on_add_transaction=None
         )
 
         # Act - получаем кнопки из обеих панелей
@@ -287,37 +295,39 @@ class TestTransactionsPanel(unittest.TestCase):
         self.assertEqual(button_with_callback.icon_color, button_without_callback.icon_color)
 
         # Проверяем различие в состоянии disabled
-        self.assertNotEqual(button_with_callback.disabled, True, "Кнопка с callback должна быть активна")
-        self.assertEqual(button_without_callback.disabled, True, "Кнопка без callback должна быть отключена")
+        self.assertNotEqual(
+            button_with_callback.disabled, True, "Кнопка с callback должна быть активна"
+        )
+        self.assertEqual(
+            button_without_callback.disabled, True, "Кнопка без callback должна быть отключена"
+        )
 
     def test_button_initialization_with_transactions_data(self):
         """
         Тест инициализации кнопки с различными данными транзакций.
-        
+
         Проверяет:
         - Независимость атрибутов кнопки от данных транзакций
         - Стабильность инициализации при разных объемах данных
-        
+
         Requirements: 1.4, 1.5
         """
         # Arrange - создаем тестовые транзакции
         test_transactions = [
-            create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE),
-            create_test_transaction(Decimal('200.75'), TransactionType.INCOME),
-            create_test_transaction(Decimal('50.25'), TransactionType.EXPENSE)
+            create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE),
+            create_test_transaction(Decimal("200.75"), TransactionType.INCOME),
+            create_test_transaction(Decimal("50.25"), TransactionType.EXPENSE),
         ]
 
         # Act - создаем панели с разными данными
         panel_empty = TransactionsPanel(
-            date_obj=self.test_date,
-            transactions=[],
-            on_add_transaction=self.mock_callback
+            date_obj=self.test_date, transactions=[], on_add_transaction=self.mock_callback
         )
-        
+
         panel_with_data = TransactionsPanel(
             date_obj=self.test_date,
             transactions=test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
 
         # Assert - кнопки должны быть идентичными независимо от данных
@@ -333,19 +343,19 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_header_structure_and_layout(self):
         """
         Тест структуры и компоновки заголовка.
-        
+
         Проверяет:
         - Правильную структуру заголовка (Row с 2 элементами)
         - Расположение элементов (текст слева, кнопка справа)
         - Выравнивание элементов
-        
+
         Requirements: 1.4, 1.5
         """
         # Arrange
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=self.test_transactions,
-            on_add_transaction=self.mock_callback
+            on_add_transaction=self.mock_callback,
         )
 
         # Act
@@ -354,47 +364,47 @@ class TestTransactionsPanel(unittest.TestCase):
         # Assert - проверяем структуру заголовка
         self.assertIsInstance(header_row, ft.Row, "Заголовок должен быть Row")
         self.assertEqual(len(header_row.controls), 2, "Заголовок должен содержать ровно 2 элемента")
-        
+
         # Проверяем выравнивание
         self.assertEqual(
-            header_row.alignment, 
-            ft.MainAxisAlignment.SPACE_BETWEEN, 
-            "Элементы должны быть выровнены по краям"
+            header_row.alignment,
+            ft.MainAxisAlignment.SPACE_BETWEEN,
+            "Элементы должны быть выровнены по краям",
         )
 
         # Проверяем типы элементов
         date_text = header_row.controls[0]
         add_button = header_row.controls[1]
-        
+
         self.assertIsInstance(date_text, ft.Text, "Первый элемент должен быть Text")
         self.assertIsInstance(add_button, ft.IconButton, "Второй элемент должен быть IconButton")
 
     def test_transaction_tile_with_action_buttons(self):
         """
         Тест создания элемента транзакции с кнопками действий.
-        
+
         Проверяет:
         - Создание ListTile с кнопками редактирования и удаления
         - Правильные атрибуты кнопок (иконки, tooltip, цвета)
         - Структуру trailing элемента
-        
+
         Requirements: 1.1, 1.2, 1.5, 9.2, 9.3
         """
         # Arrange - создаем mock callback'и
         mock_edit_callback = Mock()
         mock_delete_callback = Mock()
-        
+
         # Создаем панель с callback'ами для действий
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=mock_edit_callback,
-            on_delete_transaction=mock_delete_callback
+            on_delete_transaction=mock_delete_callback,
         )
-        
+
         # Создаем тестовую транзакцию
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act - создаем элемент списка для транзакции
         tile = panel._build_transaction_tile(test_transaction)
@@ -402,7 +412,7 @@ class TestTransactionsPanel(unittest.TestCase):
         # Assert - проверяем структуру Container с ListTile внутри
         self.assertIsInstance(tile, ft.Container, "Должен быть создан Container")
         self.assertIsNotNone(tile.content, "Container должен содержать content")
-        
+
         # Получаем ListTile из Container
         list_tile = tile.content
         self.assertIsInstance(list_tile, ft.ListTile, "Content должен быть ListTile")
@@ -413,39 +423,51 @@ class TestTransactionsPanel(unittest.TestCase):
         # Проверяем trailing элемент (должен быть Row с суммой и кнопками)
         trailing = list_tile.trailing
         self.assertIsInstance(trailing, ft.Row, "Trailing должен быть Row")
-        
+
         # Должно быть 3 элемента: сумма + 2 кнопки
         self.assertEqual(len(trailing.controls), 3, "Должно быть 3 элемента: сумма + 2 кнопки")
-        
+
         # Проверяем первый элемент - сумма
         amount_text = trailing.controls[0]
         self.assertIsInstance(amount_text, ft.Text, "Первый элемент должен быть Text с суммой")
-        
+
         # Проверяем кнопки действий
         edit_button = trailing.controls[1]
         delete_button = trailing.controls[2]
-        
+
         self.assertIsInstance(edit_button, ft.IconButton, "Вторая кнопка должна быть IconButton")
         self.assertIsInstance(delete_button, ft.IconButton, "Третья кнопка должна быть IconButton")
-        
+
         # Проверяем атрибуты кнопки редактирования
-        self.assertEqual(edit_button.icon, ft.Icons.EDIT, "Кнопка редактирования должна иметь иконку EDIT")
-        self.assertEqual(edit_button.icon_color, ft.Colors.PRIMARY, "Кнопка редактирования должна быть PRIMARY цвета")
-        self.assertEqual(edit_button.tooltip, "Редактировать", "Кнопка должна иметь tooltip 'Редактировать'")
-        
+        self.assertEqual(
+            edit_button.icon, ft.Icons.EDIT, "Кнопка редактирования должна иметь иконку EDIT"
+        )
+        self.assertEqual(
+            edit_button.icon_color,
+            ft.Colors.PRIMARY,
+            "Кнопка редактирования должна быть PRIMARY цвета",
+        )
+        self.assertEqual(
+            edit_button.tooltip, "Редактировать", "Кнопка должна иметь tooltip 'Редактировать'"
+        )
+
         # Проверяем атрибуты кнопки удаления
-        self.assertEqual(delete_button.icon, ft.Icons.DELETE, "Кнопка удаления должна иметь иконку DELETE")
-        self.assertEqual(delete_button.icon_color, ft.Colors.ERROR, "Кнопка удаления должна быть ERROR цвета")
+        self.assertEqual(
+            delete_button.icon, ft.Icons.DELETE, "Кнопка удаления должна иметь иконку DELETE"
+        )
+        self.assertEqual(
+            delete_button.icon_color, ft.Colors.ERROR, "Кнопка удаления должна быть ERROR цвета"
+        )
         self.assertEqual(delete_button.tooltip, "Удалить", "Кнопка должна иметь tooltip 'Удалить'")
 
     def test_transaction_tile_without_action_callbacks(self):
         """
         Тест создания элемента транзакции без callback'ов для действий.
-        
+
         Проверяет:
         - Создание ListTile без кнопок действий
         - Отображение только суммы в trailing
-        
+
         Requirements: 1.1, 1.2
         """
         # Arrange - создаем панель без callback'ов для действий
@@ -454,11 +476,11 @@ class TestTransactionsPanel(unittest.TestCase):
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=None,
-            on_delete_transaction=None
+            on_delete_transaction=None,
         )
-        
+
         # Создаем тестовую транзакцию
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act - создаем элемент списка для транзакции
         tile = panel._build_transaction_tile(test_transaction)
@@ -466,18 +488,22 @@ class TestTransactionsPanel(unittest.TestCase):
         # Assert - проверяем структуру Container с ListTile внутри
         self.assertIsInstance(tile, ft.Container, "Должен быть создан Container")
         self.assertIsNotNone(tile.content, "Container должен содержать content")
-        
+
         # Получаем ListTile из Container
         list_tile = tile.content
         self.assertIsInstance(list_tile, ft.ListTile, "Content должен быть ListTile")
-        
+
         # Проверяем trailing элемент (должен быть Row с суммой и неактивными кнопками)
         trailing = list_tile.trailing
-        self.assertIsInstance(trailing, ft.Row, "Trailing должен быть Row даже без активных callback'ов")
-        
+        self.assertIsInstance(
+            trailing, ft.Row, "Trailing должен быть Row даже без активных callback'ов"
+        )
+
         # Проверяем, что кнопки есть, но неактивны
-        self.assertEqual(len(trailing.controls), 3, "Должно быть 3 элемента: сумма + 2 неактивные кнопки")
-        
+        self.assertEqual(
+            len(trailing.controls), 3, "Должно быть 3 элемента: сумма + 2 неактивные кнопки"
+        )
+
         # Проверяем, что кнопки отключены
         edit_button = trailing.controls[1]
         delete_button = trailing.controls[2]
@@ -487,25 +513,25 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_edit_transaction_button_click(self):
         """
         Тест нажатия кнопки редактирования транзакции.
-        
+
         Проверяет:
         - Вызов callback'а при нажатии кнопки редактирования
         - Передачу правильной транзакции в callback
-        
+
         Requirements: 1.2
         """
         # Arrange - создаем mock callback
         mock_edit_callback = Mock()
-        
+
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=mock_edit_callback,
-            on_delete_transaction=Mock()
+            on_delete_transaction=Mock(),
         )
-        
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act - создаем элемент и нажимаем кнопку редактирования
         tile = panel._build_transaction_tile(test_transaction)
@@ -519,25 +545,25 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_delete_transaction_button_click(self):
         """
         Тест нажатия кнопки удаления транзакции.
-        
+
         Проверяет:
         - Вызов callback'а при нажатии кнопки удаления
         - Передачу правильной транзакции в callback
-        
+
         Requirements: 1.2
         """
         # Arrange - создаем mock callback
         mock_delete_callback = Mock()
-        
+
         panel = TransactionsPanel(
             date_obj=self.test_date,
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=Mock(),
-            on_delete_transaction=mock_delete_callback
+            on_delete_transaction=mock_delete_callback,
         )
-        
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act - создаем элемент и нажимаем кнопку удаления
         tile = panel._build_transaction_tile(test_transaction)
@@ -551,11 +577,11 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_safe_edit_transaction_with_none_callback(self):
         """
         Тест безопасного вызова редактирования с None callback.
-        
+
         Проверяет:
         - Безопасную обработку None callback для редактирования
         - Отсутствие исключений
-        
+
         Requirements: 9.2, 9.3
         """
         # Arrange
@@ -564,10 +590,10 @@ class TestTransactionsPanel(unittest.TestCase):
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=None,
-            on_delete_transaction=None
+            on_delete_transaction=None,
         )
-        
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act & Assert - метод не должен вызывать исключений
         try:
@@ -578,11 +604,11 @@ class TestTransactionsPanel(unittest.TestCase):
     def test_safe_delete_transaction_with_none_callback(self):
         """
         Тест безопасного вызова удаления с None callback.
-        
+
         Проверяет:
         - Безопасную обработку None callback для удаления
         - Отсутствие исключений
-        
+
         Requirements: 9.2, 9.3
         """
         # Arrange
@@ -591,17 +617,53 @@ class TestTransactionsPanel(unittest.TestCase):
             transactions=[],
             on_add_transaction=self.mock_callback,
             on_edit_transaction=None,
-            on_delete_transaction=None
+            on_delete_transaction=None,
         )
-        
-        test_transaction = create_test_transaction(Decimal('100.50'), TransactionType.EXPENSE)
+
+        test_transaction = create_test_transaction(Decimal("100.50"), TransactionType.EXPENSE)
 
         # Act & Assert - метод не должен вызывать исключений
         try:
             panel._safe_delete_transaction(test_transaction)
         except Exception as e:
-            self.fail(f"_safe_delete_transaction с None callback не должен вызывать исключения: {e}")
+            self.fail(
+                f"_safe_delete_transaction с None callback не должен вызывать исключения: {e}"
+            )
+
+    def test_calculate_day_totals_returns_income_expense_and_balance(self):
+        transactions = [
+            create_test_transaction(Decimal("100.00"), TransactionType.INCOME),
+            create_test_transaction(Decimal("60.00"), TransactionType.EXPENSE),
+        ]
+
+        total_income, total_expense, balance = _calculate_day_totals(transactions)
+
+        self.assertEqual(total_income, Decimal("100.00"))
+        self.assertEqual(total_expense, Decimal("60.00"))
+        self.assertEqual(balance, Decimal("40.00"))
+
+    def test_transaction_amount_meta_returns_sign_and_color(self):
+        income_color, income_sign = _transaction_amount_meta(TransactionType.INCOME)
+        expense_color, expense_sign = _transaction_amount_meta(TransactionType.EXPENSE)
+
+        self.assertEqual(income_sign, "+")
+        self.assertEqual(expense_sign, "-")
+        self.assertEqual(income_color, ft.Colors.GREEN)
+        self.assertEqual(expense_color, ft.Colors.RED)
+
+    def test_build_loan_payment_subtitle_includes_overdue_days(self):
+        payment = create_test_loan_payment(
+            total_amount=Decimal("5500.00"),
+            status=PaymentStatus.OVERDUE,
+            overdue_days=3,
+        )
+
+        subtitle = _build_loan_payment_subtitle(payment, "Просрочен")
+
+        self.assertIn("5,500.00 ₽", subtitle)
+        self.assertIn("Просрочен", subtitle)
+        self.assertIn("Просрочка: 3 дн.", subtitle)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
