@@ -12,30 +12,61 @@
 import flet as ft
 from typing import Optional
 
-from finance_tracker.models import (
-    LoanDB,
-    LoanPaymentDB,
-    PaymentStatus,
-    LoanStatus
-)
+from finance_tracker.models import LoanDB, LoanPaymentDB, PaymentStatus, LoanStatus
 from finance_tracker.database import get_db_session
 from finance_tracker.services.loan_service import get_loan_by_id
 from finance_tracker.services.loan_payment_service import (
     get_payments_by_loan,
     execute_payment,
     early_repayment_full,
-    early_repayment_partial
+    early_repayment_partial,
 )
 from finance_tracker.services.lender_service import get_lender_by_id
 from finance_tracker.services.debt_transfer_service import (
     get_transfer_history,
-    create_debt_transfer
+    create_debt_transfer,
 )
 from finance_tracker.components.early_repayment_modal import EarlyRepaymentModal
 from finance_tracker.components.debt_transfer_modal import DebtTransferModal
 from finance_tracker.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _format_currency(amount) -> str:
+    return f"{amount:,.2f} ₽".replace(",", " ")
+
+
+def _filter_payments_for_tab(payments, selected_index: int):
+    if selected_index == 0:
+        return [
+            payment
+            for payment in payments
+            if payment.status in (PaymentStatus.PENDING, PaymentStatus.OVERDUE)
+        ]
+    return [
+        payment
+        for payment in payments
+        if payment.status in (PaymentStatus.EXECUTED, PaymentStatus.EXECUTED_LATE)
+    ]
+
+
+def _payment_status_color(status) -> str:
+    status_colors = {
+        PaymentStatus.PENDING: ft.Colors.ORANGE,
+        PaymentStatus.OVERDUE: ft.Colors.RED,
+        PaymentStatus.EXECUTED: ft.Colors.GREEN,
+        PaymentStatus.EXECUTED_LATE: ft.Colors.AMBER,
+    }
+    return status_colors.get(status, ft.Colors.GREY)
+
+
+def _transfer_difference_meta(difference):
+    if difference > 0:
+        return f"+{_format_currency(difference)}", ft.Colors.RED, ft.Icons.ARROW_UPWARD
+    if difference < 0:
+        return _format_currency(difference), ft.Colors.GREEN, ft.Icons.ARROW_DOWNWARD
+    return _format_currency(0), ft.Colors.GREY, ft.Icons.REMOVE
 
 
 class LoanDetailsView(ft.Column):
@@ -89,21 +120,16 @@ class LoanDetailsView(ft.Column):
                 ft.IconButton(
                     icon=ft.Icons.ARROW_BACK,
                     tooltip="Назад к списку кредитов",
-                    on_click=lambda _: self.on_back()
+                    on_click=lambda _: self.on_back(),
                 ),
                 ft.Text("Детали кредита", size=24, weight=ft.FontWeight.BOLD),
             ],
-            alignment=ft.MainAxisAlignment.START
+            alignment=ft.MainAxisAlignment.START,
         )
 
         # Карточка основной информации
         self.info_card = ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Text("Загрузка...", size=16)
-                ],
-                spacing=10
-            ),
+            content=ft.Column(controls=[ft.Text("Загрузка...", size=16)], spacing=10),
             bgcolor=ft.Colors.SURFACE,
             padding=20,
             border_radius=10,
@@ -113,33 +139,33 @@ class LoanDetailsView(ft.Column):
         self.action_buttons = ft.Row(
             controls=[
                 ft.Button(
-                    content="Редактировать",
-                    icon=ft.Icons.EDIT,
-                    on_click=self.open_edit_dialog
+                    content="Редактировать", icon=ft.Icons.EDIT, on_click=self.open_edit_dialog
                 ),
                 ft.Button(
                     content="Досрочное погашение",
                     icon=ft.Icons.PAYMENTS,
                     on_click=self.open_early_repayment_dialog,
                     bgcolor=ft.Colors.GREEN,
-                    color=ft.Colors.WHITE
+                    color=ft.Colors.WHITE,
                 ),
             ],
-            spacing=10
+            spacing=10,
         )
 
         # Табы для графика и истории
         self.tabs = ft.Tabs(
-            content=ft.TabBar(tabs=[
-                ft.Tab(label="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
-                ft.Tab(label="История платежей", icon=ft.Icon(ft.Icons.HISTORY)),
-                ft.Tab(label="История передач", icon=ft.Icon(ft.Icons.SWAP_HORIZ)),
-            ]),
+            content=ft.TabBar(
+                tabs=[
+                    ft.Tab(label="График платежей", icon=ft.Icon(ft.Icons.CALENDAR_MONTH)),
+                    ft.Tab(label="История платежей", icon=ft.Icon(ft.Icons.HISTORY)),
+                    ft.Tab(label="История передач", icon=ft.Icon(ft.Icons.SWAP_HORIZ)),
+                ]
+            ),
             length=3,
             selected_index=0,
             animation_duration=300,
             on_change=self.on_tab_change,
-            expand=True
+            expand=True,
         )
 
         # Список платежей
@@ -147,14 +173,10 @@ class LoanDetailsView(ft.Column):
 
         # Статистика по платежам
         self.payment_stats = ft.Container(
-            content=ft.Row(
-                controls=[],
-                spacing=20,
-                wrap=True
-            ),
+            content=ft.Row(controls=[], spacing=20, wrap=True),
             padding=10,
             bgcolor=ft.Colors.SURFACE,
-            border_radius=10
+            border_radius=10,
         )
 
         self.controls = [
@@ -201,17 +223,17 @@ class LoanDetailsView(ft.Column):
         lender_name = lender.name if lender else "Неизвестно"
 
         # Форматируем суммы
-        amount_str = f"{self.loan.amount:,.2f} ₽".replace(",", " ")
+        amount_str = _format_currency(self.loan.amount)
 
         # Рассчитываем остаток долга (упрощённо)
         remaining = self.loan.amount  # TODO: вычесть оплаченные платежи
-        remaining_str = f"{remaining:,.2f} ₽".replace(",", " ")
+        remaining_str = _format_currency(remaining)
 
         # Статус
         status_colors = {
             LoanStatus.ACTIVE: ft.Colors.GREEN,
             LoanStatus.PAID_OFF: ft.Colors.BLUE,
-            LoanStatus.OVERDUE: ft.Colors.RED
+            LoanStatus.OVERDUE: ft.Colors.RED,
         }
         status_color = status_colors.get(self.loan.status, ft.Colors.GREY)
 
@@ -219,15 +241,11 @@ class LoanDetailsView(ft.Column):
         header_controls = [
             ft.Text(self.loan.name, size=20, weight=ft.FontWeight.BOLD),
             ft.Container(
-                content=ft.Text(
-                    self.loan.status.value,
-                    size=12,
-                    color=ft.Colors.WHITE
-                ),
+                content=ft.Text(self.loan.status.value, size=12, color=ft.Colors.WHITE),
                 bgcolor=status_color,
                 padding=ft.Padding.symmetric(horizontal=10, vertical=5),
-                border_radius=5
-            )
+                border_radius=5,
+            ),
         ]
 
         # Добавляем индикатор передачи, если долг был передан
@@ -241,7 +259,7 @@ class LoanDetailsView(ft.Column):
                     controls=header_controls,
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     wrap=True,
-                    spacing=10
+                    spacing=10,
                 ),
                 ft.Divider(height=1),
                 self._create_info_row("Займодатель:", lender_name),
@@ -250,22 +268,19 @@ class LoanDetailsView(ft.Column):
                 self._create_info_row("Остаток долга:", remaining_str),
                 self._create_info_row(
                     "Процентная ставка:",
-                    f"{self.loan.interest_rate}%" if self.loan.interest_rate else "—"
+                    f"{self.loan.interest_rate}%" if self.loan.interest_rate else "—",
                 ),
-                self._create_info_row(
-                    "Дата выдачи:",
-                    self.loan.issue_date.strftime("%d.%m.%Y")
-                ),
+                self._create_info_row("Дата выдачи:", self.loan.issue_date.strftime("%d.%m.%Y")),
                 self._create_info_row(
                     "Дата окончания:",
-                    self.loan.end_date.strftime("%d.%m.%Y") if self.loan.end_date else "—"
+                    self.loan.end_date.strftime("%d.%m.%Y") if self.loan.end_date else "—",
                 ),
                 self._create_info_row(
                     "Номер договора:",
-                    self.loan.contract_number if self.loan.contract_number else "—"
+                    self.loan.contract_number if self.loan.contract_number else "—",
                 ),
             ],
-            spacing=5
+            spacing=5,
         )
 
         if self._page:
@@ -287,106 +302,78 @@ class LoanDetailsView(ft.Column):
                 ft.Text(label, size=14, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD),
                 ft.Text(value, size=14),
             ],
-            spacing=10
+            spacing=10,
         )
 
     def _build_transfer_indicator(self) -> Optional[ft.Container]:
         """
         Создаёт индикатор передачи долга для заголовка.
-        
+
         Возвращает бейдж "Долг передан от X к Y" если кредит был передан.
-        
+
         Returns:
             Container с индикатором передачи или None если долг не передавался
-            
+
         Validates: Requirements 3.4
         """
         if not self.loan:
             return None
-            
+
         # Проверяем, был ли долг передан
         if not self.loan.is_transferred:
             return None
-            
+
         # Получаем информацию об исходном кредиторе и текущем держателе
         original_lender = None
         current_holder = None
-        
+
         if self.loan.original_lender_id:
             original_lender = get_lender_by_id(self.session, self.loan.original_lender_id)
-        
+
         if self.loan.current_holder_id:
             current_holder = get_lender_by_id(self.session, self.loan.current_holder_id)
-        
+
         # Формируем текст бейджа
         original_name = original_lender.name if original_lender else "Неизвестно"
         current_name = current_holder.name if current_holder else "Неизвестно"
-        
+
         badge_text = f"Долг передан от {original_name} к {current_name}"
-        
+
         # Создаём бейдж
         return ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(
-                        ft.Icons.SWAP_HORIZ,
-                        size=16,
-                        color=ft.Colors.WHITE
-                    ),
-                    ft.Text(
-                        badge_text,
-                        size=12,
-                        color=ft.Colors.WHITE,
-                        weight=ft.FontWeight.BOLD
-                    ),
+                    ft.Icon(ft.Icons.SWAP_HORIZ, size=16, color=ft.Colors.WHITE),
+                    ft.Text(badge_text, size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
                 ],
                 spacing=5,
-                tight=True
+                tight=True,
             ),
             bgcolor=ft.Colors.AMBER,
             padding=ft.Padding.symmetric(horizontal=10, vertical=5),
             border_radius=5,
-            tooltip=f"Кредит был передан от {original_name} к {current_name}"
+            tooltip=f"Кредит был передан от {original_name} к {current_name}",
         )
 
     def load_payments(self):
         """Загрузка списка платежей."""
         try:
-            # Определяем фильтр по статусу в зависимости от выбранного таба
-            if self.tabs.selected_index == 0:  # График платежей
-                # Показываем все неоплаченные (PENDING, OVERDUE)
-                payments = get_payments_by_loan(self.session, self.loan_id)
-                payments = [p for p in payments if p.status in (
-                    PaymentStatus.PENDING,
-                    PaymentStatus.OVERDUE
-                )]
-            else:  # История
-                # Показываем исполненные
-                payments = get_payments_by_loan(self.session, self.loan_id)
-                payments = [p for p in payments if p.status in (
-                    PaymentStatus.EXECUTED,
-                    PaymentStatus.EXECUTED_LATE
-                )]
+            payments = get_payments_by_loan(self.session, self.loan_id)
+            payments = _filter_payments_for_tab(payments, self.tabs.selected_index)
 
             self.payments_list.controls.clear()
 
             if not payments:
                 self.payments_list.controls.append(
                     ft.Container(
-                        content=ft.Text(
-                            "Нет платежей",
-                            size=16,
-                            color=ft.Colors.GREY_600
-                        ),
+                        content=ft.Text("Нет платежей", size=16, color=ft.Colors.GREY_600),
                         padding=20,
-                        alignment=ft.Alignment.CENTER
+                        alignment=ft.Alignment.CENTER,
                     )
                 )
             else:
                 for payment in payments:
-                    self.payments_list.controls.append(
-                        self._create_payment_card(payment)
-                    )
+                    self.payments_list.controls.append(self._create_payment_card(payment))
 
             if self._page:
                 self.payments_list.update()
@@ -405,23 +392,18 @@ class LoanDetailsView(ft.Column):
         Returns:
             Container с карточкой платежа
         """
-        # Цвета статусов
-        status_colors = {
-            PaymentStatus.PENDING: ft.Colors.ORANGE,
-            PaymentStatus.OVERDUE: ft.Colors.RED,
-            PaymentStatus.EXECUTED: ft.Colors.GREEN,
-            PaymentStatus.EXECUTED_LATE: ft.Colors.AMBER
-        }
-        status_color = status_colors.get(payment.status, ft.Colors.GREY)
+        status_color = _payment_status_color(payment.status)
 
         # Форматирование дат
         scheduled_date_str = payment.scheduled_date.strftime("%d.%m.%Y")
-        executed_date_str = payment.executed_date.strftime("%d.%m.%Y") if payment.executed_date else "—"
+        executed_date_str = (
+            payment.executed_date.strftime("%d.%m.%Y") if payment.executed_date else "—"
+        )
 
         # Форматирование сумм
-        total_str = f"{payment.total_amount:,.2f} ₽".replace(",", " ")
-        principal_str = f"{payment.principal_amount:,.2f} ₽".replace(",", " ")
-        interest_str = f"{payment.interest_amount:,.2f} ₽".replace(",", " ")
+        total_str = _format_currency(payment.total_amount)
+        principal_str = _format_currency(payment.principal_amount)
+        interest_str = _format_currency(payment.interest_amount)
 
         # Кнопка исполнения для неоплаченных
         action_button = None
@@ -430,7 +412,7 @@ class LoanDetailsView(ft.Column):
                 icon=ft.Icons.CHECK_CIRCLE,
                 tooltip="Исполнить платёж",
                 icon_color=ft.Colors.GREEN,
-                on_click=lambda _, p=payment: self.execute_payment_action(p)
+                on_click=lambda _, p=payment: self.execute_payment_action(p),
             )
 
         controls = [
@@ -442,21 +424,17 @@ class LoanDetailsView(ft.Column):
                             ft.Text(
                                 f"Платёж на {scheduled_date_str}",
                                 size=14,
-                                weight=ft.FontWeight.BOLD
+                                weight=ft.FontWeight.BOLD,
                             ),
-                            ft.Text(
-                                f"Статус: {payment.status.value}",
-                                size=12,
-                                color=status_color
-                            ),
+                            ft.Text(f"Статус: {payment.status.value}", size=12, color=status_color),
                         ],
                         spacing=2,
-                        expand=True
+                        expand=True,
                     ),
                     action_button if action_button else ft.Container(),
                 ],
                 spacing=10,
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
             ft.Divider(height=1),
             ft.Row(
@@ -466,33 +444,22 @@ class LoanDetailsView(ft.Column):
                     ft.Text(f"Проценты: {interest_str}", size=13),
                 ],
                 spacing=15,
-                wrap=True
+                wrap=True,
             ),
         ]
 
         # Добавляем информацию об исполнении для оплаченных
         if payment.executed_date:
             controls.append(
-                ft.Text(
-                    f"Исполнено: {executed_date_str}",
-                    size=12,
-                    color=ft.Colors.GREY_600
-                )
+                ft.Text(f"Исполнено: {executed_date_str}", size=12, color=ft.Colors.GREY_600)
             )
             if payment.overdue_days and payment.overdue_days > 0:
                 controls.append(
-                    ft.Text(
-                        f"Просрочка: {payment.overdue_days} дн.",
-                        size=12,
-                        color=ft.Colors.RED
-                    )
+                    ft.Text(f"Просрочка: {payment.overdue_days} дн.", size=12, color=ft.Colors.RED)
                 )
 
         return ft.Container(
-            content=ft.Column(
-                controls=controls,
-                spacing=5
-            ),
+            content=ft.Column(controls=controls, spacing=5),
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
@@ -507,52 +474,41 @@ class LoanDetailsView(ft.Column):
             total_count = len(payments)
             pending = sum(1 for p in payments if p.status == PaymentStatus.PENDING)
             overdue = sum(1 for p in payments if p.status == PaymentStatus.OVERDUE)
-            executed = sum(1 for p in payments if p.status in (
-                PaymentStatus.EXECUTED,
-                PaymentStatus.EXECUTED_LATE
-            ))
+            executed = sum(
+                1
+                for p in payments
+                if p.status in (PaymentStatus.EXECUTED, PaymentStatus.EXECUTED_LATE)
+            )
 
             total_amount = sum(p.total_amount for p in payments)
             paid_amount = sum(
-                p.total_amount for p in payments
+                p.total_amount
+                for p in payments
                 if p.status in (PaymentStatus.EXECUTED, PaymentStatus.EXECUTED_LATE)
             )
             remaining_amount = total_amount - paid_amount
 
             self.payment_stats.content = ft.Row(
                 controls=[
+                    self._create_stat_item("Всего платежей", str(total_count), ft.Icons.PAYMENTS),
                     self._create_stat_item(
-                        "Всего платежей",
-                        str(total_count),
-                        ft.Icons.PAYMENTS
+                        "Ожидают оплаты", str(pending), ft.Icons.SCHEDULE, ft.Colors.ORANGE
                     ),
                     self._create_stat_item(
-                        "Ожидают оплаты",
-                        str(pending),
-                        ft.Icons.SCHEDULE,
-                        ft.Colors.ORANGE
+                        "Просрочено", str(overdue), ft.Icons.WARNING, ft.Colors.RED
                     ),
                     self._create_stat_item(
-                        "Просрочено",
-                        str(overdue),
-                        ft.Icons.WARNING,
-                        ft.Colors.RED
-                    ),
-                    self._create_stat_item(
-                        "Оплачено",
-                        str(executed),
-                        ft.Icons.CHECK_CIRCLE,
-                        ft.Colors.GREEN
+                        "Оплачено", str(executed), ft.Icons.CHECK_CIRCLE, ft.Colors.GREEN
                     ),
                     self._create_stat_item(
                         "Остаток к оплате",
                         f"{remaining_amount:,.2f} ₽".replace(",", " "),
                         ft.Icons.ATTACH_MONEY,
-                        ft.Colors.BLUE
+                        ft.Colors.BLUE,
                     ),
                 ],
                 spacing=20,
-                wrap=True
+                wrap=True,
             )
 
             if self._page:
@@ -562,11 +518,7 @@ class LoanDetailsView(ft.Column):
             logger.error(f"Ошибка при обновлении статистики: {e}")
 
     def _create_stat_item(
-        self,
-        label: str,
-        value: str,
-        icon: str,
-        color: Optional[str] = None
+        self, label: str, value: str, icon: str, color: Optional[str] = None
     ) -> ft.Container:
         """
         Создаёт элемент статистики.
@@ -591,14 +543,14 @@ class LoanDetailsView(ft.Column):
                                 value,
                                 size=16,
                                 weight=ft.FontWeight.BOLD,
-                                color=color or ft.Colors.ON_SURFACE
+                                color=color or ft.Colors.ON_SURFACE,
                             ),
                         ],
                         spacing=2,
-                        horizontal_alignment=ft.CrossAxisAlignment.START
-                    )
+                        horizontal_alignment=ft.CrossAxisAlignment.START,
+                    ),
                 ],
-                spacing=10
+                spacing=10,
             ),
             padding=10,
         )
@@ -629,8 +581,7 @@ class LoanDetailsView(ft.Column):
             # Показываем уведомление
             if self._page:
                 snack = ft.SnackBar(
-                    content=ft.Text("Платёж успешно исполнен"),
-                    bgcolor=ft.Colors.GREEN
+                    content=ft.Text("Платёж успешно исполнен"), bgcolor=ft.Colors.GREEN
                 )
                 self._page.open(snack)
 
@@ -643,8 +594,7 @@ class LoanDetailsView(ft.Column):
         # TODO: реализовать редактирование через LoanModal
         if self._page:
             snack = ft.SnackBar(
-                content=ft.Text("Редактирование кредита в разработке"),
-                bgcolor=ft.Colors.AMBER
+                content=ft.Text("Редактирование кредита в разработке"), bgcolor=ft.Colors.AMBER
             )
             self._page.open(snack)
 
@@ -653,9 +603,7 @@ class LoanDetailsView(ft.Column):
         try:
             # Создаём и открываем модальное окно
             modal = EarlyRepaymentModal(
-                session=self.session,
-                loan=self.loan,
-                on_repay=self.handle_early_repayment
+                session=self.session, loan=self.loan, on_repay=self.handle_early_repayment
             )
             modal.open(self._page)
 
@@ -675,12 +623,7 @@ class LoanDetailsView(ft.Column):
         try:
             if is_full:
                 # Полное досрочное погашение
-                result = early_repayment_full(
-                    self.session,
-                    self.loan_id,
-                    amount,
-                    repayment_date
-                )
+                result = early_repayment_full(self.session, self.loan_id, amount, repayment_date)
 
                 logger.info(
                     f"Полное досрочное погашение кредита ID {self.loan_id}: "
@@ -693,17 +636,12 @@ class LoanDetailsView(ft.Column):
                         content=ft.Text(
                             f"Кредит полностью погашен! Отменено платежей: {result['cancelled_payments_count']}"
                         ),
-                        bgcolor=ft.Colors.GREEN
+                        bgcolor=ft.Colors.GREEN,
                     )
                     self._page.open(snack)
             else:
                 # Частичное досрочное погашение
-                result = early_repayment_partial(
-                    self.session,
-                    self.loan_id,
-                    amount,
-                    repayment_date
-                )
+                result = early_repayment_partial(self.session, self.loan_id, amount, repayment_date)
 
                 logger.info(
                     f"Частичное досрочное погашение кредита ID {self.loan_id}: "
@@ -713,11 +651,9 @@ class LoanDetailsView(ft.Column):
                 # Показываем уведомление с предупреждением
                 if self._page:
                     snack = ft.SnackBar(
-                        content=ft.Text(
-                            f"Частичное погашение выполнено! {result['warning']}"
-                        ),
+                        content=ft.Text(f"Частичное погашение выполнено! {result['warning']}"),
                         bgcolor=ft.Colors.AMBER,
-                        duration=5000
+                        duration=5000,
                     )
                     self._page.open(snack)
 
@@ -744,28 +680,20 @@ class LoanDetailsView(ft.Column):
                     ft.Container(
                         content=ft.Column(
                             controls=[
-                                ft.Icon(
-                                    ft.Icons.INFO_OUTLINE,
-                                    size=48,
-                                    color=ft.Colors.GREY_400
-                                ),
-                                ft.Text(
-                                    "История передач пуста",
-                                    size=16,
-                                    color=ft.Colors.GREY_600
-                                ),
+                                ft.Icon(ft.Icons.INFO_OUTLINE, size=48, color=ft.Colors.GREY_400),
+                                ft.Text("История передач пуста", size=16, color=ft.Colors.GREY_600),
                                 ft.Text(
                                     "Долг по этому кредиту ещё не передавался другим кредиторам",
                                     size=14,
                                     color=ft.Colors.GREY_500,
-                                    text_align=ft.TextAlign.CENTER
+                                    text_align=ft.TextAlign.CENTER,
                                 ),
                             ],
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                            spacing=10
+                            spacing=10,
                         ),
                         padding=40,
-                        alignment=ft.Alignment.CENTER
+                        alignment=ft.Alignment.CENTER,
                     )
                 )
             else:
@@ -775,17 +703,15 @@ class LoanDetailsView(ft.Column):
                         content=ft.Text(
                             f"История передач долга ({len(transfers)})",
                             size=18,
-                            weight=ft.FontWeight.BOLD
+                            weight=ft.FontWeight.BOLD,
                         ),
-                        padding=ft.Padding.only(bottom=10)
+                        padding=ft.Padding.only(bottom=10),
                     )
                 )
 
                 # Добавляем карточки передач
                 for transfer in transfers:
-                    self.payments_list.controls.append(
-                        self._create_transfer_card(transfer)
-                    )
+                    self.payments_list.controls.append(self._create_transfer_card(transfer))
 
             # Добавляем кнопку "Передать долг" если кредит активен
             if self.loan and self.loan.status == LoanStatus.ACTIVE:
@@ -799,7 +725,7 @@ class LoanDetailsView(ft.Column):
                             color=ft.Colors.WHITE,
                         ),
                         padding=ft.Padding.only(top=20),
-                        alignment=ft.Alignment.CENTER
+                        alignment=ft.Alignment.CENTER,
                     )
                 )
 
@@ -824,23 +750,12 @@ class LoanDetailsView(ft.Column):
         transfer_date_str = transfer.transfer_date.strftime("%d.%m.%Y")
 
         # Форматирование сумм
-        transfer_amount_str = f"{transfer.transfer_amount:,.2f} ₽".replace(",", " ")
-        previous_amount_str = f"{transfer.previous_amount:,.2f} ₽".replace(",", " ")
-        
+        transfer_amount_str = _format_currency(transfer.transfer_amount)
+        previous_amount_str = _format_currency(transfer.previous_amount)
+
         # Форматирование разницы с цветом
         difference = transfer.amount_difference
-        if difference > 0:
-            difference_str = f"+{difference:,.2f} ₽".replace(",", " ")
-            difference_color = ft.Colors.RED  # Увеличение долга
-            difference_icon = ft.Icons.ARROW_UPWARD
-        elif difference < 0:
-            difference_str = f"{difference:,.2f} ₽".replace(",", " ")
-            difference_color = ft.Colors.GREEN  # Уменьшение долга
-            difference_icon = ft.Icons.ARROW_DOWNWARD
-        else:
-            difference_str = "0.00 ₽"
-            difference_color = ft.Colors.GREY
-            difference_icon = ft.Icons.REMOVE
+        difference_str, difference_color, difference_icon = _transfer_difference_meta(difference)
 
         # Получаем имена кредиторов
         from_lender_name = transfer.from_lender.name if transfer.from_lender else "Неизвестно"
@@ -852,16 +767,11 @@ class LoanDetailsView(ft.Column):
             ft.Row(
                 controls=[
                     ft.Icon(ft.Icons.SWAP_HORIZ, size=24, color=ft.Colors.PRIMARY),
-                    ft.Text(
-                        f"Передача от {transfer_date_str}",
-                        size=16,
-                        weight=ft.FontWeight.BOLD
-                    ),
+                    ft.Text(f"Передача от {transfer_date_str}", size=16, weight=ft.FontWeight.BOLD),
                 ],
-                spacing=10
+                spacing=10,
             ),
             ft.Divider(height=1),
-            
             # Информация о передаче
             ft.Row(
                 controls=[
@@ -871,7 +781,7 @@ class LoanDetailsView(ft.Column):
                             ft.Text(from_lender_name, size=14, weight=ft.FontWeight.BOLD),
                         ],
                         spacing=2,
-                        expand=True
+                        expand=True,
                     ),
                     ft.Icon(ft.Icons.ARROW_FORWARD, size=20, color=ft.Colors.GREY_600),
                     ft.Column(
@@ -880,15 +790,13 @@ class LoanDetailsView(ft.Column):
                             ft.Text(to_lender_name, size=14, weight=ft.FontWeight.BOLD),
                         ],
                         spacing=2,
-                        expand=True
+                        expand=True,
                     ),
                 ],
                 spacing=10,
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
-            
             ft.Divider(height=1),
-            
             # Суммы
             ft.Row(
                 controls=[
@@ -897,14 +805,14 @@ class LoanDetailsView(ft.Column):
                             ft.Text("Остаток до передачи:", size=12, color=ft.Colors.GREY_700),
                             ft.Text(previous_amount_str, size=14),
                         ],
-                        spacing=2
+                        spacing=2,
                     ),
                     ft.Column(
                         controls=[
                             ft.Text("Сумма при передаче:", size=12, color=ft.Colors.GREY_700),
                             ft.Text(transfer_amount_str, size=14, weight=ft.FontWeight.BOLD),
                         ],
-                        spacing=2
+                        spacing=2,
                     ),
                     ft.Column(
                         controls=[
@@ -916,17 +824,17 @@ class LoanDetailsView(ft.Column):
                                         difference_str,
                                         size=14,
                                         weight=ft.FontWeight.BOLD,
-                                        color=difference_color
+                                        color=difference_color,
                                     ),
                                 ],
-                                spacing=5
+                                spacing=5,
                             ),
                         ],
-                        spacing=2
+                        spacing=2,
                     ),
                 ],
                 spacing=15,
-                wrap=True
+                wrap=True,
             ),
         ]
 
@@ -939,7 +847,7 @@ class LoanDetailsView(ft.Column):
                         ft.Text("Причина:", size=12, color=ft.Colors.GREY_700),
                         ft.Text(transfer.reason, size=13),
                     ],
-                    spacing=2
+                    spacing=2,
                 )
             )
 
@@ -951,15 +859,12 @@ class LoanDetailsView(ft.Column):
                         ft.Text("Примечания:", size=12, color=ft.Colors.GREY_700),
                         ft.Text(transfer.notes, size=13, italic=True),
                     ],
-                    spacing=2
+                    spacing=2,
                 )
             )
 
         return ft.Container(
-            content=ft.Column(
-                controls=controls,
-                spacing=10
-            ),
+            content=ft.Column(controls=controls, spacing=10),
             bgcolor=ft.Colors.SURFACE,
             padding=15,
             border_radius=10,
@@ -969,15 +874,13 @@ class LoanDetailsView(ft.Column):
     def open_debt_transfer_modal(self, e):
         """
         Открыть модальное окно передачи долга.
-        
+
         Validates: Requirements 8.1
         """
         try:
             # Создаём и открываем модальное окно
             modal = DebtTransferModal(
-                session=self.session,
-                loan=self.loan,
-                on_transfer_callback=self.handle_debt_transfer
+                session=self.session, loan=self.loan, on_transfer_callback=self.handle_debt_transfer
             )
             modal.open(self._page)
 
@@ -986,13 +889,7 @@ class LoanDetailsView(ft.Column):
             self.show_error(f"Ошибка при открытии диалога: {ex}")
 
     def handle_debt_transfer(
-        self,
-        loan_id: str,
-        to_lender_id: str,
-        transfer_date,
-        transfer_amount,
-        reason,
-        notes
+        self, loan_id: str, to_lender_id: str, transfer_date, transfer_amount, reason, notes
     ):
         """
         Обработчик передачи долга.
@@ -1014,7 +911,7 @@ class LoanDetailsView(ft.Column):
                 transfer_date=transfer_date,
                 transfer_amount=transfer_amount,
                 reason=reason,
-                notes=notes
+                notes=notes,
             )
 
             logger.info(
@@ -1028,8 +925,7 @@ class LoanDetailsView(ft.Column):
             # Показываем уведомление
             if self._page:
                 snack = ft.SnackBar(
-                    content=ft.Text("Долг успешно передан!"),
-                    bgcolor=ft.Colors.GREEN
+                    content=ft.Text("Долг успешно передан!"), bgcolor=ft.Colors.GREEN
                 )
                 self._page.open(snack)
 
@@ -1048,14 +944,12 @@ class LoanDetailsView(ft.Column):
             message: Текст ошибки
         """
         if self._page:
-            snack = ft.SnackBar(
-                content=ft.Text(message),
-                bgcolor=ft.Colors.RED
-            )
+            snack = ft.SnackBar(content=ft.Text(message), bgcolor=ft.Colors.RED)
             self._page.open(snack)
+
     def will_unmount(self):
         """Очистка ресурсов при размонтировании view."""
-        if hasattr(self, 'cm') and self.cm is not None:
+        if hasattr(self, "cm") and self.cm is not None:
             try:
                 self.cm.__exit__(None, None, None)
                 logger.debug("Сессия LoanDetailsView закрыта")

@@ -21,8 +21,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from finance_tracker.models import (
-    LoanPaymentDB, LoanDB, TransactionDB, CategoryDB,
-    PaymentStatus, TransactionType, LoanStatus
+    LoanPaymentDB,
+    LoanDB,
+    TransactionDB,
+    CategoryDB,
+    PaymentStatus,
+    TransactionType,
+    LoanStatus,
 )
 from finance_tracker.utils.validation import validate_uuid_format
 
@@ -30,10 +35,62 @@ from finance_tracker.utils.validation import validate_uuid_format
 logger = logging.getLogger(__name__)
 
 
-def get_payments_by_loan(
+def _get_loan_or_raise(session: Session, loan_id: str) -> LoanDB:
+    loan = session.query(LoanDB).filter_by(id=loan_id).first()
+    if loan is None:
+        raise ValueError(f"Кредит ID {loan_id} не найден")
+    return loan
+
+
+def _validate_create_payment_amounts(
+    principal_amount: Decimal,
+    interest_amount: Decimal,
+    total_amount: Decimal,
+) -> None:
+    if principal_amount < Decimal("0"):
+        raise ValueError("Сумма основного долга не может быть отрицательной")
+    if interest_amount < Decimal("0"):
+        raise ValueError("Сумма процентов не может быть отрицательной")
+    if total_amount <= Decimal("0"):
+        raise ValueError("Общая сумма платежа должна быть больше 0")
+
+    expected_total = principal_amount + interest_amount
+    if abs(total_amount - expected_total) > Decimal("0.01"):
+        raise ValueError(
+            f"Общая сумма должна равняться сумме основного долга и процентов ({expected_total:.2f})"
+        )
+
+
+def _get_repayment_expense_category_id(session: Session) -> Optional[str]:
+    expense_category = (
+        session.query(CategoryDB)
+        .filter(CategoryDB.name.like("%Выплата кредита%"), CategoryDB.type == "expense")
+        .first()
+    )
+    return expense_category.id if expense_category else None
+
+
+def _create_repayment_transaction(
     session: Session,
-    loan_id: str,
-    status: Optional[PaymentStatus] = None
+    loan: LoanDB,
+    repayment_amount: Decimal,
+    repayment_date: date,
+    description: str,
+) -> TransactionDB:
+    transaction = TransactionDB(
+        date=repayment_date,
+        type=TransactionType.EXPENSE,
+        amount=repayment_amount,
+        category_id=_get_repayment_expense_category_id(session),
+        description=description,
+    )
+    session.add(transaction)
+    session.flush()
+    return transaction
+
+
+def get_payments_by_loan(
+    session: Session, loan_id: str, status: Optional[PaymentStatus] = None
 ) -> List[LoanPaymentDB]:
     """
     Получает график платежей по кредиту с опциональной фильтрацией по статусу.
@@ -57,11 +114,8 @@ def get_payments_by_loan(
     """
     try:
         validate_uuid_format(loan_id, "loan_id")
-        
-        # Проверяем существование кредита
-        loan = session.query(LoanDB).filter_by(id=loan_id).first()
-        if loan is None:
-            raise ValueError(f"Кредит ID {loan_id} не найден")
+
+        _get_loan_or_raise(session, loan_id)
 
         # Базовый запрос
         query = session.query(LoanPaymentDB).filter_by(loan_id=loan_id)
@@ -97,7 +151,7 @@ def create_payment(
     scheduled_date: date,
     principal_amount: Decimal,
     interest_amount: Decimal,
-    total_amount: Decimal
+    total_amount: Decimal,
 ) -> LoanPaymentDB:
     """
     Создаёт новый платёж в графике кредита.
@@ -129,27 +183,9 @@ def create_payment(
     """
     try:
         validate_uuid_format(loan_id, "loan_id")
-        
-        # Валидация кредита
-        loan = session.query(LoanDB).filter_by(id=loan_id).first()
-        if loan is None:
-            raise ValueError(f"Кредит ID {loan_id} не найден")
 
-        # Валидация сумм
-        if principal_amount < Decimal('0'):
-            raise ValueError("Сумма основного долга не может быть отрицательной")
-        if interest_amount < Decimal('0'):
-            raise ValueError("Сумма процентов не может быть отрицательной")
-        if total_amount <= Decimal('0'):
-            raise ValueError("Общая сумма платежа должна быть больше 0")
-
-        # Валидация суммы
-        expected_total = principal_amount + interest_amount
-        if abs(total_amount - expected_total) > Decimal('0.01'):
-            raise ValueError(
-                f"Общая сумма должна равняться сумме основного долга и процентов "
-                f"({expected_total:.2f})"
-            )
+        _get_loan_or_raise(session, loan_id)
+        _validate_create_payment_amounts(principal_amount, interest_amount, total_amount)
 
         # Создание платежа
         payment = LoanPaymentDB(
@@ -157,15 +193,14 @@ def create_payment(
             scheduled_date=scheduled_date,
             principal_amount=principal_amount,
             interest_amount=interest_amount,
-            total_amount=total_amount
+            total_amount=total_amount,
         )
         session.add(payment)
         session.commit()
         session.refresh(payment)
 
         logger.info(
-            f"Создан платёж по кредиту ID {loan_id} "
-            f"на дату {scheduled_date} (ID {payment.id})"
+            f"Создан платёж по кредиту ID {loan_id} на дату {scheduled_date} (ID {payment.id})"
         )
 
         return payment
@@ -186,7 +221,7 @@ def update_payment(
     scheduled_date: Optional[date] = None,
     principal_amount: Optional[Decimal] = None,
     interest_amount: Optional[Decimal] = None,
-    total_amount: Optional[Decimal] = None
+    total_amount: Optional[Decimal] = None,
 ) -> LoanPaymentDB:
     """
     Обновляет платёж (только если статус PENDING).
@@ -208,7 +243,7 @@ def update_payment(
     """
     try:
         validate_uuid_format(payment_id, "payment_id")
-        
+
         # Получаем платёж
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:
@@ -268,7 +303,7 @@ def delete_payment(session: Session, payment_id: str) -> bool:
     """
     try:
         validate_uuid_format(payment_id, "payment_id")
-        
+
         # Получаем платёж
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:
@@ -323,10 +358,13 @@ def update_overdue_payments(session: Session) -> int:
         today = date.today()
 
         # Получаем все платежи со статусом PENDING, у которых дата прошла
-        overdue_payments = session.query(LoanPaymentDB).filter(
-            LoanPaymentDB.status == PaymentStatus.PENDING,
-            LoanPaymentDB.scheduled_date < today
-        ).all()
+        overdue_payments = (
+            session.query(LoanPaymentDB)
+            .filter(
+                LoanPaymentDB.status == PaymentStatus.PENDING, LoanPaymentDB.scheduled_date < today
+            )
+            .all()
+        )
 
         # Обновляем статус
         for payment in overdue_payments:
@@ -358,11 +396,11 @@ def get_overdue_statistics(session: Session) -> dict:
     """
     try:
         # Получаем все просроченные платежи
-        overdue = session.query(LoanPaymentDB).filter(
-            LoanPaymentDB.status == PaymentStatus.OVERDUE
-        ).all()
+        overdue = (
+            session.query(LoanPaymentDB).filter(LoanPaymentDB.status == PaymentStatus.OVERDUE).all()
+        )
 
-        total_amount = sum((p.total_amount for p in overdue), Decimal('0.0'))
+        total_amount = sum((p.total_amount for p in overdue), Decimal("0.0"))
 
         # Группируем по кредитам
         overdue_by_loan = {}
@@ -372,20 +410,17 @@ def get_overdue_statistics(session: Session) -> dict:
                 overdue_by_loan[loan.id] = {
                     "loan_name": loan.name,
                     "count": 0,
-                    "total_amount": Decimal('0.0')
+                    "total_amount": Decimal("0.0"),
                 }
             overdue_by_loan[loan.id]["count"] += 1
             overdue_by_loan[loan.id]["total_amount"] += payment.total_amount
 
-        logger.info(
-            f"Статистика просроченных платежей: "
-            f"всего={len(overdue)}, сумма={total_amount}"
-        )
+        logger.info(f"Статистика просроченных платежей: всего={len(overdue)}, сумма={total_amount}")
 
         return {
             "total_overdue": len(overdue),
             "total_overdue_amount": total_amount,
-            "overdue_by_loan": overdue_by_loan
+            "overdue_by_loan": overdue_by_loan,
         }
 
     except SQLAlchemyError as e:
@@ -394,11 +429,7 @@ def get_overdue_statistics(session: Session) -> dict:
         raise
 
 
-def import_payments_from_csv(
-    session: Session,
-    loan_id: str,
-    csv_content: str
-) -> Dict[str, Any]:
+def import_payments_from_csv(session: Session, loan_id: str, csv_content: str) -> Dict[str, Any]:
     """
     Импортирует платежи по кредиту из CSV контента.
 
@@ -435,18 +466,16 @@ def import_payments_from_csv(
     """
     try:
         validate_uuid_format(loan_id, "loan_id")
-        
+
         # Проверяем существование кредита
-        loan = session.query(LoanDB).filter_by(id=loan_id).first()
-        if loan is None:
-            raise ValueError(f"Кредит ID {loan_id} не найден")
+        _get_loan_or_raise(session, loan_id)
 
         result = {
             "success_count": 0,
             "error_count": 0,
             "errors": [],
             "warnings": [],
-            "payment_ids": []
+            "payment_ids": [],
         }
 
         # Парсим CSV
@@ -459,9 +488,7 @@ def import_payments_from_csv(
             required_fields = {"scheduled_date", "principal_amount", "interest_amount"}
             missing_fields = required_fields - set(csv_reader.fieldnames or [])
             if missing_fields:
-                raise ValueError(
-                    f"CSV не содержит обязательные поля: {', '.join(missing_fields)}"
-                )
+                raise ValueError(f"CSV не содержит обязательные поля: {', '.join(missing_fields)}")
 
             # Импортируем платежи
             for row_num, row in enumerate(csv_reader, start=2):  # start=2 т.к. строка 1 - заголовки
@@ -472,9 +499,7 @@ def import_payments_from_csv(
                         raise ValueError("Пустая дата платежа")
 
                     try:
-                        scheduled_date = datetime.strptime(
-                            scheduled_date_str, "%Y-%m-%d"
-                        ).date()
+                        scheduled_date = datetime.strptime(scheduled_date_str, "%Y-%m-%d").date()
                     except ValueError:
                         raise ValueError(
                             f"Некорректный формат даты '{scheduled_date_str}' "
@@ -502,23 +527,21 @@ def import_payments_from_csv(
                         try:
                             total_amount = Decimal(total_str)
                         except InvalidOperation:
-                            raise ValueError(
-                                f"Некорректное значение общей суммы '{total_str}'"
-                            )
+                            raise ValueError(f"Некорректное значение общей суммы '{total_str}'")
                     else:
                         total_amount = principal_amount + interest_amount
 
                     # Дополнительная валидация
-                    if principal_amount < Decimal('0'):
+                    if principal_amount < Decimal("0"):
                         raise ValueError("Сумма основного долга не может быть отрицательной")
-                    if interest_amount < Decimal('0'):
+                    if interest_amount < Decimal("0"):
                         raise ValueError("Сумма процентов не может быть отрицательной")
-                    if total_amount <= Decimal('0'):
+                    if total_amount <= Decimal("0"):
                         raise ValueError("Общая сумма должна быть больше 0")
 
                     # Проверяем соответствие сумм
                     expected_total = principal_amount + interest_amount
-                    if abs(total_amount - expected_total) > Decimal('0.01'):
+                    if abs(total_amount - expected_total) > Decimal("0.01"):
                         warning = (
                             f"Строка {row_num}: общая сумма ({total_amount}) не совпадает с "
                             f"суммой основного долга и процентов ({expected_total}). "
@@ -533,7 +556,7 @@ def import_payments_from_csv(
                         scheduled_date=scheduled_date,
                         principal_amount=principal_amount,
                         interest_amount=interest_amount,
-                        total_amount=total_amount
+                        total_amount=total_amount,
                     )
                     session.add(payment)
                     session.flush()  # Получаем ID платежа
@@ -566,14 +589,11 @@ def import_payments_from_csv(
         if result["success_count"] > 0:
             session.commit()
             logger.info(
-                f"Успешно импортировано {result['success_count']} платежей "
-                f"по кредиту ID {loan_id}"
+                f"Успешно импортировано {result['success_count']} платежей по кредиту ID {loan_id}"
             )
 
         if result["error_count"] > 0:
-            logger.warning(
-                f"При импорте платежей произошло {result['error_count']} ошибок"
-            )
+            logger.warning(f"При импорте платежей произошло {result['error_count']} ошибок")
 
         return result
 
@@ -593,10 +613,7 @@ def import_payments_from_csv(
 
 
 def early_repayment_full(
-    session: Session,
-    loan_id: str,
-    repayment_amount: Decimal,
-    repayment_date: date
+    session: Session, loan_id: str, repayment_amount: Decimal, repayment_date: date
 ) -> dict:
     """
     Реализует полное досрочное погашение кредита.
@@ -633,7 +650,7 @@ def early_repayment_full(
     """
     try:
         validate_uuid_format(loan_id, "loan_id")
-        
+
         # Валидация входных данных
         # Проверяем существование кредита
         loan = session.query(LoanDB).filter_by(id=loan_id).first()
@@ -641,53 +658,51 @@ def early_repayment_full(
             raise ValueError(f"Кредит ID {loan_id} не найден")
 
         # Проверяем сумму погашения
-        if repayment_amount <= Decimal('0'):
+        if repayment_amount <= Decimal("0"):
             raise ValueError("Сумма погашения должна быть больше 0")
 
         result = {
             "loan_id": loan_id,
             "repayment_amount": repayment_amount,
             "cancelled_payments_count": 0,
-            "transaction_id": None
+            "transaction_id": None,
         }
 
         # Отмена всех будущих платежей
         # Получаем все платежи со статусом PENDING и будущей датой
-        future_payments = session.query(LoanPaymentDB).filter(
-            LoanPaymentDB.loan_id == loan_id,
-            LoanPaymentDB.status == PaymentStatus.PENDING,
-            LoanPaymentDB.scheduled_date > repayment_date
-        ).all()
+        future_payments = (
+            session.query(LoanPaymentDB)
+            .filter(
+                LoanPaymentDB.loan_id == loan_id,
+                LoanPaymentDB.status == PaymentStatus.PENDING,
+                LoanPaymentDB.scheduled_date > repayment_date,
+            )
+            .all()
+        )
 
         # Отменяем будущие платежи
         for payment in future_payments:
             payment.status = PaymentStatus.CANCELLED
             result["cancelled_payments_count"] += 1
-            logger.debug(f"Платёж ID {payment.id} отменён при полном погашении кредита ID {loan_id}")
+            logger.debug(
+                f"Платёж ID {payment.id} отменён при полном погашении кредита ID {loan_id}"
+            )
 
         # Примечание: деактивирование плановых транзакций требует наличия поля related_loan_id
         # в модели PlannedTransactionDB, которое в настоящее время отсутствует.
         # Это будет реализовано в будущих версиях при расширении связей между кредитами и плановыми транзакциями.
 
-        # Создание транзакции расхода для полного погашения
-        # Получаем категорию "Выплата кредита (основной долг)" для расходов по погашению
-        expense_category = session.query(CategoryDB).filter(
-            CategoryDB.name.like("%Выплата кредита%"),
-            CategoryDB.type == "expense"
-        ).first()
-
-        # Создаём транзакцию расхода для полного погашения
-        transaction = TransactionDB(
-            date=repayment_date,
-            type=TransactionType.EXPENSE,
-            amount=repayment_amount,
-            category_id=expense_category.id if expense_category else None,
-            description=f"Полное досрочное погашение кредита '{loan.name}'"
+        transaction = _create_repayment_transaction(
+            session,
+            loan,
+            repayment_amount,
+            repayment_date,
+            f"Полное досрочное погашение кредита '{loan.name}'",
         )
-        session.add(transaction)
-        session.flush()  # Получаем ID транзакции
         result["transaction_id"] = transaction.id
-        logger.debug(f"Создана транзакция расхода ID {transaction.id} для полного погашения кредита ID {loan_id}")
+        logger.debug(
+            f"Создана транзакция расхода ID {transaction.id} для полного погашения кредита ID {loan_id}"
+        )
 
         # Обновление статуса кредита на PAID_OFF
         loan.status = LoanStatus.PAID_OFF
@@ -718,10 +733,7 @@ def early_repayment_full(
 
 
 def early_repayment_partial(
-    session: Session,
-    loan_id: str,
-    repayment_amount: Decimal,
-    repayment_date: date
+    session: Session, loan_id: str, repayment_amount: Decimal, repayment_date: date
 ) -> dict:
     """
     Реализует частичное досрочное погашение кредита.
@@ -759,60 +771,54 @@ def early_repayment_partial(
     """
     try:
         validate_uuid_format(loan_id, "loan_id")
-        
+
         # Валидация входных данных
         # Проверяем существование кредита
-        loan = session.query(LoanDB).filter_by(id=loan_id).first()
-        if loan is None:
-            raise ValueError(f"Кредит ID {loan_id} не найден")
+        loan = _get_loan_or_raise(session, loan_id)
 
         # Проверяем сумму погашения
-        if repayment_amount <= Decimal('0'):
+        if repayment_amount <= Decimal("0"):
             raise ValueError("Сумма погашения должна быть больше 0")
 
         result = {
             "loan_id": loan_id,
             "repayment_amount": repayment_amount,
-            "new_balance": Decimal('0.0'),
+            "new_balance": Decimal("0.0"),
             "transaction_id": None,
-            "warning": "Внимание! После частичного досрочного погашения необходимо обновить график платежей по кредиту."
+            "warning": "Внимание! После частичного досрочного погашения необходимо обновить график платежей по кредиту.",
         }
 
         # Расчет текущего и нового остатка долга
         # Получаем сумму всех будущих платежей (остаток долга)
-        future_payments = session.query(LoanPaymentDB).filter(
-            LoanPaymentDB.loan_id == loan_id,
-            LoanPaymentDB.status == PaymentStatus.PENDING,
-            LoanPaymentDB.scheduled_date >= repayment_date
-        ).all()
+        future_payments = (
+            session.query(LoanPaymentDB)
+            .filter(
+                LoanPaymentDB.loan_id == loan_id,
+                LoanPaymentDB.status == PaymentStatus.PENDING,
+                LoanPaymentDB.scheduled_date >= repayment_date,
+            )
+            .all()
+        )
 
-        current_balance = sum((p.total_amount for p in future_payments), Decimal('0.0'))
-        new_balance = max(Decimal('0'), current_balance - repayment_amount)
+        current_balance = sum((p.total_amount for p in future_payments), Decimal("0.0"))
+        new_balance = max(Decimal("0"), current_balance - repayment_amount)
         result["new_balance"] = new_balance
         logger.debug(
             f"Расчёт остатка для кредита ID {loan_id}: "
             f"текущий={current_balance}, новый={new_balance}"
         )
 
-        # Создание транзакции расхода для частичного погашения
-        # Получаем категорию "Выплата кредита (основной долг)" для расходов по погашению
-        expense_category = session.query(CategoryDB).filter(
-            CategoryDB.name.like("%Выплата кредита%"),
-            CategoryDB.type == "expense"
-        ).first()
-
-        # Создаём транзакцию расхода для частичного погашения
-        transaction = TransactionDB(
-            date=repayment_date,
-            type=TransactionType.EXPENSE,
-            amount=repayment_amount,
-            category_id=expense_category.id if expense_category else None,
-            description=f"Частичное досрочное погашение кредита '{loan.name}' (новый остаток: {new_balance:.2f})"
+        transaction = _create_repayment_transaction(
+            session,
+            loan,
+            repayment_amount,
+            repayment_date,
+            f"Частичное досрочное погашение кредита '{loan.name}' (новый остаток: {new_balance:.2f})",
         )
-        session.add(transaction)
-        session.flush()  # Получаем ID транзакции
         result["transaction_id"] = transaction.id
-        logger.debug(f"Создана транзакция расхода ID {transaction.id} для частичного погашения кредита ID {loan_id}")
+        logger.debug(
+            f"Создана транзакция расхода ID {transaction.id} для частичного погашения кредита ID {loan_id}"
+        )
 
         # Коммитим все изменения
         session.commit()
@@ -838,10 +844,7 @@ def early_repayment_partial(
         raise ValueError(error_msg)
 
 
-def get_payments_by_date(
-    session: Session,
-    target_date: date
-) -> List[LoanPaymentDB]:
+def get_payments_by_date(session: Session, target_date: date) -> List[LoanPaymentDB]:
     """
     Получает все платежи по кредитам для конкретной даты.
 
@@ -862,13 +865,14 @@ def get_payments_by_date(
     """
     try:
         # Получаем все платежи на указанную дату
-        payments = session.query(LoanPaymentDB).filter(
-            LoanPaymentDB.scheduled_date == target_date
-        ).order_by(LoanPaymentDB.loan_id).all()
-
-        logger.info(
-            f"Получено {len(payments)} платежей по кредитам на дату {target_date}"
+        payments = (
+            session.query(LoanPaymentDB)
+            .filter(LoanPaymentDB.scheduled_date == target_date)
+            .order_by(LoanPaymentDB.loan_id)
+            .all()
         )
+
+        logger.info(f"Получено {len(payments)} платежей по кредитам на дату {target_date}")
 
         return payments
 
@@ -879,9 +883,7 @@ def get_payments_by_date(
 
 
 def execute_payment(
-    session: Session,
-    payment_id: str,
-    transaction_date: Optional[date] = None
+    session: Session, payment_id: str, transaction_date: Optional[date] = None
 ) -> LoanPaymentDB:
     """
     Исполняет платёж по кредиту (обёртка для loan_service.execute_payment).
@@ -908,7 +910,7 @@ def execute_payment(
     """
     try:
         validate_uuid_format(payment_id, "payment_id")
-        
+
         # Получаем платёж для получения суммы
         payment = session.query(LoanPaymentDB).filter_by(id=payment_id).first()
         if payment is None:
@@ -916,11 +918,12 @@ def execute_payment(
 
         # Используем total_amount как transaction_amount
         from .loan_service import execute_payment as execute_payment_loan_service
+
         executed_payment, transaction = execute_payment_loan_service(
             session,
             payment_id=payment_id,
             transaction_amount=payment.total_amount,
-            transaction_date=transaction_date
+            transaction_date=transaction_date,
         )
 
         logger.info(f"Исполнен платёж ID {payment_id} на сумму {payment.total_amount}")
