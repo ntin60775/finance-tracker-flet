@@ -29,4 +29,27 @@ jobs:
         run: ruff check src tests
 
       - name: Test
-        run: pytest tests/ -q
+        run: pytest tests/ -q --cov=src/finance_tracker --cov-fail-under=66
+
+  security:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pip-audit
+
+      - name: Security audit (report mode)
+        run: pip-audit

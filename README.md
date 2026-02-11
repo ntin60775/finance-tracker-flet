@@ -12,7 +12,7 @@ Finance Tracker - это десктопное приложение для упр
 - План-факт анализ
 - Прогноз баланса
 - Календарь транзакций
-- Экспорт и импорт данных (в разработке, см. issue #4)
+- Snapshot экспорт и restore-only импорт данных
 - Облачная синхронизация (расширенный функционал через Git submodule)
 
 ## Установка
@@ -90,7 +90,7 @@ finance-tracker
 ├── config.json          # Настройки пользователя
 ├── logs/                # Логи приложения
 │   └── finance_tracker.log
-└── exports/             # Резервировано под будущий экспорт
+└── exports/             # Snapshot-экспорты
 ```
 
 Это позволяет:
@@ -245,6 +245,8 @@ pytest tests/test_integration_regression.py         # Регрессионные
 
 ### Проверка покрытия кода
 
+Политика качества: новые сервисы и модули должны сопровождаться тестами; в CI включен минимальный порог покрытия `66%`.
+
 Полное покрытие:
 ```bash
 pytest tests/ --cov=src/finance_tracker --cov-report=html --cov-report=term
@@ -264,7 +266,7 @@ pytest tests/test_*_modal.py --cov=src/finance_tracker/components --cov-report=h
 
 Минимальный порог покрытия:
 ```bash
-pytest tests/ --cov=src/finance_tracker --cov-fail-under=80
+pytest tests/ --cov=src/finance_tracker --cov-fail-under=66
 ```
 
 ### Специальные тесты
@@ -421,21 +423,26 @@ pytest tests/ -m "not slow" --tb=short
 
 Проект поддерживает работу с мобильными данными через два уровня функциональности:
 
-### Публичный API (временное ограничение)
+### Публичный API (snapshot backup/restore)
 
-`ExportService` и `ImportService` сейчас доступны как API, но полноценная
-реализация еще не завершена (см. https://github.com/ntin60775/finance-tracker-flet/issues/4):
+`ExportService` и `ImportService` реализованы и доступны как публичный API:
 
 ```python
 from finance_tracker.mobile import ExportService, ImportService
 
-# Пока вызовы поднимают NotImplementedError
-ExportService.export_to_file()
-ImportService.import_from_file("backup_2024_12_07.json")
+# Экспорт snapshot в JSON (по умолчанию в .finance_tracker_data/exports/)
+snapshot_path = ExportService.export_to_file()
+
+# Restore-only импорт: только в пустую пользовательскую БД
+# (системные baseline-категории разрешены)
+report = ImportService.import_from_file("backup_2024_12_07.json")
 ```
 
-До релиза экспорта/импорта используйте резервное копирование файла SQLite БД
-(`.finance_tracker_data/finance.db`).
+Ограничение импорта: это restore-only сценарий, импорт разрешен только для
+пустой пользовательской БД (наличие системных baseline-категорий допустимо).
+
+Fallback-рекомендация для ручного бэкапа остается прежней: копируйте файл
+SQLite БД `.finance_tracker_data/finance.db` (тот же путь, что и `settings.db_path`).
 
 ### Расширенный функционал (через Git submodule)
 
@@ -501,8 +508,8 @@ finance-tracker-flet/
 │       │   └── ...
 │       └── mobile/                # Мобильный функционал
 │           ├── __init__.py
-│           ├── export_service.py  # Публичный API (реализация в плане)
-│           ├── import_service.py  # Публичный API (реализация в плане)
+│           ├── export_service.py  # Snapshot экспорт
+│           ├── import_service.py  # Restore-only импорт
 │           └── sync_proprietary/  # Git submodule (приватный)
 │               ├── cloud_sync.py
 │               └── realtime_sync.py
@@ -581,7 +588,7 @@ AGPL-3.0 выбрана для обеспечения того, чтобы:
 
 ### Приватные компоненты
 
-Расширенный функционал синхронизации (`sync_proprietary/`) находится в отдельном приватном репозитории и не распространяется под AGPL-3.0. Публичный API экспорта/импорта открыт, а полноценная реализация трекается в issue #4.
+Расширенный функционал синхронизации (`sync_proprietary/`) находится в отдельном приватном репозитории и не распространяется под AGPL-3.0. Публичный API snapshot экспорта/импорта доступен в основном репозитории.
 
 ### Полный текст лицензии
 
