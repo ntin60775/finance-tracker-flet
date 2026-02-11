@@ -44,6 +44,17 @@ pyinstaller finance_tracker.spec --clean --noconfirm
 dist\finance_tracker.exe
 ```
 
+## 🤖 GitHub Actions: portable-сборки Linux + Windows
+
+- Workflow: `.github/workflows/release-builds.yml`
+- Триггеры: ручной запуск (`workflow_dispatch`) и push тега `v*`
+- Python в CI: `3.13`
+- Артефакты run-а: архивы Linux (`.tar.gz`) и Windows 10/11 (`.zip`) с именами вида:
+  - `finance-tracker-vX.Y.Z-linux-x86_64-portable.tar.gz`
+  - `finance-tracker-vX.Y.Z-windows-10-11-x86_64-portable.zip`
+
+Скачать архивы можно на странице конкретного запуска GitHub Actions в блоке **Artifacts**.
+
 ## 📋 Checklist
 
 **Перед сборкой:**

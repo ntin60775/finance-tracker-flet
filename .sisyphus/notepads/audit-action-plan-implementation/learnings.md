@@ -775,3 +775,9 @@ This test file exists and validates:
 - Добавлен режим сравнения с предыдущим периодом той же длительности (`comparison_start_date/comparison_end_date`) и отображение сравниваемого интервала в тексте кнопки периода.
 - Добавлено сохранение/восстановление фильтров в состоянии view (`start/end`, category, comparison flags), чтобы последующая загрузка данных использовала восстановленные параметры.
 - Добавлен acceptance-набор `tests/test_plan_fact_range.py` на пресеты, comparison toggle и restore saved filters.
+
+## Task Portable Builds CI Sync
+**Date**: 2026-02-11
+
+- Для кросс-платформенной portable-сборки выбран единый matrix workflow (`ubuntu-latest` + `windows-latest`) с раздельными шагами build/package по `runner.os`.
+- Именование архивов собрано по шаблону из `VERSIONING.md` через `${{ github.ref_name }}` без удаления префикса `v`, чтобы теги `v*` сразу давали релизные имена артефактов.

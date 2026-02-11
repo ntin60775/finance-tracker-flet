@@ -3,7 +3,7 @@ Practical guide for coding agents in this repository.
 Derived from `README.md`, `pyproject.toml`, `BUILD.md`, `tests/README_UI_Testing.md`, and `.kiro/steering/*.md`.
 
 ## 1) Project Snapshot
-- Language: Python (>= 3.9)
+- Language: Python (>= 3.13)
 - UI: Flet (~= 0.80.5)
 - DB: SQLAlchemy (>= 2.0.0) + SQLite
 - Validation: Pydantic (>= 2.0.0)

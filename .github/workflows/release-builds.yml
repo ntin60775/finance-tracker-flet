@@ -1,0 +1,84 @@
+name: Release portable builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-portable:
+    name: Build ${{ matrix.platform_name }} portable artifact
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform_name: Linux
+            platform_slug: linux-x86_64
+          - os: windows-latest
+            platform_name: Windows 10/11
+            platform_slug: windows-10-11-x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build Linux executable
+        if: runner.os == 'Linux'
+        run: python -m PyInstaller finance_tracker_linux.spec --clean --noconfirm
+
+      - name: Build Windows executable
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller finance_tracker.spec --clean --noconfirm
+
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        id: package_linux
+        shell: bash
+        run: |
+          mkdir -p release
+          archive_name="finance-tracker-${{ github.ref_name }}-linux-x86_64-portable.tar.gz"
+          tar -czf "release/${archive_name}" -C dist finance_tracker
+          echo "archive_path=release/${archive_name}" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=${archive_name%.tar.gz}" >> "$GITHUB_OUTPUT"
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        id: package_windows
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          $archiveName = "finance-tracker-${{ github.ref_name }}-windows-10-11-x86_64-portable.zip"
+          Compress-Archive -Path "dist/finance_tracker.exe" -DestinationPath "release/$archiveName" -Force
+          "archive_path=release/$archiveName" >> $env:GITHUB_OUTPUT
+          "artifact_name=$($archiveName -replace '\\.zip$','')" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package_linux.outputs.artifact_name }}
+          path: ${{ steps.package_linux.outputs.archive_path }}
+          if-no-files-found: error
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package_windows.outputs.artifact_name }}
+          path: ${{ steps.package_windows.outputs.archive_path }}
+          if-no-files-found: error

@@ -214,7 +214,7 @@ def _safe_get_page(self, event_or_control) -> Optional[ft.Page]:
 
 ### Требования
 
-- Python >= 3.9
+- Python >= 3.13
 - Flet >= 0.25.0
 - Поддержка всех платформ (Windows, macOS, Linux)
 
