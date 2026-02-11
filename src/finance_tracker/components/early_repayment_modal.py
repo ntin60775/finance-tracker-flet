@@ -9,7 +9,7 @@
 """
 
 import datetime
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 from decimal import Decimal, InvalidOperation
 import flet as ft
 from sqlalchemy.orm import Session
@@ -52,23 +52,21 @@ class EarlyRepaymentModal:
         self.session = session
         self.loan = loan
         self.on_repay = on_repay
-        self._page: Optional[ft.Page] = None
+        self._page: Optional[Any] = None
         self.repayment_date: Optional[datetime.date] = datetime.date.today()
 
         # UI Controls
         self.repayment_type_radio = ft.RadioGroup(
-            content=ft.Column([
-                ft.Radio(
-                    value="full",
-                    label="Полное погашение (закрыть кредит полностью)"
-                ),
-                ft.Radio(
-                    value="partial",
-                    label="Частичное погашение (внести дополнительный платёж)"
-                ),
-            ]),
+            content=ft.Column(
+                [
+                    ft.Radio(value="full", label="Полное погашение (закрыть кредит полностью)"),
+                    ft.Radio(
+                        value="partial", label="Частичное погашение (внести дополнительный платёж)"
+                    ),
+                ]
+            ),
             value="full",
-            on_change=self._on_type_change
+            on_change=self._on_type_change,
         )
 
         self.amount_field = ft.TextField(
@@ -76,17 +74,15 @@ class EarlyRepaymentModal:
             suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
-                allow=True,
-                regex_string=r"^\d*\.?\d{0,2}$",
-                replacement_string=""
+                allow=True, regex_string=r"^\d*\.?\d{0,2}$", replacement_string=""
             ),
-            on_change=self._clear_error
+            on_change=self._clear_error,
         )
 
         self.repayment_date_button = ft.Button(
-            content=f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}",
+            content=ft.Text(f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}"),
             icon=ft.Icons.CALENDAR_TODAY,
-            on_click=self._open_date_picker
+            on_click=self._open_date_picker,
         )
 
         self.warning_text = ft.Container(
@@ -98,15 +94,15 @@ class EarlyRepaymentModal:
                         "а статус кредита изменится на 'Погашен'.",
                         size=12,
                         color=ft.Colors.AMBER,
-                        expand=True
-                    )
+                        expand=True,
+                    ),
                 ],
-                spacing=10
+                spacing=10,
             ),
             padding=10,
             bgcolor=ft.Colors.AMBER_100,
             border_radius=5,
-            visible=True
+            visible=True,
         )
 
         self.partial_warning_text = ft.Container(
@@ -118,15 +114,15 @@ class EarlyRepaymentModal:
                         "Рекомендуется обновить график после погашения.",
                         size=12,
                         color=ft.Colors.BLUE,
-                        expand=True
-                    )
+                        expand=True,
+                    ),
                 ],
-                spacing=10
+                spacing=10,
             ),
             padding=10,
             bgcolor=ft.Colors.BLUE_100,
             border_radius=5,
-            visible=False
+            visible=False,
         )
 
         self.error_text = ft.Text(color=ft.Colors.ERROR, size=12)
@@ -157,34 +153,36 @@ class EarlyRepaymentModal:
                     ],
                     spacing=10,
                     tight=True,
-                    scroll=ft.ScrollMode.AUTO
+                    scroll=ft.ScrollMode.AUTO,
                 ),
                 width=500,
-                height=450
+                height=450,
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self._close_dialog),
                 ft.Button(
                     "Погасить",
                     icon=ft.Icons.PAYMENTS,
-                    on_click=self._handle_repay,
+                    on_click=self._on_confirm,
                     bgcolor=ft.Colors.GREEN,
-                    color=ft.Colors.WHITE
+                    color=ft.Colors.WHITE,
                 ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
+        self._confirmation_dialog: Optional[ft.AlertDialog] = None
+
     @property
-    def page(self) -> Optional[ft.Page]:
+    def page(self) -> Optional[Any]:
         """Совместимость с тестами и старым API доступа к странице."""
         return self._page
 
     @page.setter
-    def page(self, value: Optional[ft.Page]) -> None:
+    def page(self, value: Optional[Any]) -> None:
         self._page = value
 
-    def open(self, page: ft.Page):
+    def open(self, page: Any):
         """
         Открывает модальное окно.
 
@@ -215,13 +213,16 @@ class EarlyRepaymentModal:
     def _open_date_picker(self, e):
         """Открывает выбор даты погашения."""
         if self._page:
-            self.date_picker.pick_date()
+            self._page.open(self.date_picker)
 
     def _on_date_change(self, e):
         """Обработчик изменения даты погашения."""
         if e.control.value:
-            self.repayment_date = e.control.value
-            self.repayment_date_button.text = f"Дата погашения: {self.repayment_date.strftime('%d.%m.%Y')}"
+            repayment_date = e.control.value
+            self.repayment_date = repayment_date
+            self.repayment_date_button.content = ft.Text(
+                f"Дата погашения: {repayment_date.strftime('%d.%m.%Y')}"
+            )
             self._clear_error()
             if self._page:
                 self._page.update()
@@ -257,7 +258,7 @@ class EarlyRepaymentModal:
 
         try:
             amount = Decimal(self.amount_field.value.strip())
-            if amount <= Decimal('0'):
+            if amount <= Decimal("0"):
                 self._show_error("Сумма погашения должна быть больше 0")
                 return False
         except (InvalidOperation, ValueError):
@@ -280,6 +281,10 @@ class EarlyRepaymentModal:
             # Получаем данные
             is_full = self.repayment_type_radio.value == "full"
             amount = Decimal(self.amount_field.value.strip())
+            repayment_date = self.repayment_date
+            if repayment_date is None:
+                self._show_error("Выберите дату погашения")
+                return
 
             logger.info(
                 f"Досрочное погашение кредита ID {self.loan.id}: "
@@ -290,8 +295,76 @@ class EarlyRepaymentModal:
             self._close_dialog()
 
             # Вызываем callback
-            self.on_repay(is_full, amount, self.repayment_date)
+            self.on_repay(is_full, amount, repayment_date)
 
         except Exception as ex:
             logger.error(f"Ошибка при обработке досрочного погашения: {ex}")
             self._show_error(f"Ошибка: {str(ex)}")
+
+    def _on_confirm(self, e):
+        if not self._validate_inputs():
+            return
+
+        if not self._page:
+            self._handle_repay(e)
+            return
+
+        self._show_confirmation_dialog()
+
+    def _show_confirmation_dialog(self) -> None:
+        page = self._page
+        if page is None:
+            return
+
+        is_full = self.repayment_type_radio.value == "full"
+        amount = Decimal(self.amount_field.value.strip())
+        repayment_date = self.repayment_date
+        if repayment_date is None:
+            date_text = "Дата: не выбрана"
+        else:
+            date_text = f"Дата: {repayment_date.strftime('%d.%m.%Y')}"
+
+        repayment_type_label = "Полное" if is_full else "Частичное"
+        impact_text = (
+            "Кредит будет закрыт. Все будущие платежи будут отменены."
+            if is_full
+            else "График платежей останется без изменений. При необходимости обновите график после погашения."
+        )
+
+        confirmation_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Подтверждение досрочного погашения"),
+            content=ft.Column(
+                [
+                    ft.Text(f"Кредит: {self.loan.name}", weight=ft.FontWeight.BOLD),
+                    ft.Text(f"Тип: {repayment_type_label}"),
+                    ft.Text(date_text),
+                    ft.Text(f"Сумма: {amount:,.2f} ₽", weight=ft.FontWeight.BOLD),
+                    ft.Divider(),
+                    ft.Text(impact_text),
+                    ft.Text(f"Влияние на баланс: -{amount:,.2f} ₽"),
+                ],
+                tight=True,
+                spacing=10,
+            ),
+            actions=[
+                ft.TextButton("Назад", on_click=lambda e: page.close(confirmation_dialog)),
+                ft.Button(
+                    "Подтвердить",
+                    icon=ft.Icons.CHECK,
+                    on_click=lambda e: self._execute_repay(confirmation_dialog),
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        self._confirmation_dialog = confirmation_dialog
+        page.open(confirmation_dialog)
+
+    def _execute_repay(self, confirmation_dialog: ft.AlertDialog) -> None:
+        if not self._page:
+            return
+
+        self._page.close(confirmation_dialog)
+        self._confirmation_dialog = None
+        self._handle_repay(None)

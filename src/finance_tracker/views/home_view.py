@@ -4,7 +4,15 @@ from typing import List, Any, Tuple, Dict, Optional, Callable
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.models import TransactionCreate, TransactionUpdate, TransactionDB, PlannedOccurrence, PendingPaymentCreate, PlannedTransactionCreate
+from finance_tracker.models.enums import OccurrenceStatus, PaymentStatus
+from finance_tracker.models.models import (
+    TransactionCreate,
+    TransactionUpdate,
+    TransactionDB,
+    PlannedOccurrence,
+    PendingPaymentCreate,
+    PlannedTransactionCreate,
+)
 from finance_tracker.components.calendar_widget import CalendarWidget
 from finance_tracker.components.transactions_panel import TransactionsPanel
 from finance_tracker.components.calendar_legend import CalendarLegend
@@ -15,12 +23,17 @@ from finance_tracker.components.execute_occurrence_modal import ExecuteOccurrenc
 from finance_tracker.components.execute_pending_payment_modal import ExecutePendingPaymentModal
 from finance_tracker.components.pending_payment_modal import PendingPaymentModal
 from finance_tracker.components.planned_transaction_modal import PlannedTransactionModal
-from finance_tracker.utils.logger import get_logger
-from finance_tracker.models.models import (
-    PendingPaymentUpdate,
-    PendingPaymentDB,
-    LoanPaymentDB
+from finance_tracker.services import (
+    loan_payment_service,
+    pending_payment_service,
+    planned_transaction_service,
 )
+from finance_tracker.services.balance_forecast_service import (
+    calculate_actual_balance,
+    detect_cash_gaps,
+)
+from finance_tracker.utils.logger import get_logger
+from finance_tracker.models.models import PendingPaymentUpdate, PendingPaymentDB, LoanPaymentDB
 from finance_tracker.views.home_presenter import HomePresenter
 from finance_tracker.views.interfaces import IHomeViewCallbacks
 from decimal import Decimal
@@ -49,10 +62,10 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     """
 
     def __init__(
-        self, 
-        page: ft.Page, 
+        self,
+        page: ft.Page,
         session: Session,
-        navigate_callback: Optional[Callable[[int], None]] = None
+        navigate_callback: Optional[Callable[[int], None]] = None,
     ):
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self._page = page
@@ -62,17 +75,23 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         # Создаем Presenter с инжекцией зависимостей
         self.presenter = HomePresenter(session, self)
-        
+
         # Получаем высоту страницы для адаптивных размеров календаря
-        page_height = self._page.height if hasattr(self._page, 'height') and self._page.height else None
+        page_height = (
+            self._page.height if hasattr(self._page, "height") and self._page.height else None
+        )
+
+        self._today_cash_gaps_7: List[datetime.date] = []
+        self._today_cash_gaps_30: List[datetime.date] = []
+        self.today_section = self._build_today_section()
 
         # UI Components
         self.calendar_widget = CalendarWidget(
             on_date_selected=self.on_date_selected,
             initial_date=self.selected_date,
-            page_height=page_height
+            page_height=page_height,
         )
-        
+
         self.transactions_panel = TransactionsPanel(
             date_obj=self.selected_date,
             transactions=[],
@@ -82,9 +101,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_execute_pending_payment=self.on_execute_payment,
             on_execute_loan_payment=self.on_execute_loan_payment,
             on_edit_transaction=self.on_edit_transaction,
-            on_delete_transaction=self.on_delete_transaction
+            on_delete_transaction=self.on_delete_transaction,
         )
-        
+
         # Вычисляем ширину календаря для адаптивности легенды
         # Центральная колонка занимает 3/7 от общей ширины страницы
         # Вычитаем отступы и разделители для более точного расчета
@@ -97,7 +116,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_skip=self.on_skip_occurrence,
             on_show_all=self.on_show_all_occurrences,
             on_add_planned_transaction=self.on_add_planned_transaction,
-            on_occurrence_click=self.on_occurrence_clicked
+            on_occurrence_click=self.on_occurrence_clicked,
         )
 
         self.pending_payments_widget = PendingPaymentsWidget(
@@ -107,37 +126,35 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             on_delete=self.on_delete_payment,
             on_show_all=self.on_show_all_payments,
             on_add_payment=self.on_add_pending_payment,
-            on_edit=self.on_edit_pending_payment
+            on_edit=self.on_edit_pending_payment,
         )
 
         # Modals
         self.transaction_modal = TransactionModal(
             session=self.session,
             on_save=self.on_transaction_saved,
-            on_update=self.on_transaction_updated
+            on_update=self.on_transaction_updated,
         )
 
         self.execute_occurrence_modal = ExecuteOccurrenceModal(
             session=self.session,
             on_execute=self.on_occurrence_executed_confirm,
             on_skip=self.on_occurrence_skipped_confirm,
-            on_reschedule=self.on_occurrence_rescheduled_confirm
+            on_reschedule=self.on_occurrence_rescheduled_confirm,
         )
 
         self.execute_payment_modal = ExecutePendingPaymentModal(
-            session=self.session,
-            on_execute=self.on_payment_executed_confirm
+            session=self.session, on_execute=self.on_payment_executed_confirm
         )
 
         self.payment_modal = PendingPaymentModal(
             session=self.session,
             on_save=self.on_pending_payment_saved,
-            on_update=self.on_pending_payment_updated
+            on_update=self.on_pending_payment_updated,
         )
 
         self.planned_transaction_modal = PlannedTransactionModal(
-            session=self.session,
-            on_save=self.on_planned_transaction_saved
+            session=self.session, on_save=self.on_planned_transaction_saved
         )
 
         # Layout с новыми пропорциями 2:2:4:3 (всего 11 частей)
@@ -146,24 +163,20 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 controls=[
                     # Колонка 1 (2/11): Плановые транзакции
                     ft.Column(
-                        controls=[
-                            self.planned_widget
-                        ],
+                        controls=[self.planned_widget],
                         expand=2,
                         spacing=20,
                         scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                     ft.VerticalDivider(width=1),
                     # Колонка 2 (2/11): Отложенные платежи (НОВАЯ ПОЗИЦИЯ)
                     ft.Column(
-                        controls=[
-                            self.pending_payments_widget
-                        ],
+                        controls=[self.pending_payments_widget],
                         expand=2,
                         spacing=20,
                         scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                     ft.VerticalDivider(width=1),
                     # Колонка 3 (4/11): Вертикальный календарь и легенда
@@ -175,24 +188,24 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                         expand=4,
                         spacing=20,
                         scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                     ft.VerticalDivider(width=1),
                     # Колонка 4 (3/11): Панель транзакций
                     ft.Column(
-                        controls=[
-                            self.transactions_panel
-                        ],
+                        controls=[self.transactions_panel],
                         expand=3,
                         scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START
-                    )
+                        alignment=ft.MainAxisAlignment.START,
+                    ),
                 ],
                 expand=True,
                 spacing=20,
                 alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.START
-            )
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            ),
+            ft.Divider(height=1),
+            self.today_section,
         ]
 
         logger.info("HomeView инициализирован")
@@ -206,7 +219,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """
         try:
             # Получаем ширину страницы
-            if hasattr(self._page, 'width') and self._page.width:
+            if hasattr(self._page, "width") and self._page.width:
                 page_width = self._page.width
             else:
                 # Fallback к стандартной ширине
@@ -247,13 +260,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def update_calendar_width(self):
         """
         Обновляет ширину календаря в легенде при изменении размеров окна.
-        
+
         Этот метод может быть вызван при изменении размеров окна
         для обновления адаптивности легенды.
         """
         try:
             new_width = self._calculate_calendar_width()
-            if hasattr(self, 'legend') and self.legend:
+            if hasattr(self, "legend") and self.legend:
                 self.legend.update_calendar_width(new_width)
                 logger.debug(f"Ширина календаря в легенде обновлена до {new_width}px")
         except Exception as e:
@@ -269,9 +282,200 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         try:
             # Обновляем ширину календаря после монтирования, когда page.width доступен
             self.update_calendar_width()
+            self.refresh_today_metrics()
             logger.debug("HomeView смонтирован, ширина календаря обновлена")
         except Exception as e:
             logger.error(f"Ошибка при монтировании HomeView: {e}")
+
+    def _build_today_section(self) -> ft.Control:
+        self.today_balance_value = ft.Text("—", key="today_balance_value")
+        self.today_mandatory_value = ft.Text("—", key="today_mandatory_value")
+        self.today_risk_7_value = ft.Text("—", key="today_risk_7_value")
+        self.today_risk_30_value = ft.Text("—", key="today_risk_30_value")
+
+        add_tx_btn = ft.Button(
+            "Добавить транзакцию",
+            icon=ft.Icons.ADD,
+            key="today_action_add_tx",
+            on_click=self.on_today_add_transaction,
+        )
+        mark_payment_btn = ft.Button(
+            "Отметить платёж",
+            icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
+            key="today_action_mark_payment",
+            on_click=self.on_today_mark_payment,
+        )
+        open_risk_btn = ft.Button(
+            "Риск 7/30",
+            icon=ft.Icons.WARNING_AMBER_OUTLINED,
+            key="today_action_open_risk",
+            on_click=self.on_today_open_risk,
+        )
+
+        return ft.Container(
+            key="today_section",
+            padding=ft.Padding.all(12),
+            border_radius=10,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Text("Сегодня", size=16, weight=ft.FontWeight.BOLD, key="today_title"),
+                    ft.Row(
+                        spacing=16,
+                        controls=[
+                            ft.Column(
+                                spacing=2,
+                                controls=[
+                                    ft.Text("Баланс", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                                    self.today_balance_value,
+                                ],
+                            ),
+                            ft.Column(
+                                spacing=2,
+                                controls=[
+                                    ft.Text(
+                                        "Обязательные / просрочено",
+                                        size=12,
+                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                    ),
+                                    self.today_mandatory_value,
+                                ],
+                            ),
+                            ft.Column(
+                                spacing=2,
+                                controls=[
+                                    ft.Text(
+                                        "Риск (кассовые разрывы)",
+                                        size=12,
+                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                    ),
+                                    ft.Row(
+                                        spacing=12,
+                                        controls=[
+                                            ft.Row(
+                                                spacing=4,
+                                                controls=[
+                                                    ft.Text(
+                                                        "7д:",
+                                                        size=12,
+                                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                                    ),
+                                                    self.today_risk_7_value,
+                                                ],
+                                            ),
+                                            ft.Row(
+                                                spacing=4,
+                                                controls=[
+                                                    ft.Text(
+                                                        "30д:",
+                                                        size=12,
+                                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                                    ),
+                                                    self.today_risk_30_value,
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    ft.Row(spacing=10, controls=[add_tx_btn, mark_payment_btn, open_risk_btn]),
+                ],
+            ),
+        )
+
+    def refresh_today_metrics(self) -> None:
+        try:
+            today = datetime.date.today()
+
+            balance = calculate_actual_balance(self.session, today)
+            self.today_balance_value.value = f"{balance:,.2f} ₽".replace(",", " ")
+
+            pending_with_date = pending_payment_service.get_all_pending_payments(
+                self.session, has_planned_date=True
+            )
+            pending_due_today = [p for p in pending_with_date if p.planned_date == today]
+            pending_overdue = [
+                p for p in pending_with_date if p.planned_date and p.planned_date < today
+            ]
+
+            loan_payments_today = loan_payment_service.get_payments_by_date(self.session, today)
+            loan_due_today = [p for p in loan_payments_today if p.status == PaymentStatus.PENDING]
+            overdue_loan_stats = loan_payment_service.get_overdue_statistics(self.session)
+
+            planned_occurrences_today = planned_transaction_service.get_occurrences_by_date(
+                self.session, today
+            )
+            planned_due_today = [
+                o
+                for o in planned_occurrences_today
+                if getattr(o, "status", None) == OccurrenceStatus.PENDING
+            ]
+
+            due_today_count = len(pending_due_today) + len(loan_due_today) + len(planned_due_today)
+            overdue_count = len(pending_overdue) + int(
+                overdue_loan_stats.get("total_overdue", 0) or 0
+            )
+
+            self.today_mandatory_value.value = f"{due_today_count} / {overdue_count}"
+
+            gaps_7 = detect_cash_gaps(self.session, today, today + datetime.timedelta(days=7))
+            gaps_30 = detect_cash_gaps(self.session, today, today + datetime.timedelta(days=30))
+
+            self._today_cash_gaps_7 = gaps_7
+            self._today_cash_gaps_30 = gaps_30
+
+            self.today_risk_7_value.value = f"{len(gaps_7)} дат"
+            self.today_risk_30_value.value = f"{len(gaps_30)} дат"
+
+            self.today_risk_7_value.color = ft.Colors.ERROR if gaps_7 else ft.Colors.ON_SURFACE
+            self.today_risk_30_value.color = ft.Colors.ERROR if gaps_30 else ft.Colors.ON_SURFACE
+            self.update()
+
+        except Exception as e:
+            logger.debug(f"Не удалось обновить метрики 'Сегодня': {e}")
+
+    def on_today_add_transaction(self, e=None):
+        self.open_add_transaction_modal()
+
+    def on_today_mark_payment(self, e=None):
+        if self.navigate_callback:
+            try:
+                self.navigate_callback(3)
+            except Exception as ex:
+                logger.error(f"Ошибка при навигации к отложенным платежам: {ex}")
+        else:
+            logger.warning("Метод навигации не доступен в HomeView")
+
+    def on_today_open_risk(self, e=None):
+        try:
+            gaps = self._today_cash_gaps_30
+            gaps_text = (
+                "\n".join([d.strftime("%d.%m.%Y") for d in gaps[:10]])
+                if gaps
+                else "Кассовых разрывов не обнаружено"
+            )
+            if len(gaps) > 10:
+                gaps_text += f"\n... (+{len(gaps) - 10})"
+
+            dlg = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Риск на 30 дней"),
+                content=ft.Column(
+                    tight=True,
+                    spacing=8,
+                    controls=[
+                        ft.Text(f"Кассовые разрывы: {len(gaps)}"),
+                        ft.Text(gaps_text),
+                    ],
+                ),
+                actions=[ft.TextButton("Закрыть", on_click=lambda _: self._page.close(dlg))],
+            )
+            self._page.open(dlg)
+        except Exception as ex:
+            logger.error(f"Ошибка при открытии окна риска: {ex}")
 
     # ========== IHomeViewCallbacks Implementation ==========
 
@@ -280,10 +484,14 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.calendar_widget.set_transactions(transactions, occurrences)
         self.update()
 
-    def update_transactions(self, date_obj: datetime.date, transactions: List[Any], occurrences: List[Any]) -> None:
+    def update_transactions(
+        self, date_obj: datetime.date, transactions: List[Any], occurrences: List[Any]
+    ) -> None:
         """Обновить список транзакций для выбранной даты."""
         self.selected_date = date_obj
         self.transactions_panel.set_data(date_obj, transactions, occurrences)
+        if date_obj == datetime.date.today():
+            self.refresh_today_metrics()
         self.update()
 
     def update_planned_occurrences(self, occurrences: List[Tuple[Any, str, str]]) -> None:
@@ -303,31 +511,30 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def show_error(self, error: str) -> None:
         """Показать сообщение об ошибке."""
         self._page.open(ft.SnackBar(content=ft.Text(error), bgcolor=ft.Colors.ERROR))
-    
+
     def update_calendar_selection(self, date_obj: datetime.date) -> None:
         """
         Обновить выделение даты в календаре.
-        
+
         Программно обновляет выделение даты в календаре без вызова callback.
         Используется для синхронизации календаря при выборе даты из других компонентов.
-        
+
         Args:
             date_obj: Дата для выделения в календаре
         """
         try:
             logger.debug(f"update_calendar_selection вызван с датой: {date_obj}")
-            
+
             # Делегируем в calendar_widget для программного обновления выделения
             self.calendar_widget.select_date(date_obj)
-            
+
             logger.debug(
                 f"update_calendar_selection завершён успешно, "
                 f"calendar_widget.select_date() вызван для даты {date_obj}"
             )
         except Exception as e:
             logger.warning(
-                f"Ошибка при обновлении выделения календаря для даты {date_obj}: {e}",
-                exc_info=True
+                f"Ошибка при обновлении выделения календаря для даты {date_obj}: {e}", exc_info=True
             )
 
     # ========== UI Event Handlers (делегируют в Presenter) ==========
@@ -339,52 +546,58 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def open_add_transaction_modal(self):
         """Открытие модального окна добавления транзакции."""
         try:
-            logger.debug(f"Открытие модального окна добавления транзакции для даты: {self.selected_date}")
-            
+            logger.debug(
+                f"Открытие модального окна добавления транзакции для даты: {self.selected_date}"
+            )
+
             if not self._page:
                 logger.error("Page не инициализирована для открытия модального окна")
                 return
-                
+
             if not self.transaction_modal:
                 logger.error("TransactionModal не инициализирован")
                 return
-                
+
             self.transaction_modal.open(self._page, self.selected_date)
             logger.info("Модальное окно добавления транзакции успешно открыто")
-            
+
         except Exception as e:
-            logger.error(f"Ошибка при открытии модального окна добавления транзакции: {e}", exc_info=True)
+            logger.error(
+                f"Ошибка при открытии модального окна добавления транзакции: {e}", exc_info=True
+            )
             if self._page:
                 try:
-                    self._page.open(ft.SnackBar(
-                        content=ft.Text("Не удалось открыть форму добавления транзакции"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
+                    self._page.open(
+                        ft.SnackBar(
+                            content=ft.Text("Не удалось открыть форму добавления транзакции"),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
                 except Exception as snack_error:
                     logger.error(f"Не удалось показать SnackBar: {snack_error}")
-    
+
     def _close_bottom_sheet(self):
         """Закрытие BottomSheet."""
         try:
-            if hasattr(self, 'bottom_sheet'):
+            if hasattr(self, "bottom_sheet"):
                 self._page.close(self.bottom_sheet)
                 logger.info("BottomSheet закрыт")
         except Exception as e:
             logger.error(f"Ошибка при закрытии BottomSheet: {e}")
-    
+
     def _open_real_modal_from_sheet(self):
         """Открытие настоящего модального окна транзакции из BottomSheet."""
         try:
             # Закрываем BottomSheet
             self._close_bottom_sheet()
-            
+
             if not self.transaction_modal:
                 logger.error("TransactionModal не инициализирован")
                 return
-                
+
             self.transaction_modal.open(self._page, self.selected_date)
             logger.info("Настоящее модальное окно добавления транзакции открыто")
-            
+
         except Exception as e:
             logger.error(f"Ошибка при открытии настоящего модального окна: {e}", exc_info=True)
 
@@ -395,27 +608,33 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_edit_transaction(self, transaction: TransactionDB):
         """Открытие модального окна редактирования транзакции."""
         try:
-            logger.debug(f"Открытие модального окна редактирования для транзакции: {transaction.id}")
-            
+            logger.debug(
+                f"Открытие модального окна редактирования для транзакции: {transaction.id}"
+            )
+
             if not self._page:
                 logger.error("Page не инициализирована для открытия модального окна редактирования")
                 return
-                
+
             if not self.transaction_modal:
                 logger.error("TransactionModal не инициализирован")
                 return
-                
+
             self.transaction_modal.open_edit(self._page, transaction)
             logger.info("Модальное окно редактирования транзакции успешно открыто")
-            
+
         except Exception as e:
-            logger.error(f"Ошибка при открытии модального окна редактирования транзакции: {e}", exc_info=True)
+            logger.error(
+                f"Ошибка при открытии модального окна редактирования транзакции: {e}", exc_info=True
+            )
             if self._page:
                 try:
-                    self._page.open(ft.SnackBar(
-                        content=ft.Text("Не удалось открыть форму редактирования транзакции"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
+                    self._page.open(
+                        ft.SnackBar(
+                            content=ft.Text("Не удалось открыть форму редактирования транзакции"),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
                 except Exception as snack_error:
                     logger.error(f"Не удалось показать SnackBar: {snack_error}")
 
@@ -423,7 +642,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Показ диалога подтверждения удаления транзакции."""
         try:
             logger.debug(f"Запрос на удаление транзакции: {transaction.id}")
-            
+
             # Получаем имя категории для отображения
             category_name = "Без категории"
             try:
@@ -450,7 +669,11 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                         ft.Text(f"Описание: {transaction.description or 'Не указано'}"),
                         ft.Text(f"Дата: {transaction.transaction_date.strftime('%d.%m.%Y')}"),
                         ft.Divider(),
-                        ft.Text("Это действие нельзя отменить!", color=ft.Colors.ERROR, weight=ft.FontWeight.BOLD),
+                        ft.Text(
+                            "Это действие нельзя отменить!",
+                            color=ft.Colors.ERROR,
+                            weight=ft.FontWeight.BOLD,
+                        ),
                     ],
                     tight=True,
                     spacing=10,
@@ -458,27 +681,29 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 actions=[
                     ft.TextButton("Отмена", on_click=cancel_delete),
                     ft.Button(
-                        "Удалить", 
-                        on_click=confirm_delete, 
+                        "Удалить",
+                        on_click=confirm_delete,
                         bgcolor=ft.Colors.ERROR,
-                        color=ft.Colors.ON_ERROR
+                        color=ft.Colors.ON_ERROR,
                     ),
                 ],
             )
 
             # Используем page.open() вместо page.dialog
             self._page.open(dialog)
-            
+
             logger.info("Диалог подтверждения удаления транзакции показан")
-            
+
         except Exception as e:
             logger.error(f"Ошибка при показе диалога удаления транзакции: {e}", exc_info=True)
             if self._page:
                 try:
-                    self._page.open(ft.SnackBar(
-                        content=ft.Text("Ошибка при открытии диалога удаления"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
+                    self._page.open(
+                        ft.SnackBar(
+                            content=ft.Text("Ошибка при открытии диалога удаления"),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
                 except Exception as snack_error:
                     logger.error(f"Не удалось показать SnackBar: {snack_error}")
 
@@ -491,10 +716,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             logger.error(f"Ошибка при обработке обновления транзакции: {e}", exc_info=True)
             if self._page:
                 try:
-                    self._page.open(ft.SnackBar(
-                        content=ft.Text("Ошибка при сохранении изменений транзакции"),
-                        bgcolor=ft.Colors.ERROR
-                    ))
+                    self._page.open(
+                        ft.SnackBar(
+                            content=ft.Text("Ошибка при сохранении изменений транзакции"),
+                            bgcolor=ft.Colors.ERROR,
+                        )
+                    )
                 except Exception as snack_error:
                     logger.error(f"Не удалось показать SnackBar: {snack_error}")
 
@@ -506,10 +733,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Открытие модального окна для пропуска планового вхождения."""
         self.execute_occurrence_modal.open(self._page, occurrence)
 
-    def on_occurrence_executed_confirm(self, occurrence_id: str, amount: Decimal, execution_date: datetime.date):
+    def on_occurrence_executed_confirm(
+        self, occurrence_id: str, amount: Decimal, execution_date: datetime.date
+    ):
         """Подтверждение исполнения вхождения - делегирует в Presenter."""
         # Получаем occurrence из БД
         from finance_tracker.models import PlannedOccurrenceDB
+
         occurrence = self.session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
         if occurrence:
             self.presenter.execute_occurrence(occurrence, execution_date, amount)
@@ -518,6 +748,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Подтверждение пропуска вхождения - делегирует в Presenter."""
         # Получаем occurrence из БД
         from finance_tracker.models import PlannedOccurrenceDB
+
         occurrence = self.session.query(PlannedOccurrenceDB).filter_by(id=occurrence_id).first()
         if occurrence:
             self.presenter.skip_occurrence(occurrence)
@@ -529,10 +760,10 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_occurrence_clicked(self, occurrence: PlannedOccurrence):
         """
         Обработка клика на плановое вхождение в обзорном виджете.
-        
+
         Переключает календарь на дату вхождения для отображения
         связанных транзакций в правой панели.
-        
+
         Args:
             occurrence: Плановое вхождение, на которое кликнули.
         """
@@ -547,10 +778,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
                 f"[ДИАГНОСТИКА] Календарь переключён на дату вхождения: {occurrence.occurrence_date}"
             )
         except Exception as e:
-            logger.error(
-                f"Ошибка при обработке клика на вхождение: {e}",
-                exc_info=True
-            )
+            logger.error(f"Ошибка при обработке клика на вхождение: {e}", exc_info=True)
             self.show_error("Не удалось переключить календарь на дату вхождения")
 
     def on_show_all_occurrences(self):
@@ -572,9 +800,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Отмена отложенного платежа."""
         # Показываем диалог с подтверждением и полем для причины
         reason_field = ft.TextField(
-            label="Причина отмены (опционально)",
-            multiline=True,
-            max_lines=3
+            label="Причина отмены (опционально)", multiline=True, max_lines=3
         )
 
         def confirm_cancel(e):
@@ -609,6 +835,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
     def on_delete_payment(self, payment_id: int):
         """Удаление отложенного платежа."""
+
         def confirm_delete(e):
             self._page.close(dialog)
             # Делегируем в Presenter
@@ -629,7 +856,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
 
         self._page.open(dialog)
 
-    def on_payment_executed_confirm(self, payment_id: int, executed_amount: float, executed_date: datetime.date):
+    def on_payment_executed_confirm(
+        self, payment_id: int, executed_amount: float, executed_date: datetime.date
+    ):
         """Подтверждение исполнения отложенного платежа - делегирует в Presenter."""
         self.presenter.execute_pending_payment(payment_id, executed_amount, executed_date)
 
@@ -649,25 +878,27 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         """Открытие модального окна добавления отложенного платежа."""
         try:
             logger.debug("Открытие модального окна добавления отложенного платежа")
-            
+
             if not self._page:
                 logger.error("Page не инициализирована")
                 return
-                
+
             if not self.payment_modal:
                 logger.error("PendingPaymentModal не инициализирован")
                 return
-                
+
             self.payment_modal.open(self._page)
             logger.info("Модальное окно добавления отложенного платежа открыто")
-            
+
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна: {e}", exc_info=True)
             if self._page:
-                self._page.open(ft.SnackBar(
-                    content=ft.Text("Не удалось открыть форму добавления платежа"),
-                    bgcolor=ft.Colors.ERROR
-                ))
+                self._page.open(
+                    ft.SnackBar(
+                        content=ft.Text("Не удалось открыть форму добавления платежа"),
+                        bgcolor=ft.Colors.ERROR,
+                    )
+                )
 
     def on_pending_payment_saved(self, data: PendingPaymentCreate):
         """Обработка сохранения нового отложенного платежа."""
@@ -697,10 +928,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна редактирования: {e}", exc_info=True)
             if self._page:
-                self._page.open(ft.SnackBar(
-                    content=ft.Text("Не удалось открыть форму редактирования платежа"),
-                    bgcolor=ft.Colors.ERROR
-                ))
+                self._page.open(
+                    ft.SnackBar(
+                        content=ft.Text("Не удалось открыть форму редактирования платежа"),
+                        bgcolor=ft.Colors.ERROR,
+                    )
+                )
 
     def on_pending_payment_updated(self, payment_id: str, data: PendingPaymentUpdate):
         """
@@ -715,19 +948,19 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_add_planned_transaction(self):
         """
         Открытие модального окна добавления плановой транзакции.
-        
+
         Вызывается при нажатии кнопки "+" в виджете плановых транзакций.
         """
         try:
             logger.debug("Открытие модального окна добавления плановой транзакции")
-            
+
             if not self._page:
                 logger.error("Page не инициализирована")
                 return
-                
+
             self.planned_transaction_modal.open(self._page, self.selected_date)
             logger.info("Модальное окно добавления плановой транзакции открыто")
-            
+
         except Exception as e:
             logger.error(f"Ошибка при открытии модального окна: {e}", exc_info=True)
             self.show_error("Не удалось открыть форму добавления плановой транзакции")
@@ -735,7 +968,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     def on_planned_transaction_saved(self, data: PlannedTransactionCreate):
         """
         Обработка сохранения новой плановой транзакции.
-        
+
         Args:
             data: Данные для создания плановой транзакции.
         """
@@ -748,13 +981,13 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             label="Сумма платежа",
             value=str(float(payment.total_amount)),
             keyboard_type=ft.KeyboardType.NUMBER,
-            suffix="₽"
+            suffix="₽",
         )
 
         date_field = ft.TextField(
             label="Дата исполнения",
             value=datetime.date.today().strftime("%Y-%m-%d"),
-            hint_text="YYYY-MM-DD"
+            hint_text="YYYY-MM-DD",
         )
 
         def confirm_execute(e):
@@ -771,7 +1004,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             try:
                 exec_date = datetime.datetime.strptime(date_field.value, "%Y-%m-%d").date()
             except ValueError:
-                self._page.open(ft.SnackBar(content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)")))
+                self._page.open(
+                    ft.SnackBar(content=ft.Text("Некорректный формат даты (ожидается YYYY-MM-DD)"))
+                )
                 return
 
             self._page.close(dialog)
