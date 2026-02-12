@@ -219,7 +219,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         logger.info("HomeView инициализирован")
 
     def _calculate_center_column_width(self, calendar_width: int) -> int:
-        return calendar_width + 72
+        return calendar_width + 18
 
     def _calculate_calendar_width(self) -> int:
         """
