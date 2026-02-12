@@ -16,6 +16,7 @@ from finance_tracker.views.settings_view import SettingsView
 
 logger = get_logger(__name__)
 
+
 class MainWindow(ft.Row):
     def __init__(self, page: ft.Page):
         super().__init__()
@@ -29,6 +30,7 @@ class MainWindow(ft.Row):
 
         # HomeView будет создан один раз в init_ui() и переиспользован
         self.home_view = None
+        self._resize_sync_in_progress = False
 
         self.setup_page()
         self.init_ui()
@@ -39,32 +41,37 @@ class MainWindow(ft.Row):
     def setup_page(self):
         """Настройка основных параметров страницы"""
         self._page.title = "Finance Tracker"
-        self._page.theme_mode = ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
+        self._page.theme_mode = (
+            ft.ThemeMode.LIGHT if settings.theme_mode == "light" else ft.ThemeMode.DARK
+        )
         self._page.padding = 0
-        
+
         # Настройка локализации на русский язык
         self._page.locale_configuration = ft.LocaleConfiguration(
             supported_locales=[
                 ft.Locale("ru", "RU"),
                 ft.Locale("en", "US"),
             ],
-            current_locale=ft.Locale("ru", "RU")
+            current_locale=ft.Locale("ru", "RU"),
         )
-        
+
         # Настройка иконки окна
         try:
             import os
             import sys
+
             # Определяем путь к иконке (работает и в dev, и в собранном .exe)
-            if getattr(sys, 'frozen', False):
+            if getattr(sys, "frozen", False):
                 # Если приложение собрано PyInstaller
-                base_path = sys._MEIPASS
+                base_path = getattr(sys, "_MEIPASS", os.getcwd())
             else:
                 # Если запускается из исходников - идём к корню проекта
                 # src/finance_tracker/views/main_window.py -> корень проекта
-                base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-            
-            icon_path = os.path.join(base_path, 'assets', 'icon.ico')
+                base_path = os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                )
+
+            icon_path = os.path.join(base_path, "assets", "icon.ico")
             if os.path.exists(icon_path) and hasattr(self._page, "window") and self._page.window:
                 self._page.window.icon = icon_path
                 logger.info(f"Иконка окна установлена: {icon_path}")
@@ -72,10 +79,12 @@ class MainWindow(ft.Row):
                 logger.warning(f"Иконка не найдена по пути: {icon_path}")
         except Exception as e:
             logger.error(f"Ошибка при установке иконки окна: {e}")
-        
+
         # ВСЕГДА разворачиваем окно на весь экран при запуске
         if hasattr(self._page, "window") and self._page.window:
             self._page.window.maximized = True
+
+        self._page.on_resize = self._on_page_resize
 
         # Примечание: width/height/top/left не устанавливаем, так как окно maximized
         # Эти значения будут использованы, если пользователь выйдет из полноэкранного режима
@@ -88,23 +97,43 @@ class MainWindow(ft.Row):
         try:
             with get_db_session() as session:
                 balance = get_total_balance(session)
-                if hasattr(self, 'balance_text') and self.balance_text:
+                if hasattr(self, "balance_text") and self.balance_text:
                     self.balance_text.value = f"Баланс: {balance:,.2f} ₽".replace(",", " ")
                     # Обновляем только если элемент уже добавлен на страницу
-                    if self._page and hasattr(self.balance_text, 'page') and self.balance_text.page:
+                    if self._page and hasattr(self.balance_text, "page") and self.balance_text.page:
                         self.balance_text.update()
         except Exception as e:
             logger.error(f"Ошибка при обновлении баланса: {e}")
+
+    def _on_page_resize(self, _e=None):
+        if self._resize_sync_in_progress:
+            return
+
+        self._resize_sync_in_progress = True
+        try:
+            if self.home_view and hasattr(self.home_view, "update_calendar_width"):
+                self.home_view.update_calendar_width()
+                if hasattr(self.home_view, "page") and self.home_view.page:
+                    self.home_view.update()
+        except Exception as e:
+            logger.debug(f"Не удалось синхронизировать layout после resize: {e}")
+        finally:
+            self._resize_sync_in_progress = False
+
+    def sync_layout(self):
+        self._on_page_resize()
 
     def init_ui(self):
         # Создаем HomeView один раз с persistent Session
         # HomeView получает Session через Dependency Injection и не управляет его жизненным циклом
         # Передаем navigate_callback для возможности программной навигации из HomeView
-        self.home_view = HomeView(self._page, self.home_view_session, navigate_callback=self.navigate)
+        self.home_view = HomeView(
+            self._page, self.home_view_session, navigate_callback=self.navigate
+        )
 
         # Боковая панель навигации
         self.rail = ft.NavigationRail(
-            selected_index=settings.last_selected_index,
+            selected_index=int(settings.last_selected_index or 0),
             label_type=ft.NavigationRailLabelType.ALL,
             min_width=100,
             min_extended_width=200,
@@ -161,10 +190,7 @@ class MainWindow(ft.Row):
 
         # Текст баланса (будет обновляться в 4.4)
         self.balance_text = ft.Text(
-            "Баланс: 0.00 ₽",
-            size=20,
-            weight=ft.FontWeight.BOLD,
-            color=ft.Colors.ON_SURFACE_VARIANT
+            "Баланс: 0.00 ₽", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.ON_SURFACE_VARIANT
         )
 
         # AppBar
@@ -174,20 +200,15 @@ class MainWindow(ft.Row):
             title=ft.Text("Finance Tracker"),
             center_title=False,
             bgcolor=ft.Colors.BLUE_GREY_100,
-            actions=[
-                ft.Container(
-                    content=self.balance_text,
-                    padding=ft.Padding.only(right=20)
-                )
-            ]
+            actions=[ft.Container(content=self.balance_text, padding=ft.Padding.only(right=20))],
         )
 
         # Область контента
         self.content_area = ft.Container(
-            content=self.get_view(settings.last_selected_index),
+            content=self.get_view(int(settings.last_selected_index or 0)),
             expand=True,
             alignment=ft.Alignment.TOP_LEFT,
-            padding=20
+            padding=20,
         )
 
         # Компоновка: Навигация слева, контент справа
@@ -200,13 +221,14 @@ class MainWindow(ft.Row):
     def did_mount(self):
         """Вызывается после добавления на страницу - инициализируем данные HomeView"""
         try:
+            self._on_page_resize()
             # Теперь HomeView добавлен на страницу и можно загружать данные
-            if self.home_view and hasattr(self.home_view, 'presenter'):
+            if self.home_view and hasattr(self.home_view, "presenter"):
                 self.home_view.presenter.load_initial_data()
-            
+
             # Обновляем баланс в AppBar
             self.update_balance()
-            
+
             logger.info("MainWindow успешно инициализирован после монтирования")
         except Exception as e:
             logger.error(f"Ошибка при инициализации данных после монтирования: {e}")
@@ -216,12 +238,19 @@ class MainWindow(ft.Row):
 
     def save_state(self):
         """Сохраняет текущее состояние приложения"""
-        settings.last_selected_index = self.rail.selected_index
+        settings.last_selected_index = int(self.rail.selected_index or 0)
         if hasattr(self._page, "window") and self._page.window:
-            settings.window_width = self._page.window.width
-            settings.window_height = self._page.window.height
-            settings.window_top = self._page.window.top
-            settings.window_left = self._page.window.left
+            width = self._page.window.width
+            height = self._page.window.height
+            top = self._page.window.top
+            left = self._page.window.left
+
+            if isinstance(width, (int, float)):
+                settings.window_width = int(width)
+            if isinstance(height, (int, float)):
+                settings.window_height = int(height)
+            settings.window_top = int(top) if isinstance(top, (int, float)) else None
+            settings.window_left = int(left) if isinstance(left, (int, float)) else None
         settings.save()
 
     def navigate(self, index: int):
@@ -229,7 +258,7 @@ class MainWindow(ft.Row):
         self.rail.selected_index = index
         # Обновляем NavigationRail для отображения активного раздела
         # Проверяем, что rail уже добавлен на страницу перед вызовом update()
-        if hasattr(self.rail, 'page') and self.rail.page:
+        if hasattr(self.rail, "page") and self.rail.page:
             self.rail.update()
         self.content_area.content = self.get_view(index)
         self.content_area.update()
@@ -246,9 +275,15 @@ class MainWindow(ft.Row):
         При возврате на HomeView данные обновляются для отображения актуальной информации.
         """
         if index == 0:
+            if self.home_view is None:
+                self.home_view = HomeView(
+                    self._page,
+                    self.home_view_session,
+                    navigate_callback=self.navigate,
+                )
             # Переиспользуем созданный HomeView (не создаем новый)
             # Обновляем данные при возврате на главный экран
-            if self.home_view and hasattr(self.home_view, 'presenter'):
+            if self.home_view and hasattr(self.home_view, "presenter"):
                 try:
                     self.home_view.presenter.load_initial_data()
                     logger.info("Данные HomeView обновлены при возврате на главный экран")
@@ -282,7 +317,7 @@ class MainWindow(ft.Row):
         MainWindow создал Session через context manager и должен корректно его закрыть.
         """
         try:
-            if hasattr(self, 'home_view_session_cm'):
+            if hasattr(self, "home_view_session_cm"):
                 # Вызываем __exit__ для корректного закрытия Session
                 self.home_view_session_cm.__exit__(None, None, None)
                 logger.info("Session для HomeView корректно закрыт")
