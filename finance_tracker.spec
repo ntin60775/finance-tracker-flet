@@ -1,11 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_data_files
+
+
+flet_desktop_datas = collect_data_files('flet_desktop')
+flet_datas = collect_data_files('flet')
+
 
 a = Analysis(
     ['src/finance_tracker/__main__.py'],
     pathex=['src'],
     binaries=[],
-    datas=[('assets\\icon.ico', 'assets'), ('assets\\icon.png', 'assets')],
+    datas=[('assets\\icon.ico', 'assets'), ('assets\\icon.png', 'assets')] + flet_desktop_datas + flet_datas,
     hiddenimports=[
         'finance_tracker',
         'finance_tracker.app',

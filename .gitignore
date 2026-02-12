@@ -8,6 +8,7 @@ __pycache__/
 # Build artifacts
 dist/
 build/
+release/
 *.egg-info/
 *.spec
 !finance_tracker.spec
