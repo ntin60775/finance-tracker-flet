@@ -4,7 +4,7 @@ from typing import List, Any, Tuple, Dict, Optional, Callable
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.enums import OccurrenceStatus, PaymentStatus
+from finance_tracker.models.enums import OccurrenceStatus, PaymentStatus, TransactionType
 from finance_tracker.models.models import (
     TransactionCreate,
     TransactionUpdate,
@@ -45,11 +45,10 @@ class HomeView(ft.Column, IHomeViewCallbacks):
     """
     Главный экран приложения (Календарь + Транзакции + Плановые операции).
 
-    Состоит из четырёх колонок с пропорциями 2:2:4:3 (всего 11 частей):
-    - Первая (2/11 ширины): Виджет плановых транзакций
-    - Вторая (2/11 ширины): Виджет отложенных платежей
-    - Третья (4/11 ширины): Вертикальный календарь и легенда
-    - Четвёртая (3/11 ширины): Список транзакций выбранного дня
+    Компоновка:
+    - 3 колонки: контекст (плановые + отложенные), календарь, день-инспектор
+    - центрированный контейнер с max-width 1760px
+    - нижняя фикс-панель "Сегодня" с компенсацией высоты в main area
 
     Реализует паттерн MVP: View делегирует бизнес-логику в Presenter,
     получает обновления через IHomeViewCallbacks.
@@ -60,6 +59,17 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         navigate_callback: Опциональный callback для навигации между разделами приложения.
                           Принимает индекс раздела (int) для переключения.
     """
+
+    MAX_CONTENT_WIDTH = 1760
+    DEFAULT_PAGE_WIDTH = 1920
+    COLUMN_GAP = 16
+    CENTER_COLUMN_MIN_WIDTH = 680
+    SIDE_COLUMN_MIN_WIDTH = 360
+    SIDE_COLUMN_MAX_WIDTH = 420
+    SIDE_COLUMN_FALLBACK_MIN_WIDTH = 300
+    BOTTOM_BAR_HEIGHT = 72
+    BOTTOM_BAR_SPACING = 16
+    MAIN_AREA_BOTTOM_PADDING = BOTTOM_BAR_HEIGHT + BOTTOM_BAR_SPACING
 
     def __init__(
         self,
@@ -72,18 +82,18 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self.session = session
         self.selected_date = datetime.date.today()
         self.navigate_callback = navigate_callback
+        self.spacing = 0
+        self.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
         # Создаем Presenter с инжекцией зависимостей
         self.presenter = HomePresenter(session, self)
 
         # Получаем высоту страницы для адаптивных размеров календаря
-        page_height = (
-            self._page.height if hasattr(self._page, "height") and self._page.height else None
-        )
+        raw_page_height = self._page.height if hasattr(self._page, "height") else None
+        page_height = self._safe_int(raw_page_height, 1080) if raw_page_height else None
 
         self._today_cash_gaps_7: List[datetime.date] = []
         self._today_cash_gaps_30: List[datetime.date] = []
-        self.today_section = self._build_today_section()
 
         # UI Components
         self.calendar_widget = CalendarWidget(
@@ -157,58 +167,142 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             session=self.session, on_save=self.on_planned_transaction_saved
         )
 
-        # Layout с новыми пропорциями 2:2:4:3 (всего 11 частей)
-        self.controls = [
-            ft.Row(
-                controls=[
-                    # Колонка 1 (2/11): Плановые транзакции
-                    ft.Column(
-                        controls=[self.planned_widget],
-                        expand=2,
-                        spacing=20,
-                        scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.VerticalDivider(width=1),
-                    # Колонка 2 (2/11): Отложенные платежи (НОВАЯ ПОЗИЦИЯ)
-                    ft.Column(
-                        controls=[self.pending_payments_widget],
-                        expand=2,
-                        spacing=20,
-                        scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.VerticalDivider(width=1),
-                    # Колонка 3 (4/11): Вертикальный календарь и легенда
-                    ft.Column(
-                        controls=[
-                            self.calendar_widget,
-                            self.legend,
-                        ],
-                        expand=4,
-                        spacing=20,
-                        scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.VerticalDivider(width=1),
-                    # Колонка 4 (3/11): Панель транзакций
-                    ft.Column(
-                        controls=[self.transactions_panel],
-                        expand=3,
-                        scroll=ft.ScrollMode.AUTO,
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                ],
-                expand=True,
-                spacing=20,
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.START,
+        self._layout_metrics = self._calculate_layout_metrics()
+
+        self.left_column = ft.Column(
+            controls=[self.planned_widget, self.pending_payments_widget],
+            spacing=self.COLUMN_GAP,
+            scroll=ft.ScrollMode.AUTO,
+            alignment=ft.MainAxisAlignment.START,
+        )
+        self.center_column = ft.Column(
+            controls=[self.calendar_widget, self.legend],
+            spacing=self.COLUMN_GAP,
+            scroll=ft.ScrollMode.AUTO,
+            alignment=ft.MainAxisAlignment.START,
+        )
+        self.right_column = ft.Column(
+            controls=[self.transactions_panel],
+            spacing=self.COLUMN_GAP,
+            scroll=ft.ScrollMode.AUTO,
+            alignment=ft.MainAxisAlignment.START,
+        )
+
+        self.left_column_container = ft.Container(
+            width=self._layout_metrics["left_width"],
+            content=self.left_column,
+        )
+        self.center_column_container = ft.Container(
+            expand=True,
+            content=self.center_column,
+        )
+        self.right_column_container = ft.Container(
+            width=self._layout_metrics["right_width"],
+            content=self.right_column,
+        )
+
+        self.main_row = ft.Row(
+            controls=[
+                self.left_column_container,
+                self.center_column_container,
+                self.right_column_container,
+            ],
+            width=self._layout_metrics["container_width"],
+            expand=True,
+            spacing=self.COLUMN_GAP,
+            alignment=ft.MainAxisAlignment.START,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+
+        self.main_area_container = ft.Container(
+            key="home_main_area",
+            expand=True,
+            content=self.main_row,
+            alignment=ft.Alignment.TOP_CENTER,
+            padding=ft.Padding.only(
+                left=self._layout_metrics["horizontal_padding"],
+                right=self._layout_metrics["horizontal_padding"],
+                bottom=self.MAIN_AREA_BOTTOM_PADDING,
             ),
-            ft.Divider(height=1),
-            self.today_section,
-        ]
+        )
+
+        self.today_section: ft.Container = self._build_today_section()
+
+        self.controls = [self.main_area_container, self.today_section]
 
         logger.info("HomeView инициализирован")
+
+    @staticmethod
+    def _clamp(value: int, minimum: int, maximum: int) -> int:
+        return max(minimum, min(value, maximum))
+
+    def _safe_int(self, raw_value: Any, fallback: int) -> int:
+        try:
+            if raw_value is None:
+                return fallback
+            parsed = int(raw_value)
+            return parsed if parsed > 0 else fallback
+        except (TypeError, ValueError):
+            return fallback
+
+    def _calculate_layout_metrics(self) -> Dict[str, int]:
+        page_width = self._safe_int(getattr(self._page, "width", None), self.DEFAULT_PAGE_WIDTH)
+        estimated_content_width = max(page_width - 140, 1120)
+        horizontal_padding = 32 if estimated_content_width >= 2200 else 24
+
+        container_width = min(
+            max(estimated_content_width - horizontal_padding * 2, 1120),
+            self.MAX_CONTENT_WIDTH,
+        )
+
+        side_candidate = int(container_width * 0.22)
+
+        max_side_for_center = (
+            container_width - self.CENTER_COLUMN_MIN_WIDTH - self.COLUMN_GAP * 2
+        ) // 2
+
+        if max_side_for_center >= self.SIDE_COLUMN_MIN_WIDTH:
+            side_width = self._clamp(
+                side_candidate,
+                self.SIDE_COLUMN_MIN_WIDTH,
+                min(self.SIDE_COLUMN_MAX_WIDTH, max_side_for_center),
+            )
+        else:
+            safe_max = max(max_side_for_center, self.SIDE_COLUMN_FALLBACK_MIN_WIDTH)
+            side_width = self._clamp(
+                side_candidate,
+                self.SIDE_COLUMN_FALLBACK_MIN_WIDTH,
+                safe_max,
+            )
+
+        center_width = max(
+            container_width - side_width * 2 - self.COLUMN_GAP * 2,
+            self.CENTER_COLUMN_MIN_WIDTH,
+        )
+
+        return {
+            "horizontal_padding": horizontal_padding,
+            "container_width": container_width,
+            "left_width": side_width,
+            "right_width": side_width,
+            "center_width": center_width,
+        }
+
+    def _apply_layout_metrics(self, metrics: Dict[str, int]) -> None:
+        self._layout_metrics = metrics
+
+        self.main_row.width = metrics["container_width"]
+        self.left_column_container.width = metrics["left_width"]
+        self.right_column_container.width = metrics["right_width"]
+
+        self.main_area_container.padding = ft.Padding.only(
+            left=metrics["horizontal_padding"],
+            right=metrics["horizontal_padding"],
+            bottom=self.MAIN_AREA_BOTTOM_PADDING,
+        )
+
+        if hasattr(self, "today_section"):
+            self.today_section.width = metrics["container_width"]
 
     def _calculate_calendar_width(self) -> int:
         """
@@ -218,37 +312,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             Приблизительная ширина календаря в пикселях
         """
         try:
-            # Получаем ширину страницы
-            if hasattr(self._page, "width") and self._page.width:
-                page_width = self._page.width
-            else:
-                # Fallback к стандартной ширине
-                page_width = 1200
-
-            # Колонка календаря занимает 4/11 от общей ширины
-            # Колонки: expand=2, expand=2, expand=4, expand=3
-            # Общий expand = 2 + 2 + 4 + 3 = 11
-            calendar_column_ratio = 4 / 11
-
-            # Вычитаем отступы и разделители
-            # spacing между колонками: 20px * 3 = 60px (3 промежутка между 4 колонками)
-            # VerticalDivider: width=1 * 3 = 3px
-            # padding контейнера: примерно 20px с каждой стороны = 40px
-            total_spacing = 60 + 3 + 40  # 103px
-
-            # Вычисляем доступную ширину для колонок
-            available_width = page_width - total_spacing
-
-            # Ширина колонки календаря
-            calendar_column_width = int(available_width * calendar_column_ratio)
-
-            # Календарь занимает почти всю ширину колонки
-            # Вычитаем внутренние отступы колонки (примерно 20px)
-            calendar_width = calendar_column_width - 20
+            metrics = self._calculate_layout_metrics()
+            calendar_width = metrics["center_width"] - 24
 
             logger.debug(
                 f"Вычислена ширина календаря: {calendar_width}px "
-                f"(страница: {page_width}px, колонка календаря: {calendar_column_width}px)"
+                f"(центр: {metrics['center_width']}px, контейнер: {metrics['container_width']}px)"
             )
 
             return max(calendar_width, 300)  # Минимальная ширина 300px
@@ -265,10 +334,17 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         для обновления адаптивности легенды.
         """
         try:
+            metrics = self._calculate_layout_metrics()
+            self._apply_layout_metrics(metrics)
+
             new_width = self._calculate_calendar_width()
             if hasattr(self, "legend") and self.legend:
                 self.legend.update_calendar_width(new_width)
                 logger.debug(f"Ширина календаря в легенде обновлена до {new_width}px")
+
+            if hasattr(self, "today_section"):
+                self.today_section.width = metrics["container_width"]
+
         except Exception as e:
             logger.error(f"Ошибка при обновлении ширины календаря в легенде: {e}")
 
@@ -287,101 +363,93 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         except Exception as e:
             logger.error(f"Ошибка при монтировании HomeView: {e}")
 
-    def _build_today_section(self) -> ft.Control:
-        self.today_balance_value = ft.Text("—", key="today_balance_value")
-        self.today_mandatory_value = ft.Text("—", key="today_mandatory_value")
-        self.today_risk_7_value = ft.Text("—", key="today_risk_7_value")
-        self.today_risk_30_value = ft.Text("—", key="today_risk_30_value")
+    def _build_today_section(self) -> ft.Container:
+        self.today_balance_value = ft.Text(
+            "—", size=14, weight=ft.FontWeight.W_600, key="today_balance_value"
+        )
+        self.today_mandatory_value = ft.Text(
+            "—", size=14, weight=ft.FontWeight.W_600, key="today_mandatory_value"
+        )
+        self.today_risk_7_value = ft.Text(
+            "—", size=14, weight=ft.FontWeight.W_600, key="today_risk_7_value"
+        )
+        self.today_risk_30_value = ft.Text(
+            "—", size=14, weight=ft.FontWeight.W_600, key="today_risk_30_value"
+        )
 
         add_tx_btn = ft.Button(
-            "Добавить транзакцию",
+            "+ Добавить транзакцию",
             icon=ft.Icons.ADD,
             key="today_action_add_tx",
             on_click=self.on_today_add_transaction,
+            height=40,
         )
-        mark_payment_btn = ft.Button(
+        mark_payment_btn = ft.OutlinedButton(
             "Отметить платёж",
             icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
             key="today_action_mark_payment",
             on_click=self.on_today_mark_payment,
+            height=40,
         )
-        open_risk_btn = ft.Button(
+        open_risk_btn = ft.TextButton(
             "Риск 7/30",
             icon=ft.Icons.WARNING_AMBER_OUTLINED,
             key="today_action_open_risk",
             on_click=self.on_today_open_risk,
         )
 
+        metrics_row = ft.Row(
+            spacing=8,
+            wrap=True,
+            controls=[
+                ft.Text("Баланс", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                self.today_balance_value,
+                ft.Text("·", color=ft.Colors.OUTLINE_VARIANT),
+                ft.Text("Обязательные", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                self.today_mandatory_value,
+                ft.Text("·", color=ft.Colors.OUTLINE_VARIANT),
+                ft.Text("Риск", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                self.today_risk_7_value,
+                ft.Text("/", color=ft.Colors.OUTLINE_VARIANT),
+                self.today_risk_30_value,
+            ],
+        )
+
         return ft.Container(
             key="today_section",
-            padding=ft.Padding.all(12),
-            border_radius=10,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            content=ft.Column(
-                spacing=8,
+            width=self._layout_metrics["container_width"],
+            height=self.BOTTOM_BAR_HEIGHT,
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+            border=ft.Border(top=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT)),
+            shadow=ft.BoxShadow(
+                spread_radius=0,
+                blur_radius=10,
+                color=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
+                offset=ft.Offset(0, -2),
+            ),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Text("Сегодня", size=16, weight=ft.FontWeight.BOLD, key="today_title"),
-                    ft.Row(
-                        spacing=16,
+                    ft.Column(
+                        spacing=2,
+                        expand=True,
                         controls=[
-                            ft.Column(
-                                spacing=2,
-                                controls=[
-                                    ft.Text("Баланс", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
-                                    self.today_balance_value,
-                                ],
+                            ft.Text(
+                                "Сегодня",
+                                size=16,
+                                weight=ft.FontWeight.W_600,
+                                key="today_title",
                             ),
-                            ft.Column(
-                                spacing=2,
-                                controls=[
-                                    ft.Text(
-                                        "Обязательные / просрочено",
-                                        size=12,
-                                        color=ft.Colors.ON_SURFACE_VARIANT,
-                                    ),
-                                    self.today_mandatory_value,
-                                ],
-                            ),
-                            ft.Column(
-                                spacing=2,
-                                controls=[
-                                    ft.Text(
-                                        "Риск (кассовые разрывы)",
-                                        size=12,
-                                        color=ft.Colors.ON_SURFACE_VARIANT,
-                                    ),
-                                    ft.Row(
-                                        spacing=12,
-                                        controls=[
-                                            ft.Row(
-                                                spacing=4,
-                                                controls=[
-                                                    ft.Text(
-                                                        "7д:",
-                                                        size=12,
-                                                        color=ft.Colors.ON_SURFACE_VARIANT,
-                                                    ),
-                                                    self.today_risk_7_value,
-                                                ],
-                                            ),
-                                            ft.Row(
-                                                spacing=4,
-                                                controls=[
-                                                    ft.Text(
-                                                        "30д:",
-                                                        size=12,
-                                                        color=ft.Colors.ON_SURFACE_VARIANT,
-                                                    ),
-                                                    self.today_risk_30_value,
-                                                ],
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
+                            metrics_row,
                         ],
                     ),
-                    ft.Row(spacing=10, controls=[add_tx_btn, mark_payment_btn, open_risk_btn]),
+                    ft.Row(
+                        spacing=8,
+                        alignment=ft.MainAxisAlignment.END,
+                        controls=[add_tx_btn, mark_payment_btn, open_risk_btn],
+                    ),
                 ],
             ),
         )
@@ -396,23 +464,33 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             pending_with_date = pending_payment_service.get_all_pending_payments(
                 self.session, has_planned_date=True
             )
-            pending_due_today = [p for p in pending_with_date if p.planned_date == today]
-            pending_overdue = [
-                p for p in pending_with_date if p.planned_date and p.planned_date < today
-            ]
+            pending_due_today = []
+            pending_overdue = []
+            for payment in pending_with_date:
+                planned_date = getattr(payment, "planned_date", None)
+                if not isinstance(planned_date, datetime.date):
+                    continue
+
+                if planned_date == today:
+                    pending_due_today.append(payment)
+
+                if planned_date < today:
+                    pending_overdue.append(payment)
 
             loan_payments_today = loan_payment_service.get_payments_by_date(self.session, today)
-            loan_due_today = [p for p in loan_payments_today if p.status == PaymentStatus.PENDING]
+            loan_due_today = []
+            for payment in loan_payments_today:
+                if getattr(payment, "status", None) == PaymentStatus.PENDING:
+                    loan_due_today.append(payment)
             overdue_loan_stats = loan_payment_service.get_overdue_statistics(self.session)
 
             planned_occurrences_today = planned_transaction_service.get_occurrences_by_date(
                 self.session, today
             )
-            planned_due_today = [
-                o
-                for o in planned_occurrences_today
-                if getattr(o, "status", None) == OccurrenceStatus.PENDING
-            ]
+            planned_due_today = []
+            for occurrence in planned_occurrences_today:
+                if getattr(occurrence, "status", None) == OccurrenceStatus.PENDING:
+                    planned_due_today.append(occurrence)
 
             due_today_count = len(pending_due_today) + len(loan_due_today) + len(planned_due_today)
             overdue_count = len(pending_overdue) + int(
@@ -430,8 +508,12 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             self.today_risk_7_value.value = f"{len(gaps_7)} дат"
             self.today_risk_30_value.value = f"{len(gaps_30)} дат"
 
-            self.today_risk_7_value.color = ft.Colors.ERROR if gaps_7 else ft.Colors.ON_SURFACE
-            self.today_risk_30_value.color = ft.Colors.ERROR if gaps_30 else ft.Colors.ON_SURFACE
+            self.today_risk_7_value.color = (
+                ft.Colors.ERROR if len(gaps_7) > 0 else ft.Colors.ON_SURFACE
+            )
+            self.today_risk_30_value.color = (
+                ft.Colors.ERROR if len(gaps_30) > 0 else ft.Colors.ON_SURFACE
+            )
             self.update()
 
         except Exception as e:
@@ -494,7 +576,9 @@ class HomeView(ft.Column, IHomeViewCallbacks):
             self.refresh_today_metrics()
         self.update()
 
-    def update_planned_occurrences(self, occurrences: List[Tuple[Any, str, str]]) -> None:
+    def update_planned_occurrences(
+        self, occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]]
+    ) -> None:
         """Обновить список плановых операций."""
         self.planned_widget.set_occurrences(occurrences)
         self.update()
@@ -857,7 +941,7 @@ class HomeView(ft.Column, IHomeViewCallbacks):
         self._page.open(dialog)
 
     def on_payment_executed_confirm(
-        self, payment_id: int, executed_amount: float, executed_date: datetime.date
+        self, payment_id: str, executed_amount: Decimal, executed_date: datetime.date
     ):
         """Подтверждение исполнения отложенного платежа - делегирует в Presenter."""
         self.presenter.execute_pending_payment(payment_id, executed_amount, executed_date)

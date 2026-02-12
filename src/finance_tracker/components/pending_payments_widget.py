@@ -10,7 +10,7 @@
 """
 
 import datetime
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 import flet as ft
 from sqlalchemy.orm import Session
 
@@ -43,8 +43,8 @@ class PendingPaymentsWidget(ft.Container):
         on_cancel: Callable[[PendingPaymentDB], None],
         on_delete: Callable[[int], None],
         on_show_all: Callable[[], None],
-        on_add_payment: Callable[[], None] = None,
-        on_edit: Callable[[PendingPaymentDB], None] = None,
+        on_add_payment: Optional[Callable[[], None]] = None,
+        on_edit: Optional[Callable[[PendingPaymentDB], None]] = None,
     ):
         """
         Инициализация виджета отложенных платежей.
@@ -73,15 +73,11 @@ class PendingPaymentsWidget(ft.Container):
         # UI Components
         self.title_text = ft.Text(
             "Отложенные платежи",
-            size=18,
-            weight=ft.FontWeight.BOLD
+            size=17,
+            weight=ft.FontWeight.W_600,
         )
 
-        self.stats_text = ft.Text(
-            "",
-            size=12,
-            color=ft.Colors.ON_SURFACE_VARIANT
-        )
+        self.stats_text = ft.Text("", size=12, color=ft.Colors.ON_SURFACE_VARIANT)
 
         # Filter buttons
         self.filter_all_btn = ft.TextButton(
@@ -89,26 +85,42 @@ class PendingPaymentsWidget(ft.Container):
             on_click=lambda _: self._change_filter("all"),
             style=ft.ButtonStyle(
                 color=ft.Colors.PRIMARY,
-            )
+            ),
         )
 
         self.filter_with_date_btn = ft.TextButton(
-            "С датой",
-            on_click=lambda _: self._change_filter("with_date")
+            "С датой", on_click=lambda _: self._change_filter("with_date")
         )
 
         self.filter_without_date_btn = ft.TextButton(
-            "Без даты",
-            on_click=lambda _: self._change_filter("without_date")
+            "Без даты", on_click=lambda _: self._change_filter("without_date")
         )
 
-        self.payments_list = ft.Column(spacing=5)
+        self.payments_list = ft.Column(spacing=6)
 
-        self.empty_text = ft.Text(
-            "Нет активных отложенных платежей",
-            size=14,
-            color=ft.Colors.ON_SURFACE_VARIANT,
-            italic=True
+        self.empty_state = ft.Container(
+            height=150,
+            padding=ft.Padding.only(top=6),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=10,
+            bgcolor=ft.Colors.SURFACE,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Text("Нет отложенных платежей", size=14, weight=ft.FontWeight.W_600),
+                    ft.Text(
+                        "Добавьте платёж с датой или без даты, чтобы он появился в списке",
+                        size=12,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                        max_lines=2,
+                    ),
+                    ft.OutlinedButton(
+                        "+ Отложить",
+                        icon=ft.Icons.ADD,
+                        on_click=self._safe_add_payment,
+                    ),
+                ],
+            ),
         )
 
         # Кнопка добавления отложенного платежа
@@ -116,21 +128,21 @@ class PendingPaymentsWidget(ft.Container):
             icon=ft.Icons.ADD,
             tooltip="Добавить отложенный платёж",
             icon_color=ft.Colors.PRIMARY,
-            on_click=lambda _: self._safe_add_payment()
+            on_click=self._safe_add_payment,
         )
 
         self.show_all_button = ft.IconButton(
             icon=ft.Icons.MENU,
             tooltip="Показать все",
             icon_color=ft.Colors.PRIMARY,
-            on_click=lambda _: self.on_show_all()
+            on_click=lambda _: self.on_show_all(),
         )
 
         # Init Layout
-        self.padding = 15
+        self.padding = 16
         self.border = ft.Border.all(1, "outlineVariant")
-        self.border_radius = 10
-        self.bgcolor = "surface"
+        self.border_radius = 12
+        self.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
 
         self.content = ft.Column(
             controls=[
@@ -164,14 +176,10 @@ class PendingPaymentsWidget(ft.Container):
                 ft.Divider(),
                 self.payments_list,
             ],
-            spacing=10,
+            spacing=12,
         )
 
-    def set_payments(
-        self,
-        payments: List[PendingPaymentDB],
-        statistics: Dict[str, Any]
-    ):
+    def set_payments(self, payments: List[PendingPaymentDB], statistics: Dict[str, Any]):
         """
         Обновление списка платежей и статистики для отображения.
 
@@ -205,7 +213,7 @@ class PendingPaymentsWidget(ft.Container):
         if self.page:
             self.update()
 
-    def _safe_add_payment(self):
+    def _safe_add_payment(self, e=None):
         """
         Безопасный вызов callback для добавления платежа.
 
@@ -248,20 +256,15 @@ class PendingPaymentsWidget(ft.Container):
         self.payments_list.controls.clear()
 
         if not self.payments:
-            self.payments_list.controls.append(self.empty_text)
+            self.payments_list.controls.append(self.empty_state)
         else:
             for payment in self.payments:
-                self.payments_list.controls.append(
-                    self._build_payment_card(payment)
-                )
+                self.payments_list.controls.append(self._build_payment_card(payment))
 
         if self.page:
             self.update()
 
-    def _build_payment_card(
-        self,
-        payment: PendingPaymentDB
-    ) -> ft.Container:
+    def _build_payment_card(self, payment: PendingPaymentDB) -> ft.Container:
         """
         Создание карточки платежа.
 
@@ -317,28 +320,28 @@ class PendingPaymentsWidget(ft.Container):
             icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
             tooltip="Исполнить",
             icon_size=20,
-            on_click=lambda _, p=payment: self.on_execute(p)
+            on_click=lambda _, p=payment: self.on_execute(p),
         )
 
         edit_button = ft.IconButton(
             icon=ft.Icons.EDIT_OUTLINED,
             tooltip="Редактировать",
             icon_size=20,
-            on_click=lambda _, p=payment: self._safe_edit_payment(p)
+            on_click=lambda _, p=payment: self._safe_edit_payment(p),
         )
 
         cancel_button = ft.IconButton(
             icon=ft.Icons.CANCEL_OUTLINED,
             tooltip="Отменить",
             icon_size=20,
-            on_click=lambda _, p=payment: self.on_cancel(p)
+            on_click=lambda _, p=payment: self.on_cancel(p),
         )
 
         delete_button = ft.IconButton(
             icon=ft.Icons.DELETE_OUTLINE,
             tooltip="Удалить",
             icon_size=20,
-            on_click=lambda _, p_id=payment.id: self.on_delete(p_id)
+            on_click=lambda _, p_id=payment.id: self.on_delete(p_id),
         )
 
         return ft.Container(
@@ -347,17 +350,12 @@ class PendingPaymentsWidget(ft.Container):
                     ft.Row(
                         controls=[
                             ft.Icon(icon=icon, color=color, size=16),
-                            ft.Text(
-                                priority_name,
-                                size=12,
-                                color=color,
-                                weight=ft.FontWeight.BOLD
-                            ),
+                            ft.Text(priority_name, size=12, color=color, weight=ft.FontWeight.BOLD),
                             ft.Text(
                                 f"{payment.amount:.2f} ₽",
                                 size=14,
                                 weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.ON_SURFACE
+                                color=ft.Colors.ON_SURFACE,
                             ),
                         ],
                         spacing=5,
@@ -367,13 +365,13 @@ class PendingPaymentsWidget(ft.Container):
                         size=13,
                         color=ft.Colors.ON_SURFACE,
                         max_lines=2,
-                        overflow=ft.TextOverflow.ELLIPSIS
+                        overflow=ft.TextOverflow.ELLIPSIS,
                     ),
                     ft.Text(
                         date_text if date_text else "Без даты",
                         size=11,
                         color=ft.Colors.ON_SURFACE_VARIANT,
-                        italic=not date_text
+                        italic=not date_text,
                     ),
                     ft.Row(
                         controls=[
