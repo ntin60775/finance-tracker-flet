@@ -2,14 +2,21 @@
 
 import os
 
+from PyInstaller.utils.hooks import collect_data_files
+
+
+flet_desktop_datas = collect_data_files('flet_desktop')
+flet_datas = collect_data_files('flet')
+
 
 a = Analysis(
     ['src/finance_tracker/__main__.py'],
     pathex=['src'],
     binaries=[],
     datas=[
+        (os.path.join('assets', 'icon.ico'), 'assets'),
         (os.path.join('assets', 'icon.png'), 'assets'),
-    ],
+    ] + flet_desktop_datas + flet_datas,
     hiddenimports=[
         'finance_tracker',
         'finance_tracker.app',
