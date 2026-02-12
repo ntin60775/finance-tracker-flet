@@ -344,17 +344,14 @@ class CalendarLegend(ft.Container):
                     )
                     controls.append(legend_item)
                 
-                # Добавляем визуальный разделитель между группами (кроме последней)
-                if group_name != list(grouped_indicators.keys())[-1] and len(indicators) > 0:
-                    separator = self._create_group_separator()
-                    controls.append(separator)
             
             return ft.Row(
                 controls=controls,
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=20,  # Стандартный отступ 20px между элементами
+                run_spacing=20,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                wrap=False  # Не переносим элементы на новую строку
+                wrap=True  # Не переносим элементы на новую строку
             )
             
         except Exception as e:

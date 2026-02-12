@@ -113,6 +113,48 @@ class TestCalendarLegendUI(unittest.TestCase):
         ]
         self.assertNotIn("Подробнее...", button_texts)
 
+    def test_full_legend_has_wrap_and_no_separator_profile(self):
+        legend = CalendarLegend(calendar_width=1200)
+        full_legend = legend._build_full_legend()
+
+        self.assertIsInstance(full_legend, ft.Row)
+        self.assertTrue(full_legend.wrap)
+
+        for control in full_legend.controls:
+            if isinstance(control, ft.Container):
+                is_separator_like = (
+                    control.width == 1
+                    and control.height == 16
+                    and control.bgcolor == ft.Colors.OUTLINE_VARIANT
+                )
+                self.assertFalse(
+                    is_separator_like,
+                    "В full-mode не должно быть separator-профиля width=1,height=16,bgcolor=OUTLINE_VARIANT"
+                )
+
+    def test_update_calendar_width_preserves_compact_details_button_contract(self):
+        legend = CalendarLegend(calendar_width=1200)
+        narrow_width = 250
+
+        legend.update_calendar_width(narrow_width)
+
+        self.assertFalse(legend._should_show_full_legend())
+        self.assertIsInstance(legend.content, ft.Row)
+        compact_button = legend.content.controls[-1]
+        self.assertIsInstance(compact_button, ft.TextButton)
+        self.assertEqual(compact_button.text, "Подробнее...")
+
+        legend.update_calendar_width(1400)
+        self.assertTrue(legend._should_show_full_legend())
+
+        legend.update_calendar_width(narrow_width)
+
+        self.assertFalse(legend._should_show_full_legend())
+        self.assertIsInstance(legend.content, ft.Row)
+        compact_button = legend.content.controls[-1]
+        self.assertIsInstance(compact_button, ft.TextButton)
+        self.assertEqual(compact_button.text, "Подробнее...")
+
     def test_modal_dialog_content(self):
         """Тест содержимого модального окна."""
         legend = CalendarLegend()
