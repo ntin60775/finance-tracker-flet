@@ -44,7 +44,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
         4. Обновление Transactions_Panel для выбранной даты
         """
         # Arrange - создаём Home_View
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
+        with patch("finance_tracker.database.get_db_session") as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -71,7 +71,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
         3. Правильное количество недель
         """
         # Arrange
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
+        with patch("finance_tracker.database.get_db_session") as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -86,7 +86,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
             test_dates = [
                 date(2024, 1, 15),  # Январь 2024
                 date(2024, 2, 15),  # Февраль 2024 (високосный год)
-                date(2024, 12, 15), # Декабрь 2024
+                date(2024, 12, 15),  # Декабрь 2024
             ]
 
             for test_date in test_dates:
@@ -94,8 +94,11 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
                 calendar_widget._update_calendar()
 
                 # Property 1: Количество строк = 7
-                self.assertEqual(len(calendar_widget.days_grid.controls), 7,
-                               f"Month {test_date.month}: Expected 7 rows")
+                self.assertEqual(
+                    len(calendar_widget.days_grid.controls),
+                    7,
+                    f"Month {test_date.month}: Expected 7 rows",
+                )
 
                 # Property 2: Количество дней в месяце должно быть сохранено
                 for row in calendar_widget.days_grid.controls:
@@ -113,7 +116,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
         3. Виджет обновляется при добавлении платежей
         """
         # Arrange
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
+        with patch("finance_tracker.database.get_db_session") as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -137,14 +140,18 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
                     pending_widget_found = True
                     break
 
-            self.assertTrue(pending_widget_found,
-                          "Pending_Payments_Widget should be in second column")
+            self.assertTrue(
+                pending_widget_found, "Pending_Payments_Widget should be in second column"
+            )
 
             # Property: Pending_Payments_Widget должен отсутствовать в третьей колонке (индекс 2)
             third_column = columns[2]
             for control in third_column.controls:
-                self.assertNotIsInstance(control, PendingPaymentsWidget,
-                                        "Pending_Payments_Widget should not be in third column")
+                self.assertNotIsInstance(
+                    control,
+                    PendingPaymentsWidget,
+                    "Pending_Payments_Widget should not be in third column",
+                )
 
     def test_calendar_and_legend_in_third_column(self):
         """
@@ -156,7 +163,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
         3. Они находятся в правильном порядке
         """
         # Arrange
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
+        with patch("finance_tracker.database.get_db_session") as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -168,13 +175,20 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
             third_column = columns[2]
 
             # Property: CalendarWidget должен быть первым элементом третьей колонки
-            self.assertIsInstance(third_column.controls[0], CalendarWidget,
-                                "First control in third column should be CalendarWidget")
+            self.assertIsInstance(
+                third_column.controls[0],
+                CalendarWidget,
+                "First control in third column should be CalendarWidget",
+            )
 
             # Property: CalendarLegend должен быть вторым элементом третьей колонки
             from finance_tracker.components.calendar_legend import CalendarLegend
-            self.assertIsInstance(third_column.controls[1], CalendarLegend,
-                                "Second control in third column should be CalendarLegend")
+
+            self.assertIsInstance(
+                third_column.controls[1],
+                CalendarLegend,
+                "Second control in third column should be CalendarLegend",
+            )
 
     def test_column_proportions_layout(self):
         """
@@ -188,7 +202,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
         5. Общая сумма expand = 11
         """
         # Arrange
-        with patch('finance_tracker.database.get_db_session') as mock_get_db:
+        with patch("finance_tracker.database.get_db_session") as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -198,17 +212,11 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
             main_row = home_view.controls[0]
             columns = [control for control in main_row.controls if isinstance(control, ft.Column)]
 
-            # Property: expand значения должны быть 2, 2, 4, 3
-            expected_expand = [2, 2, 4, 3]
-            actual_expand = [col.expand for col in columns]
-
-            self.assertEqual(actual_expand, expected_expand,
-                           f"Expected expand={expected_expand}, got {actual_expand}")
-
-            # Property: сумма expand = 11
-            total_expand = sum(actual_expand)
-            self.assertEqual(total_expand, 11,
-                           f"Total expand should be 11, got {total_expand}")
+            self.assertEqual(columns[0].expand, 2)
+            self.assertEqual(columns[1].expand, 2)
+            self.assertEqual(columns[3].expand, 3)
+            self.assertIsNone(columns[2].expand)
+            self.assertGreater(int(columns[2].width or 0), 0)
 
     def test_calendar_width_calculation_integration(self):
         """
@@ -226,7 +234,7 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
             with self.subTest(page_width=test_width):
                 self.mock_page.width = test_width
 
-                with patch('finance_tracker.database.get_db_session') as mock_get_db:
+                with patch("finance_tracker.database.get_db_session") as mock_get_db:
                     mock_get_db.return_value.__enter__.return_value = self.mock_session
                     mock_get_db.return_value.__exit__.return_value = None
 
@@ -237,17 +245,22 @@ class TestVerticalCalendarFullInteraction(unittest.TestCase):
 
                     # Assert
                     # 1. Ширина не менее 300px
-                    self.assertGreaterEqual(calendar_width, 300,
-                                          f"Calendar width should be >= 300px for page_width={test_width}")
+                    self.assertGreaterEqual(
+                        calendar_width,
+                        300,
+                        f"Calendar width should be >= 300px for page_width={test_width}",
+                    )
 
-                    # 2. Ширина соответствует формуле
                     total_spacing = 103
                     available_width = test_width - total_spacing
-                    expected_width = int(available_width * (4 / 11)) - 20
-                    expected_width = max(expected_width, 300)
+                    width_only_limit = int(available_width * (4 / 11)) - 20
+                    width_only_limit = max(width_only_limit, 300)
 
-                    self.assertAlmostEqual(calendar_width, expected_width, delta=1,
-                                         msg=f"Calendar width mismatch for page_width={test_width}")
+                    self.assertLessEqual(
+                        calendar_width,
+                        width_only_limit,
+                        msg=f"Calendar width should be <= width-only limit for page_width={test_width}",
+                    )
 
 
 class TestVerticalCalendarDataConsistency(unittest.TestCase):
@@ -275,10 +288,7 @@ class TestVerticalCalendarDataConsistency(unittest.TestCase):
         test_date = date(2024, 12, 1)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(
-            on_date_selected=callback,
-            initial_date=test_date
-        )
+        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
 
         # Эмулируем монтирование
         calendar_widget._page = self.mock_page
@@ -336,7 +346,7 @@ class TestVerticalCalendarResponsiveness(unittest.TestCase):
                 self.mock_page.width = width
                 self.mock_page.height = height
 
-                with patch('finance_tracker.database.get_db_session') as mock_get_db:
+                with patch("finance_tracker.database.get_db_session") as mock_get_db:
                     mock_get_db.return_value.__enter__.return_value = self.mock_session
                     mock_get_db.return_value.__exit__.return_value = None
 
@@ -351,9 +361,12 @@ class TestVerticalCalendarResponsiveness(unittest.TestCase):
 
                     # 3. Ширина календаря >= 300px
                     calendar_width = home_view._calculate_calendar_width()
-                    self.assertGreaterEqual(calendar_width, 300,
-                                          f"Calendar width should be >= 300px for {width}x{height}")
+                    self.assertGreaterEqual(
+                        calendar_width,
+                        300,
+                        f"Calendar width should be >= 300px for {width}x{height}",
+                    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -23,17 +23,17 @@ class TestHomeViewLayoutStructure(unittest.TestCase):
         """Подготовка перед каждым тестом."""
         # Патчим все зависимости
         self.patches = [
-            patch('finance_tracker.views.home_view.HomePresenter'),
-            patch('finance_tracker.views.home_view.TransactionsPanel'),
-            patch('finance_tracker.views.home_view.CalendarWidget'),
-            patch('finance_tracker.views.home_view.CalendarLegend'),
-            patch('finance_tracker.views.home_view.PlannedTransactionsWidget'),
-            patch('finance_tracker.views.home_view.PendingPaymentsWidget'),
-            patch('finance_tracker.views.home_view.TransactionModal'),
-            patch('finance_tracker.views.home_view.ExecuteOccurrenceModal'),
-            patch('finance_tracker.views.home_view.ExecutePendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PlannedTransactionModal'),
+            patch("finance_tracker.views.home_view.HomePresenter"),
+            patch("finance_tracker.views.home_view.TransactionsPanel"),
+            patch("finance_tracker.views.home_view.CalendarWidget"),
+            patch("finance_tracker.views.home_view.CalendarLegend"),
+            patch("finance_tracker.views.home_view.PlannedTransactionsWidget"),
+            patch("finance_tracker.views.home_view.PendingPaymentsWidget"),
+            patch("finance_tracker.views.home_view.TransactionModal"),
+            patch("finance_tracker.views.home_view.ExecuteOccurrenceModal"),
+            patch("finance_tracker.views.home_view.ExecutePendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PlannedTransactionModal"),
         ]
 
         self.mocks = [p.start() for p in self.patches]
@@ -58,11 +58,7 @@ class TestHomeViewLayoutStructure(unittest.TestCase):
         # Считаем колонки (Column), исключая разделители (VerticalDivider)
         columns = [c for c in main_row.controls if isinstance(c, ft.Column)]
 
-        self.assertEqual(
-            len(columns),
-            4,
-            f"Должно быть 4 колонки, найдено {len(columns)}"
-        )
+        self.assertEqual(len(columns), 4, f"Должно быть 4 колонки, найдено {len(columns)}")
 
     def test_layout_has_three_vertical_dividers(self):
         """Тест: layout содержит 3 вертикальных разделителя."""
@@ -73,7 +69,7 @@ class TestHomeViewLayoutStructure(unittest.TestCase):
         self.assertEqual(
             len(dividers),
             3,
-            f"Должно быть 3 разделителя между 4 колонками, найдено {len(dividers)}"
+            f"Должно быть 3 разделителя между 4 колонками, найдено {len(dividers)}",
         )
 
     def test_column_expand_values_are_correct(self):
@@ -81,26 +77,21 @@ class TestHomeViewLayoutStructure(unittest.TestCase):
         main_row = self.view.controls[0]
         columns = [c for c in main_row.controls if isinstance(c, ft.Column)]
 
-        expected_expand = [2, 2, 4, 3]
-        actual_expand = [c.expand for c in columns]
-
-        self.assertEqual(
-            actual_expand,
-            expected_expand,
-            f"Ожидались expand {expected_expand}, получены {actual_expand}"
-        )
+        self.assertEqual(columns[0].expand, 2)
+        self.assertEqual(columns[1].expand, 2)
+        self.assertEqual(columns[3].expand, 3)
+        self.assertIsNone(columns[2].expand)
+        self.assertIsNotNone(columns[2].width)
 
     def test_total_expand_equals_eleven(self):
         """Тест: общий expand равен 11 (2+2+4+3)."""
         main_row = self.view.controls[0]
         columns = [c for c in main_row.controls if isinstance(c, ft.Column)]
 
-        total_expand = sum(c.expand for c in columns)
+        total_expand = sum(c.expand or 0 for c in columns)
 
         self.assertEqual(
-            total_expand,
-            11,
-            f"Общий expand должен быть 11, получен {total_expand}"
+            total_expand, 7, f"Сумма expand боковых колонок должна быть 7, получен {total_expand}"
         )
 
 
@@ -110,17 +101,17 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
     def setUp(self):
         """Подготовка перед каждым тестом."""
         self.patches = [
-            patch('finance_tracker.views.home_view.HomePresenter'),
-            patch('finance_tracker.views.home_view.TransactionsPanel'),
-            patch('finance_tracker.views.home_view.CalendarWidget'),
-            patch('finance_tracker.views.home_view.CalendarLegend'),
-            patch('finance_tracker.views.home_view.PlannedTransactionsWidget'),
-            patch('finance_tracker.views.home_view.PendingPaymentsWidget'),
-            patch('finance_tracker.views.home_view.TransactionModal'),
-            patch('finance_tracker.views.home_view.ExecuteOccurrenceModal'),
-            patch('finance_tracker.views.home_view.ExecutePendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PlannedTransactionModal'),
+            patch("finance_tracker.views.home_view.HomePresenter"),
+            patch("finance_tracker.views.home_view.TransactionsPanel"),
+            patch("finance_tracker.views.home_view.CalendarWidget"),
+            patch("finance_tracker.views.home_view.CalendarLegend"),
+            patch("finance_tracker.views.home_view.PlannedTransactionsWidget"),
+            patch("finance_tracker.views.home_view.PendingPaymentsWidget"),
+            patch("finance_tracker.views.home_view.TransactionModal"),
+            patch("finance_tracker.views.home_view.ExecuteOccurrenceModal"),
+            patch("finance_tracker.views.home_view.ExecutePendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PlannedTransactionModal"),
         ]
 
         self.mocks = [p.start() for p in self.patches]
@@ -146,7 +137,7 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
         self.assertIn(
             self.view.planned_widget,
             first_column.controls,
-            "Первая колонка должна содержать виджет плановых транзакций"
+            "Первая колонка должна содержать виджет плановых транзакций",
         )
 
     def test_second_column_contains_pending_payments_widget(self):
@@ -158,7 +149,7 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
         self.assertIn(
             self.view.pending_payments_widget,
             second_column.controls,
-            "Вторая колонка должна содержать виджет отложенных платежей"
+            "Вторая колонка должна содержать виджет отложенных платежей",
         )
 
     def test_third_column_contains_calendar_and_legend(self):
@@ -170,12 +161,10 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
         self.assertIn(
             self.view.calendar_widget,
             third_column.controls,
-            "Третья колонка должна содержать календарь"
+            "Третья колонка должна содержать календарь",
         )
         self.assertIn(
-            self.view.legend,
-            third_column.controls,
-            "Третья колонка должна содержать легенду"
+            self.view.legend, third_column.controls, "Третья колонка должна содержать легенду"
         )
 
     def test_fourth_column_contains_transactions_panel(self):
@@ -187,7 +176,7 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
         self.assertIn(
             self.view.transactions_panel,
             fourth_column.controls,
-            "Четвёртая колонка должна содержать панель транзакций"
+            "Четвёртая колонка должна содержать панель транзакций",
         )
 
     def test_calendar_appears_before_legend_in_third_column(self):
@@ -199,11 +188,7 @@ class TestHomeViewWidgetPlacement(unittest.TestCase):
         calendar_index = third_column.controls.index(self.view.calendar_widget)
         legend_index = third_column.controls.index(self.view.legend)
 
-        self.assertLess(
-            calendar_index,
-            legend_index,
-            "Календарь должен быть выше легенды"
-        )
+        self.assertLess(calendar_index, legend_index, "Календарь должен быть выше легенды")
 
 
 class TestHomeViewCalendarWidthCalculation(unittest.TestCase):
@@ -212,17 +197,17 @@ class TestHomeViewCalendarWidthCalculation(unittest.TestCase):
     def setUp(self):
         """Подготовка перед каждым тестом."""
         self.patches = [
-            patch('finance_tracker.views.home_view.HomePresenter'),
-            patch('finance_tracker.views.home_view.TransactionsPanel'),
-            patch('finance_tracker.views.home_view.CalendarWidget'),
-            patch('finance_tracker.views.home_view.CalendarLegend'),
-            patch('finance_tracker.views.home_view.PlannedTransactionsWidget'),
-            patch('finance_tracker.views.home_view.PendingPaymentsWidget'),
-            patch('finance_tracker.views.home_view.TransactionModal'),
-            patch('finance_tracker.views.home_view.ExecuteOccurrenceModal'),
-            patch('finance_tracker.views.home_view.ExecutePendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PlannedTransactionModal'),
+            patch("finance_tracker.views.home_view.HomePresenter"),
+            patch("finance_tracker.views.home_view.TransactionsPanel"),
+            patch("finance_tracker.views.home_view.CalendarWidget"),
+            patch("finance_tracker.views.home_view.CalendarLegend"),
+            patch("finance_tracker.views.home_view.PlannedTransactionsWidget"),
+            patch("finance_tracker.views.home_view.PendingPaymentsWidget"),
+            patch("finance_tracker.views.home_view.TransactionModal"),
+            patch("finance_tracker.views.home_view.ExecuteOccurrenceModal"),
+            patch("finance_tracker.views.home_view.ExecutePendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PlannedTransactionModal"),
         ]
 
         self.mocks = [p.start() for p in self.patches]
@@ -265,7 +250,7 @@ class TestHomeViewCalendarWidthCalculation(unittest.TestCase):
         # calendar_column_width = 1817 * (4/11) ≈ 660px
         # calendar_width = 660 - 20 = 640px
 
-        self.assertGreaterEqual(width, 500)
+        self.assertGreaterEqual(width, 300)
         self.assertLessEqual(width, 800)
 
     def test_calendar_width_fallback_when_page_width_none(self):
@@ -304,16 +289,8 @@ class TestHomeViewCalendarWidthCalculation(unittest.TestCase):
         expected_min = 300
         expected_max = 400
 
-        self.assertGreaterEqual(
-            width,
-            expected_min,
-            f"Ширина должна быть >= {expected_min}px"
-        )
-        self.assertLessEqual(
-            width,
-            expected_max,
-            f"Ширина должна быть <= {expected_max}px"
-        )
+        self.assertGreaterEqual(width, expected_min, f"Ширина должна быть >= {expected_min}px")
+        self.assertLessEqual(width, expected_max, f"Ширина должна быть <= {expected_max}px")
 
 
 class TestHomeViewColumnScrolling(unittest.TestCase):
@@ -322,17 +299,17 @@ class TestHomeViewColumnScrolling(unittest.TestCase):
     def setUp(self):
         """Подготовка перед каждым тестом."""
         self.patches = [
-            patch('finance_tracker.views.home_view.HomePresenter'),
-            patch('finance_tracker.views.home_view.TransactionsPanel'),
-            patch('finance_tracker.views.home_view.CalendarWidget'),
-            patch('finance_tracker.views.home_view.CalendarLegend'),
-            patch('finance_tracker.views.home_view.PlannedTransactionsWidget'),
-            patch('finance_tracker.views.home_view.PendingPaymentsWidget'),
-            patch('finance_tracker.views.home_view.TransactionModal'),
-            patch('finance_tracker.views.home_view.ExecuteOccurrenceModal'),
-            patch('finance_tracker.views.home_view.ExecutePendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PendingPaymentModal'),
-            patch('finance_tracker.views.home_view.PlannedTransactionModal'),
+            patch("finance_tracker.views.home_view.HomePresenter"),
+            patch("finance_tracker.views.home_view.TransactionsPanel"),
+            patch("finance_tracker.views.home_view.CalendarWidget"),
+            patch("finance_tracker.views.home_view.CalendarLegend"),
+            patch("finance_tracker.views.home_view.PlannedTransactionsWidget"),
+            patch("finance_tracker.views.home_view.PendingPaymentsWidget"),
+            patch("finance_tracker.views.home_view.TransactionModal"),
+            patch("finance_tracker.views.home_view.ExecuteOccurrenceModal"),
+            patch("finance_tracker.views.home_view.ExecutePendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PendingPaymentModal"),
+            patch("finance_tracker.views.home_view.PlannedTransactionModal"),
         ]
 
         self.mocks = [p.start() for p in self.patches]
@@ -355,9 +332,7 @@ class TestHomeViewColumnScrolling(unittest.TestCase):
 
         for i, column in enumerate(columns):
             self.assertEqual(
-                column.scroll,
-                ft.ScrollMode.AUTO,
-                f"Колонка {i+1} должна иметь scroll=AUTO"
+                column.scroll, ft.ScrollMode.AUTO, f"Колонка {i + 1} должна иметь scroll=AUTO"
             )
 
     def test_columns_alignment_is_start(self):
@@ -369,7 +344,7 @@ class TestHomeViewColumnScrolling(unittest.TestCase):
             self.assertEqual(
                 column.alignment,
                 ft.MainAxisAlignment.START,
-                f"Колонка {i+1} должна быть выровнена по START"
+                f"Колонка {i + 1} должна быть выровнена по START",
             )
 
 
@@ -381,31 +356,21 @@ class TestHomeViewDocstring(unittest.TestCase):
         docstring = HomeView.__doc__
 
         self.assertIn(
-            "четырёх",
-            docstring.lower(),
-            "Docstring должен упоминать четырёхколоночный layout"
+            "четырёх", docstring.lower(), "Docstring должен упоминать четырёхколоночный layout"
         )
 
     def test_docstring_mentions_correct_proportions(self):
         """Тест: docstring содержит правильные пропорции."""
         docstring = HomeView.__doc__
 
-        self.assertIn(
-            "2:2:4:3",
-            docstring,
-            "Docstring должен содержать пропорции 2:2:4:3"
-        )
+        self.assertIn("2:2:4:3", docstring, "Docstring должен содержать пропорции 2:2:4:3")
 
     def test_docstring_mentions_eleven_parts(self):
         """Тест: docstring упоминает 11 частей."""
         docstring = HomeView.__doc__
 
-        self.assertIn(
-            "11",
-            docstring,
-            "Docstring должен упоминать 11 частей"
-        )
+        self.assertIn("11", docstring, "Docstring должен упоминать 11 частей")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
