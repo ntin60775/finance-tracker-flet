@@ -95,7 +95,12 @@ class SettingsView(ft.Column):
 
         self.import_file_picker = ft.FilePicker()
         cast(Any, self.import_file_picker).on_result = self._on_import_file_picked
-        self._page.overlay.append(self.import_file_picker)
+
+        page_services = getattr(self._page, "services", None)
+        if page_services is None:
+            page_services = []
+            setattr(self._page, "services", page_services)
+        page_services.append(self.import_file_picker)
 
         backup_section = ft.Column(
             controls=[
