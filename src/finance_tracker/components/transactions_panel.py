@@ -154,7 +154,7 @@ class TransactionsPanel(ft.Container):
         self.forecast_balance: Optional[float] = None
 
         # UI Components to be updated
-        self.transactions_list = ft.ListView(expand=True, spacing=8, padding=8)
+        self.transactions_list = ft.ListView(expand=True, spacing=10, padding=10)
         self.planned_occurrences_list = ft.ListView(
             spacing=10, padding=10
         )  # Без expand, чтобы не занимало все место
@@ -162,21 +162,22 @@ class TransactionsPanel(ft.Container):
             spacing=10, padding=10
         )  # Список отложенных платежей
         self.loan_payments_list = ft.ListView(spacing=10, padding=10)  # Список платежей по кредитам
-        self.summary_row = ft.Row(spacing=10, alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        self.summary_row = ft.Row(alignment=ft.MainAxisAlignment.SPACE_AROUND)
         self.forecast_container = ft.Container()  # Контейнер для прогноза
-        self.header_text = ft.Text(value="", size=18, weight=ft.FontWeight.W_600)
+        self.header_text = ft.Text(value="", size=18, weight=ft.FontWeight.BOLD)
 
         # Layout
-        self.padding = 16
+        self.padding = 15
         self.border = ft.Border.all(1, "outlineVariant")
-        self.border_radius = 12
-        self.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
+        self.border_radius = 10
+        self.bgcolor = "surface"
         self.expand = True
 
         self.content = ft.Column(
             controls=[
                 self._build_header(),
                 ft.Divider(),
+                self.forecast_container,  # Добавляем блок прогноза
                 self._build_summary(),
                 ft.Divider(),
                 ft.Text(
@@ -203,7 +204,7 @@ class TransactionsPanel(ft.Container):
                 ft.Text("Транзакции", weight=ft.FontWeight.BOLD),
                 self.transactions_list,
             ],
-            spacing=8,
+            spacing=5,
             scroll=ft.ScrollMode.AUTO,
         )
 
@@ -364,7 +365,52 @@ class TransactionsPanel(ft.Container):
         # 1. Обновляем заголовок
         self.header_text.value = self.date.strftime("%d.%m.%Y")
 
-        self.forecast_container.visible = False
+        # 2. Обновляем блок прогноза
+        if self.forecast_balance is not None:
+            is_cash_gap = self.forecast_balance < 0
+
+            content_controls = [
+                ft.Text("Прогноз баланса:", size=12, color="outline"),
+                ft.Text(
+                    f"{self.forecast_balance:,.2f} ₽",
+                    size=18,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.RED if is_cash_gap else ft.Colors.ON_SURFACE,
+                ),
+            ]
+
+            if is_cash_gap:
+                content_controls.append(
+                    ft.Row(
+                        controls=[
+                            ft.Icon(ft.Icons.WARNING, color=ft.Colors.RED, size=16),
+                            ft.Text(
+                                "Внимание: Кассовый разрыв!",
+                                color=ft.Colors.RED,
+                                size=12,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=5,
+                    )
+                )
+
+            self.forecast_container.content = ft.Container(
+                content=ft.Column(
+                    controls=content_controls,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=2,
+                ),
+                padding=10,
+                bgcolor=ft.Colors.RED_50 if is_cash_gap else None,
+                border_radius=8,
+                border=ft.Border.all(1, ft.Colors.RED) if is_cash_gap else None,
+                alignment=ft.Alignment.CENTER,
+            )
+            self.forecast_container.visible = True
+        else:
+            self.forecast_container.visible = False
 
         # 3. Считаем итоги дня (только фактические транзакции влияют на баланс дня)
         total_income, total_expense, balance = _calculate_day_totals(self.transactions)
@@ -374,10 +420,7 @@ class TransactionsPanel(ft.Container):
             self._build_summary_item("Доход", total_income, ft.Colors.GREEN),
             self._build_summary_item("Расход", total_expense, ft.Colors.RED),
             self._build_summary_item(
-                "Итог",
-                balance,
-                ft.Colors.BLUE if balance >= 0 else ft.Colors.RED,
-                emphasize=True,
+                "Баланс", balance, ft.Colors.BLUE if balance >= 0 else ft.Colors.RED
             ),
         ]
 
@@ -458,22 +501,9 @@ class TransactionsPanel(ft.Container):
         if not self.transactions:
             self.transactions_list.controls.append(
                 ft.Container(
-                    padding=16,
-                    border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                    border_radius=10,
-                    bgcolor=ft.Colors.SURFACE,
-                    content=ft.Column(
-                        spacing=8,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            ft.Text("Нет транзакций за день", color="outline"),
-                            ft.TextButton(
-                                "Добавить",
-                                icon=ft.Icons.ADD,
-                                on_click=self._safe_add_transaction,
-                            ),
-                        ],
-                    ),
+                    content=ft.Text("Нет транзакций", color="outline"),
+                    alignment=ft.Alignment.CENTER,
+                    padding=20,
                 )
             )
         else:
@@ -943,26 +973,12 @@ class TransactionsPanel(ft.Container):
             bgcolor=bgcolor,
         )
 
-    def _build_summary_item(self, label: str, value: float, color: str, emphasize: bool = False):
+    def _build_summary_item(self, label: str, value: float, color: str):
         """Helper для создания элемента сводки."""
-        value_size = 22 if emphasize else 16
-        value_weight = ft.FontWeight.W_600 if emphasize else ft.FontWeight.BOLD
-
-        return ft.Container(
-            expand=True,
-            padding=ft.Padding.symmetric(horizontal=10, vertical=8),
-            border_radius=10,
-            bgcolor=ft.Colors.SURFACE,
-            content=ft.Column(
-                controls=[
-                    ft.Text(label, size=12, color="outline"),
-                    ft.Text(
-                        f"{value:,.2f}",
-                        size=value_size,
-                        weight=value_weight,
-                        color=color,
-                    ),
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
+        return ft.Column(
+            controls=[
+                ft.Text(label, size=12, color="outline"),
+                ft.Text(f"{value:,.2f}", size=16, weight=ft.FontWeight.BOLD, color=color),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )

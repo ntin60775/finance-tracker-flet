@@ -69,47 +69,24 @@ class PlannedTransactionsWidget(ft.Container):
         # UI Components
         self.title_text = ft.Text(
             "Плановые транзакции",
-            size=17,
-            weight=ft.FontWeight.W_600,
+            size=18,
+            weight=ft.FontWeight.BOLD
         )
 
         self.occurrences_list = ft.Column(spacing=5)
 
-        self.empty_state = ft.Container(
-            height=150,
-            padding=ft.Padding.only(top=6),
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=10,
-            bgcolor=ft.Colors.SURFACE,
-            content=ft.Column(
-                spacing=6,
-                controls=[
-                    ft.Text("Нет запланированных", size=14, weight=ft.FontWeight.W_600),
-                    ft.Text(
-                        "Добавьте регулярный платёж - он появится в календаре",
-                        size=12,
-                        color=ft.Colors.ON_SURFACE_VARIANT,
-                        max_lines=2,
-                    ),
-                    ft.OutlinedButton(
-                        "+ Запланировать",
-                        icon=ft.Icons.ADD,
-                        on_click=self._safe_add_planned_transaction,
-                    ),
-                    ft.Text(
-                        "Напр.: аренда 1 числа",
-                        size=11,
-                        color=ft.Colors.ON_SURFACE_VARIANT,
-                    ),
-                ],
-            ),
+        self.empty_text = ft.Text(
+            "Нет ближайших плановых транзакций",
+            size=14,
+            color=ft.Colors.ON_SURFACE_VARIANT,
+            italic=True
         )
 
         self.show_all_button = ft.IconButton(
             icon=ft.Icons.MENU,
             tooltip="Показать все",
             icon_color=ft.Colors.PRIMARY,
-            on_click=lambda _: self.on_show_all(),
+            on_click=lambda _: self.on_show_all()
         )
 
         # Кнопка добавления плановой транзакции (отображается только если callback задан)
@@ -119,14 +96,14 @@ class PlannedTransactionsWidget(ft.Container):
                 icon=ft.Icons.ADD,
                 icon_color=ft.Colors.PRIMARY,
                 tooltip="Добавить плановую транзакцию",
-                on_click=self._safe_add_planned_transaction,
+                on_click=lambda _: self.on_add_planned_transaction()
             )
 
         # Init Layout
-        self.padding = 16
+        self.padding = 15
         self.border = ft.Border.all(1, "outlineVariant")
-        self.border_radius = 12
-        self.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
+        self.border_radius = 10
+        self.bgcolor = "surface"
 
         self.content = ft.Column(
             controls=[
@@ -134,15 +111,8 @@ class PlannedTransactionsWidget(ft.Container):
                 ft.Divider(),
                 self.occurrences_list,
             ],
-            spacing=12,
+            spacing=10,
         )
-
-    def _safe_add_planned_transaction(self, e=None):
-        try:
-            if self.on_add_planned_transaction:
-                self.on_add_planned_transaction()
-        except Exception as e:
-            logger.error(f"Ошибка при открытии формы плановой транзакции: {e}")
 
     def _build_header(self) -> ft.Row:
         """
@@ -176,7 +146,10 @@ class PlannedTransactionsWidget(ft.Container):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
-    def set_occurrences(self, occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]]):
+    def set_occurrences(
+        self,
+        occurrences: List[Tuple[PlannedOccurrence, str, TransactionType]]
+    ):
         """
         Обновление списка вхождений для отображения.
 
@@ -192,7 +165,7 @@ class PlannedTransactionsWidget(ft.Container):
         self.occurrences_list.controls.clear()
 
         if not self.occurrences:
-            self.occurrences_list.controls.append(self.empty_state)
+            self.occurrences_list.controls.append(self.empty_text)
         else:
             for occ, cat_name, tx_type in self.occurrences:
                 self.occurrences_list.controls.append(
@@ -203,7 +176,10 @@ class PlannedTransactionsWidget(ft.Container):
             self.update()
 
     def _build_occurrence_card(
-        self, occurrence: PlannedOccurrence, category_name: str, tx_type: TransactionType
+        self,
+        occurrence: PlannedOccurrence,
+        category_name: str,
+        tx_type: TransactionType
     ) -> ft.Container:
         """
         Создание карточки вхождения в обзорном режиме.
@@ -253,7 +229,8 @@ class PlannedTransactionsWidget(ft.Container):
             OccurrenceStatus.SKIPPED: ("Пропущено", ft.Colors.GREY_700),
         }
         status_text, status_color = status_map.get(
-            occurrence.status, ("Неизвестно", ft.Colors.GREY_700)
+            occurrence.status,
+            ("Неизвестно", ft.Colors.GREY_700)
         )
 
         # Проверяем, выбрано ли это вхождение
@@ -267,8 +244,16 @@ class PlannedTransactionsWidget(ft.Container):
                             ft.Icon(icon, color=color, size=20),
                             ft.Column(
                                 controls=[
-                                    ft.Text(f"{category_name}", size=14, weight=ft.FontWeight.BOLD),
-                                    ft.Text(f"{date_str}", size=12, color=date_color),
+                                    ft.Text(
+                                        f"{category_name}",
+                                        size=14,
+                                        weight=ft.FontWeight.BOLD
+                                    ),
+                                    ft.Text(
+                                        f"{date_str}",
+                                        size=12,
+                                        color=date_color
+                                    ),
                                 ],
                                 spacing=2,
                                 expand=True,
@@ -277,7 +262,7 @@ class PlannedTransactionsWidget(ft.Container):
                                 f"{occurrence.amount:.2f} ₽",
                                 size=16,
                                 weight=ft.FontWeight.BOLD,
-                                color=color,
+                                color=color
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.START,
@@ -289,7 +274,7 @@ class PlannedTransactionsWidget(ft.Container):
                                     status_text,
                                     size=11,
                                     color=ft.Colors.WHITE,
-                                    weight=ft.FontWeight.BOLD,
+                                    weight=ft.FontWeight.BOLD
                                 ),
                                 bgcolor=status_color,
                                 padding=ft.Padding.symmetric(horizontal=8, vertical=2),
@@ -304,15 +289,13 @@ class PlannedTransactionsWidget(ft.Container):
             padding=10,
             border=ft.Border.all(
                 2 if is_selected else 1,
-                ft.Colors.PRIMARY if is_selected else ft.Colors.OUTLINE_VARIANT,
+                ft.Colors.PRIMARY if is_selected else ft.Colors.OUTLINE_VARIANT
             ),
             border_radius=8,
-            bgcolor=ft.Colors.PRIMARY_CONTAINER
-            if is_selected
-            else (ft.Colors.SURFACE if is_overdue else None),
+            bgcolor=ft.Colors.PRIMARY_CONTAINER if is_selected else (ft.Colors.SURFACE if is_overdue else None),
             on_click=lambda _: self._on_card_click(occurrence),
             ink=True,  # Эффект ripple при клике
-            on_hover=lambda e: self._on_card_hover(e),
+            on_hover=self._on_card_hover,  # Hover-эффект для индикации кликабельности
         )
 
     def _build_action_buttons(self, occurrence: PlannedOccurrence) -> List[ft.Control]:
@@ -342,10 +325,10 @@ class PlannedTransactionsWidget(ft.Container):
         """
         # Обновляем выбранное вхождение
         self.selected_occurrence_id = occurrence.id
-
+        
         # Перерисовываем список для обновления выделения
         self._update_occurrences_list()
-
+        
         if self.on_occurrence_click:
             try:
                 logger.debug(
@@ -362,7 +345,7 @@ class PlannedTransactionsWidget(ft.Container):
         else:
             logger.warning("Callback on_occurrence_click не установлен")
 
-    def _on_card_hover(self, e):
+    def _on_card_hover(self, e: ft.HoverEvent):
         """
         Обработка hover-эффекта на карточке вхождения.
 
@@ -374,8 +357,8 @@ class PlannedTransactionsWidget(ft.Container):
         """
         # Получаем occurrence из контекста карточки
         # Проверяем, является ли карточка выбранной
-        is_selected = hasattr(e.control, "data") and e.control.data == self.selected_occurrence_id
-
+        is_selected = hasattr(e.control, 'data') and e.control.data == self.selected_occurrence_id
+        
         if e.data == "true":  # Курсор наведён
             e.control.border = ft.Border.all(2, ft.Colors.PRIMARY)
             e.control.shadow = ft.BoxShadow(

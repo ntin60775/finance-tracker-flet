@@ -30,7 +30,8 @@ class TestVerticalCalendarStructure(unittest.TestCase):
         # Создаём виджет с фиксированной датой для предсказуемости тестов
         self.test_date = datetime.date(2024, 12, 1)  # Декабрь 2024
         self.widget = CalendarWidget(
-            on_date_selected=self.mock_callback, initial_date=self.test_date
+            on_date_selected=self.mock_callback,
+            initial_date=self.test_date
         )
 
     def test_calendar_widget_initialization(self):
@@ -120,12 +121,12 @@ class TestVerticalCalendarStructure(unittest.TestCase):
                 self.assertEqual(
                     first_control.bgcolor,
                     ft.Colors.BLUE_50,
-                    f"Строка {i} ({['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]}) должна иметь выделенный фон",
+                    f"Строка {i} ({['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}) должна иметь выделенный фон"
                 )
             else:
                 self.assertIsNone(
                     first_control.bgcolor,
-                    f"Строка {i} ({['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]}) не должна иметь выделенный фон",
+                    f"Строка {i} ({['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}) не должна иметь выделенный фон"
                 )
 
 
@@ -137,7 +138,8 @@ class TestVerticalCalendarCells(unittest.TestCase):
         self.mock_callback = Mock()
         self.test_date = datetime.date(2024, 12, 15)
         self.widget = CalendarWidget(
-            on_date_selected=self.mock_callback, initial_date=self.test_date
+            on_date_selected=self.mock_callback,
+            initial_date=self.test_date
         )
 
     def test_day_cell_has_square_aspect_ratio(self):
@@ -181,12 +183,14 @@ class TestVerticalCalendarCells(unittest.TestCase):
         self.assertIsInstance(day_text, ft.Text)
         self.assertEqual(day_text.value, "25")
 
-    def test_selected_day_has_subtle_border(self):
+    def test_selected_day_has_green_border(self):
+        """Тест: выбранный день имеет зелёную рамку."""
         self.widget.selected_date = datetime.date(2024, 12, 15)
         cell = self.widget._build_day_cell(datetime.date(2024, 12, 15))
 
         self.assertIsNotNone(cell.border)
-        self.assertEqual(cell.border.top.width, 1)
+        # Проверяем толщину рамки
+        self.assertEqual(cell.border.top.width, 3)
 
     def test_today_has_primary_border(self):
         """Тест: сегодняшний день имеет рамку primary цвета."""
@@ -218,7 +222,8 @@ class TestVerticalCalendarIndicators(unittest.TestCase):
         self.mock_callback = Mock()
         self.test_date = datetime.date(2024, 12, 15)
         self.widget = CalendarWidget(
-            on_date_selected=self.mock_callback, initial_date=self.test_date
+            on_date_selected=self.mock_callback,
+            initial_date=self.test_date
         )
 
     def test_indicators_split_into_rows_when_more_than_three(self):
@@ -287,16 +292,19 @@ class TestVerticalCalendarTransposition(unittest.TestCase):
         """Тест: транспонирование сохраняет все дни месяца."""
         # Тестируем для нескольких месяцев
         test_months = [
-            (2024, 1),  # Январь - 31 день
-            (2024, 2),  # Февраль (високосный) - 29 дней
-            (2024, 4),  # Апрель - 30 дней
+            (2024, 1),   # Январь - 31 день
+            (2024, 2),   # Февраль (високосный) - 29 дней
+            (2024, 4),   # Апрель - 30 дней
             (2024, 12),  # Декабрь - 31 день
         ]
 
         for year, month in test_months:
             with self.subTest(year=year, month=month):
                 test_date = datetime.date(year, month, 1)
-                widget = CalendarWidget(on_date_selected=self.mock_callback, initial_date=test_date)
+                widget = CalendarWidget(
+                    on_date_selected=self.mock_callback,
+                    initial_date=test_date
+                )
 
                 mock_page = MagicMock()
                 mock_page.update = Mock()
@@ -318,7 +326,7 @@ class TestVerticalCalendarTransposition(unittest.TestCase):
                 self.assertEqual(
                     non_empty_cells,
                     days_in_month,
-                    f"Месяц {month}/{year}: ожидалось {days_in_month} дней, найдено {non_empty_cells}",
+                    f"Месяц {month}/{year}: ожидалось {days_in_month} дней, найдено {non_empty_cells}"
                 )
 
 
@@ -330,7 +338,8 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         self.mock_callback = Mock()
         self.test_date = datetime.date(2024, 12, 15)
         self.widget = CalendarWidget(
-            on_date_selected=self.mock_callback, initial_date=self.test_date
+            on_date_selected=self.mock_callback,
+            initial_date=self.test_date
         )
 
     def test_day_click_calls_callback(self):
@@ -365,5 +374,5 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         self.assertEqual(next_month, expected_month)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

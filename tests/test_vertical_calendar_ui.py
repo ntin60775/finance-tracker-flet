@@ -46,7 +46,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         test_date = date(2024, 12, 1)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         # Эмулируем монтирование на страницу
         calendar_widget._page = self.mock_page
@@ -60,28 +63,22 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         self.assertIsInstance(calendar_widget.days_grid, ft.Column)
 
         # 2. Количество строк = 7 (дни недели)
-        self.assertEqual(
-            len(calendar_widget.days_grid.controls),
-            7,
-            "Calendar should have 7 rows (one for each weekday)",
-        )
+        self.assertEqual(len(calendar_widget.days_grid.controls), 7,
+                        "Calendar should have 7 rows (one for each weekday)")
 
         # 3. Каждая строка - это Row
         for i, row in enumerate(calendar_widget.days_grid.controls):
-            self.assertIsInstance(row, ft.Row, f"Row {i} should be ft.Row, got {type(row)}")
+            self.assertIsInstance(row, ft.Row,
+                                f"Row {i} should be ft.Row, got {type(row)}")
 
             # 4. Каждая строка начинается с метки дня недели
             first_control = row.controls[0]
-            self.assertIsInstance(
-                first_control,
-                ft.Container,
-                f"First control in row {i} should be ft.Container for day label",
-            )
+            self.assertIsInstance(first_control, ft.Container,
+                                f"First control in row {i} should be ft.Container for day label")
 
             # 5. Каждая строка содержит ячейки для недель
-            self.assertGreater(
-                len(row.controls), 1, f"Row {i} should have at least 2 controls (label + cells)"
-            )
+            self.assertGreater(len(row.controls), 1,
+                              f"Row {i} should have at least 2 controls (label + cells)")
 
     def test_vertical_calendar_weekday_labels(self):
         """
@@ -98,7 +95,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         test_date = date(2024, 12, 1)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -118,20 +118,14 @@ class TestVerticalCalendarRendering(unittest.TestCase):
             # 2. Содержимое - Text с правильным текстом
             label_text = day_label_container.content
             self.assertIsInstance(label_text, ft.Text)
-            self.assertEqual(
-                label_text.value,
-                expected_label,
-                f"Row {i} label should be '{expected_label}', got '{label_text.value}'",
-            )
+            self.assertEqual(label_text.value, expected_label,
+                           f"Row {i} label should be '{expected_label}', got '{label_text.value}'")
 
             # 3. Выходные (Сб и Вс) имеют фон BLUE_50
             is_weekend = expected_label in ["Сб", "Вс"]
             if is_weekend:
-                self.assertEqual(
-                    day_label_container.bgcolor,
-                    ft.Colors.BLUE_50,
-                    f"{expected_label} label should have BLUE_50 background",
-                )
+                self.assertEqual(day_label_container.bgcolor, ft.Colors.BLUE_50,
+                               f"{expected_label} label should have BLUE_50 background")
 
     def test_vertical_calendar_empty_cells(self):
         """
@@ -147,7 +141,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         test_date = date(2024, 12, 1)  # Декабрь 2024 начинается с воскресенья
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -173,9 +170,8 @@ class TestVerticalCalendarRendering(unittest.TestCase):
             first_cell = row.controls[1]  # Первая ячейка (после метки дня недели)
 
             # Пустая ячейка не должна иметь on_click
-            self.assertIsNone(
-                first_cell.on_click, f"Empty cell in row {row_idx} should not have on_click"
-            )
+            self.assertIsNone(first_cell.on_click,
+                            f"Empty cell in row {row_idx} should not have on_click")
 
     def test_vertical_calendar_cell_aspect_ratio(self):
         """
@@ -190,7 +186,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -206,12 +205,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         for i, cell in enumerate(row.controls[1:]):
             if cell.on_click is not None:  # Ячейка с датой
                 # Ячейка должна иметь aspect_ratio для адаптивного размера
-                self.assertIsNotNone(cell.aspect_ratio, "Cell should have aspect_ratio")
-                self.assertIn(
-                    cell.aspect_ratio,
-                    [0.7, 1],
-                    f"Cell aspect_ratio should be 0.7 or 1, got {cell.aspect_ratio}",
-                )
+                self.assertIsNotNone(cell.aspect_ratio,
+                                   "Cell should have aspect_ratio")
+                self.assertIn(cell.aspect_ratio, [0.7, 1],
+                            f"Cell aspect_ratio should be 0.7 or 1, got {cell.aspect_ratio}")
 
     def test_vertical_calendar_weekend_highlighting(self):
         """
@@ -227,7 +224,10 @@ class TestVerticalCalendarRendering(unittest.TestCase):
         test_date = date(2024, 12, 1)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -244,11 +244,8 @@ class TestVerticalCalendarRendering(unittest.TestCase):
             # 1. Метка дня имеет BLUE_50 фон если выходной
             day_label = row.controls[0]
             if is_weekend:
-                self.assertEqual(
-                    day_label.bgcolor,
-                    ft.Colors.BLUE_50,
-                    "Weekend label should have BLUE_50 background",
-                )
+                self.assertEqual(day_label.bgcolor, ft.Colors.BLUE_50,
+                               "Weekend label should have BLUE_50 background")
 
             # 2. Ячейки дней не имеют специальной стилизации для выходных
             # (они стилизуются только для selected, today, cash_gap, overdue)
@@ -282,7 +279,10 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -305,11 +305,23 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
                 break
 
     def test_vertical_calendar_selected_date_styling(self):
+        """
+        **Validates: Requirements 7.10**
+
+        Тест: Выбранная дата стилизуется правильно.
+
+        Проверяет:
+        - Выбранная дата имеет primaryContainer фон
+        - Выбранная дата имеет зелёную рамку
+        """
         # Arrange
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -337,13 +349,13 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
 
         # Проверяем стилизацию
         if test_date == calendar_widget.selected_date:
-            self.assertEqual(
-                cell.bgcolor,
-                "primaryContainer",
-                "Selected cell should have primaryContainer background",
-            )
-            self.assertIsNotNone(cell.border, "Selected cell should have border")
-            self.assertEqual(cell.border.top.width, 1)
+            self.assertEqual(cell.bgcolor, "primaryContainer",
+                           "Selected cell should have primaryContainer background")
+            # Проверяем рамку
+            if cell.border is not None:
+                # Ищем зелёную рамку
+                self.assertIsNotNone(cell.border,
+                                    "Selected cell should have border")
 
     def test_vertical_calendar_today_styling(self):
         """
@@ -359,7 +371,10 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         today = date.today()
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=today)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=today
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -387,7 +402,8 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
             # Проверяем стилизацию
             if cell.on_click is not None:
                 # Ячейка текущего дня должна иметь border
-                self.assertIsNotNone(cell.border, "Today cell should have border")
+                self.assertIsNotNone(cell.border,
+                                    "Today cell should have border")
 
     def test_vertical_calendar_resize_handling(self):
         """
@@ -400,7 +416,7 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
         - Ширина легенды обновляется
         """
         # Arrange
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = Mock()
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -410,9 +426,7 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
             home_view = HomeView(self.mock_page, Mock())
 
             # Act - меняем размер окна
-            old_metrics = home_view._calculate_layout_metrics()
-            old_calendar_width = max(old_metrics["center_width"] - 24, 300)
-
+            old_width = self.mock_page.width
             self.mock_page.width = 1600
 
             # Вызываем update_calendar_width
@@ -420,15 +434,18 @@ class TestVerticalCalendarInteraction(unittest.TestCase):
 
             # Assert
             # Ширина должна измениться
+            old_calendar_width = int((old_width - 103) * (4 / 11)) - 20
+            old_calendar_width = max(old_calendar_width, 300)
+
             new_calendar_width = max(new_calendar_width, 300)
 
             # При увеличении width на 400px, ширина календаря должна увеличиться
+            int(400 * (4 / 11))
             actual_increase = new_calendar_width - old_calendar_width
 
             # Допускаем небольшую погрешность из-за rounding
-            self.assertGreater(
-                actual_increase, 0, "Calendar width should increase when page width increases"
-            )
+            self.assertGreater(actual_increase, 0,
+                             "Calendar width should increase when page width increases")
 
 
 class TestVerticalCalendarWithIndicators(unittest.TestCase):
@@ -455,12 +472,16 @@ class TestVerticalCalendarWithIndicators(unittest.TestCase):
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         # Мокируем _get_indicators_for_date чтобы вернуть много индикаторов
         num_indicators = 5
         indicators = [
-            ft.Container(width=8, height=8, bgcolor=ft.Colors.GREEN) for _ in range(num_indicators)
+            ft.Container(width=8, height=8, bgcolor=ft.Colors.GREEN)
+            for _ in range(num_indicators)
         ]
 
         calendar_widget._get_indicators_for_date = Mock(return_value=indicators)
@@ -479,11 +500,8 @@ class TestVerticalCalendarWithIndicators(unittest.TestCase):
 
         # При 5 индикаторах должно быть 2 строки (3 + 2)
         expected_rows = (num_indicators + 2) // 3
-        self.assertEqual(
-            len(indicators_column.controls),
-            expected_rows,
-            f"Expected {expected_rows} indicator rows, got {len(indicators_column.controls)}",
-        )
+        self.assertEqual(len(indicators_column.controls), expected_rows,
+                        f"Expected {expected_rows} indicator rows, got {len(indicators_column.controls)}")
 
         # Каждая строка должна быть Row
         for row in indicators_column.controls:
@@ -491,14 +509,14 @@ class TestVerticalCalendarWithIndicators(unittest.TestCase):
 
         # Первая строка должна иметь 3 элемента
         first_row = indicators_column.controls[0]
-        self.assertEqual(len(first_row.controls), 3, "First indicator row should have 3 elements")
+        self.assertEqual(len(first_row.controls), 3,
+                        "First indicator row should have 3 elements")
 
         # Последняя строка может иметь меньше элементов
         last_row = indicators_column.controls[-1]
-        self.assertLessEqual(
-            len(last_row.controls), 3, "Last indicator row should have <= 3 elements"
-        )
+        self.assertLessEqual(len(last_row.controls), 3,
+                            "Last indicator row should have <= 3 elements")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

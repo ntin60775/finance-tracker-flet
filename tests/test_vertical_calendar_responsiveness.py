@@ -47,7 +47,9 @@ class TestFullHDResolution(unittest.TestCase):
         callback = Mock()
 
         calendar_widget = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1080
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1080
         )
 
         # Assert
@@ -71,38 +73,27 @@ class TestFullHDResolution(unittest.TestCase):
         - Календарь имеет правильную ширину
         """
         # Arrange & Act
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
             home_view = HomeView(self.mock_page, self.mock_session)
 
             # Assert - проверяем структуру
-            main_area = home_view.controls[0]
-            self.assertIsInstance(main_area, ft.Container)
-            main_row = main_area.content
-            self.assertIsInstance(main_row, ft.Row)
-            columns = [
-                control for control in main_row.controls if isinstance(control, ft.Container)
-            ]
+            main_row = home_view.controls[0]
+            columns = [control for control in main_row.controls if isinstance(control, ft.Column)]
 
-            self.assertEqual(len(columns), 3)
+            # 4 колонки
+            self.assertEqual(len(columns), 4)
 
-            left_width = int(columns[0].width or 0)
-            right_width = int(columns[2].width or 0)
-            self.assertGreaterEqual(left_width, HomeView.SIDE_COLUMN_FALLBACK_MIN_WIDTH)
-            self.assertLessEqual(left_width, HomeView.SIDE_COLUMN_MAX_WIDTH)
-            self.assertGreaterEqual(right_width, HomeView.SIDE_COLUMN_FALLBACK_MIN_WIDTH)
-            self.assertLessEqual(right_width, HomeView.SIDE_COLUMN_MAX_WIDTH)
-            self.assertTrue(columns[1].expand)
+            # Пропорции
+            expand_values = [col.expand for col in columns]
+            self.assertEqual(expand_values, [2, 2, 4, 3])
 
             # Ширина календаря >= 300px
             calendar_width = home_view._calculate_calendar_width()
-            self.assertGreaterEqual(
-                calendar_width,
-                300,
-                f"Calendar width should be >= 300px for 1920px page, got {calendar_width}",
-            )
+            self.assertGreaterEqual(calendar_width, 300,
+                                  f"Calendar width should be >= 300px for 1920px page, got {calendar_width}")
 
     def test_full_hd_calendar_rendering(self):
         """
@@ -118,7 +109,9 @@ class TestFullHDResolution(unittest.TestCase):
         callback = Mock()
 
         calendar_widget = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1080
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1080
         )
 
         # Эмулируем монтирование
@@ -134,9 +127,7 @@ class TestFullHDResolution(unittest.TestCase):
 
         # Каждая строка имеет метку дня недели
         weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-        for i, (row, expected_label) in enumerate(
-            zip(calendar_widget.days_grid.controls, weekdays)
-        ):
+        for i, (row, expected_label) in enumerate(zip(calendar_widget.days_grid.controls, weekdays)):
             first_control = row.controls[0]
             self.assertIsInstance(first_control, ft.Container)
             label_text = first_control.content
@@ -171,7 +162,9 @@ class Test2KResolution(unittest.TestCase):
         callback = Mock()
 
         calendar_widget = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1440
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1440
         )
 
         # Assert
@@ -195,32 +188,32 @@ class Test2KResolution(unittest.TestCase):
         - Календарь имеет правильную ширину
         """
         # Arrange & Act
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = self.mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
             home_view = HomeView(self.mock_page, self.mock_session)
 
             # Assert - проверяем структуру
-            main_area = home_view.controls[0]
-            self.assertIsInstance(main_area, ft.Container)
-            main_row = main_area.content
-            self.assertIsInstance(main_row, ft.Row)
-            columns = [
-                control for control in main_row.controls if isinstance(control, ft.Container)
-            ]
+            main_row = home_view.controls[0]
+            columns = [control for control in main_row.controls if isinstance(control, ft.Column)]
 
-            self.assertEqual(len(columns), 3)
+            # 4 колонки
+            self.assertEqual(len(columns), 4)
+
+            # Пропорции
+            expand_values = [col.expand for col in columns]
+            self.assertEqual(expand_values, [2, 2, 4, 3])
 
             # Ширина календаря >= 300px
             calendar_width = home_view._calculate_calendar_width()
-            self.assertGreaterEqual(
-                calendar_width,
-                300,
-                f"Calendar width should be >= 300px for 2560px page, got {calendar_width}",
-            )
+            self.assertGreaterEqual(calendar_width, 300,
+                                  f"Calendar width should be >= 300px for 2560px page, got {calendar_width}")
 
-            self.assertLessEqual(calendar_width, 1200)
+            # На 2K ширина должна быть больше, чем на Full HD
+            # 2K: (2560 - 103) * (4/11) - 20 = примерно 817px
+            self.assertGreater(calendar_width, 750,
+                             f"Calendar width should be > 750px for 2K, got {calendar_width}")
 
     def test_2k_calendar_rendering(self):
         """
@@ -236,7 +229,9 @@ class Test2KResolution(unittest.TestCase):
         callback = Mock()
 
         calendar_widget = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1440
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1440
         )
 
         # Эмулируем монтирование
@@ -252,9 +247,7 @@ class Test2KResolution(unittest.TestCase):
 
         # Каждая строка имеет метку дня недели
         weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-        for i, (row, expected_label) in enumerate(
-            zip(calendar_widget.days_grid.controls, weekdays)
-        ):
+        for i, (row, expected_label) in enumerate(zip(calendar_widget.days_grid.controls, weekdays)):
             first_control = row.controls[0]
             self.assertIsInstance(first_control, ft.Container)
             label_text = first_control.content
@@ -277,12 +270,16 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
 
         # Act - Full HD
         calendar_fhd = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1080
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1080
         )
 
         # Act - 2K
         calendar_2k = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1440
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1440
         )
 
         # Assert
@@ -303,12 +300,16 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
 
         # Act - Full HD
         calendar_fhd = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1080
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1080
         )
 
         # Act - 2K
         calendar_2k = CalendarWidget(
-            on_date_selected=callback, initial_date=test_date, page_height=1440
+            on_date_selected=callback,
+            initial_date=test_date,
+            page_height=1440
         )
 
         # Assert
@@ -330,7 +331,7 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
         mock_session = Mock()
 
         # Act
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -338,8 +339,8 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
             calendar_width = home_view._calculate_calendar_width()
 
         # Assert
-        metrics = home_view._calculate_layout_metrics()
-        expected = max(metrics["center_width"] - 24, 300)
+        # (1920 - 103) * (4/11) - 20 ≈ 605
+        expected = int((1920 - 103) * (4 / 11)) - 20
         self.assertAlmostEqual(calendar_width, expected, delta=1)
         self.assertGreaterEqual(calendar_width, 300)
 
@@ -357,7 +358,7 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
         mock_session = Mock()
 
         # Act
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -365,8 +366,8 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
             calendar_width = home_view._calculate_calendar_width()
 
         # Assert
-        metrics = home_view._calculate_layout_metrics()
-        expected = max(metrics["center_width"] - 24, 300)
+        # (2560 - 103) * (4/11) - 20 ≈ 817
+        expected = int((2560 - 103) * (4 / 11)) - 20
         self.assertAlmostEqual(calendar_width, expected, delta=1)
         self.assertGreaterEqual(calendar_width, 300)
 
@@ -390,14 +391,14 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
         mock_session = Mock()
 
         # Act
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
             home_view_fhd = HomeView(mock_page_fhd, mock_session)
             width_fhd = home_view_fhd._calculate_calendar_width()
 
-        with patch("finance_tracker.database.get_db_session") as mock_get_db:
+        with patch('finance_tracker.database.get_db_session') as mock_get_db:
             mock_get_db.return_value.__enter__.return_value = mock_session
             mock_get_db.return_value.__exit__.return_value = None
 
@@ -405,9 +406,8 @@ class TestResponsivenessBetweenResolutions(unittest.TestCase):
             width_2k = home_view_2k._calculate_calendar_width()
 
         # Assert
-        self.assertLess(
-            width_fhd, width_2k, f"Full HD width ({width_fhd}) should be < 2K width ({width_2k})"
-        )
+        self.assertLess(width_fhd, width_2k,
+                       f"Full HD width ({width_fhd}) should be < 2K width ({width_2k})")
 
 
 class TestCalendarFunctionality(unittest.TestCase):
@@ -436,7 +436,10 @@ class TestCalendarFunctionality(unittest.TestCase):
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         # Act
         calendar_widget.select_date(test_date)
@@ -454,7 +457,10 @@ class TestCalendarFunctionality(unittest.TestCase):
         """
         # Arrange
         callback = Mock()
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=date(2024, 1, 1))
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=date(2024, 1, 1)
+        )
 
         calendar_widget._page = self.mock_page
         calendar_widget.page = self.mock_page
@@ -486,7 +492,10 @@ class TestCalendarFunctionality(unittest.TestCase):
         test_date = date(2024, 12, 15)
         callback = Mock()
 
-        calendar_widget = CalendarWidget(on_date_selected=callback, initial_date=test_date)
+        calendar_widget = CalendarWidget(
+            on_date_selected=callback,
+            initial_date=test_date
+        )
 
         # Act
         indicators = calendar_widget._get_indicators_for_date(test_date)
@@ -497,5 +506,5 @@ class TestCalendarFunctionality(unittest.TestCase):
         self.assertGreaterEqual(len(indicators), 0)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
