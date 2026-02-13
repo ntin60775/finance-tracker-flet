@@ -25,9 +25,10 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Index,
+    CheckConstraint,
 )
-from sqlalchemy.orm import relationship, DeclarativeBase
-from pydantic import BaseModel, field_validator, Field, ConfigDict, computed_field
+from sqlalchemy.orm import relationship, DeclarativeBase, validates
+from pydantic import BaseModel, field_validator, Field, ConfigDict, computed_field, model_validator
 
 from .enums import (
     TransactionType,
@@ -69,14 +70,103 @@ class CategoryDB(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     name = Column(String, nullable=False, unique=True)
     type = Column(SQLEnum(TransactionType), nullable=False)
+    parent_id = Column(String(36), ForeignKey("categories.id"), nullable=True)
     is_system = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+    __table_args__ = (
+        CheckConstraint(
+            "parent_id IS NULL OR type = 'EXPENSE'",
+            name="ck_categories_parent_only_for_expense",
+        ),
+        CheckConstraint(
+            "parent_id IS NULL OR id != parent_id",
+            name="ck_categories_no_self_parent",
+        ),
+        CheckConstraint(
+            "is_system = 0 OR parent_id IS NULL",
+            name="ck_categories_system_root_only",
+        ),
+    )
+
     # Связи
+    parent = relationship(
+        "CategoryDB",
+        remote_side=[id],
+        back_populates="children",
+        foreign_keys=[parent_id],
+    )
+    children = relationship("CategoryDB", back_populates="parent", foreign_keys=[parent_id])
     transactions = relationship("TransactionDB", back_populates="category")
     planned_transactions = relationship("PlannedTransactionDB", back_populates="category")
     pending_payments = relationship("PendingPaymentDB", back_populates="category")
+
+    @staticmethod
+    def _to_transaction_type(value: object) -> Optional[TransactionType]:
+        if isinstance(value, TransactionType):
+            return value
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+
+            try:
+                return TransactionType(normalized)
+            except ValueError:
+                pass
+
+            try:
+                return TransactionType[normalized.upper()]
+            except KeyError:
+                return None
+
+        return None
+
+    @validates("parent_id")
+    def validate_parent_id(self, key: str, value: Optional[str]) -> Optional[str]:
+        current_id = self.__dict__.get("id")
+        current_type = self._to_transaction_type(getattr(self, "type", self.__dict__.get("type")))
+
+        if value is not None:
+            if isinstance(current_id, str) and value == current_id:
+                raise ValueError("Категория не может быть родителем сама себе")
+            if current_type is TransactionType.INCOME:
+                raise ValueError("Категории доходов должны быть корневыми (parent_id=None)")
+        return value
+
+    @validates("parent")
+    def validate_parent(self, key: str, value: Optional["CategoryDB"]) -> Optional["CategoryDB"]:
+        if value is None:
+            return None
+
+        current_id = self.__dict__.get("id")
+        current_type = self._to_transaction_type(getattr(self, "type", self.__dict__.get("type")))
+
+        parent_id = getattr(value, "id", value.__dict__.get("id"))
+        parent_type = self._to_transaction_type(getattr(value, "type", value.__dict__.get("type")))
+        parent_parent_id = getattr(value, "parent_id", value.__dict__.get("parent_id"))
+
+        if isinstance(current_id, str) and isinstance(parent_id, str) and parent_id == current_id:
+            raise ValueError("Категория не может быть родителем сама себе")
+
+        if parent_type is not TransactionType.EXPENSE:
+            raise ValueError("Родительская категория должна быть типа EXPENSE")
+
+        if parent_parent_id is not None:
+            raise ValueError("Допустима только одноуровневая иерархия категорий расходов")
+
+        if current_type is TransactionType.INCOME:
+            raise ValueError("Категории доходов должны быть корневыми (parent_id=None)")
+
+        return value
+
+    @validates("type")
+    def validate_type(self, key: str, value: TransactionType) -> TransactionType:
+        normalized_type = self._to_transaction_type(value)
+        current_parent_id = self.__dict__.get("parent_id")
+        if normalized_type is TransactionType.INCOME and current_parent_id is not None:
+            raise ValueError("Категории доходов должны быть корневыми (parent_id=None)")
+        return value
 
 
 class PlannedTransactionDB(Base):
@@ -826,11 +916,28 @@ class Category(BaseModel):
     id: str
     name: str
     type: TransactionType
+    parent_id: Optional[str] = None
     is_system: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", "parent_id")
+    @classmethod
+    def validate_uuid_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            try:
+                uuid.UUID(v)
+            except ValueError as exc:
+                raise ValueError(f"Невалидный UUID: {v}") from exc
+        return v
+
+    @model_validator(mode="after")
+    def validate_income_root_level(self) -> "Category":
+        if self.type == TransactionType.INCOME and self.parent_id is not None:
+            raise ValueError("Категории доходов должны быть корневыми (parent_id=None)")
+        return self
 
 
 class CategoryCreate(BaseModel):
@@ -849,6 +956,7 @@ class CategoryCreate(BaseModel):
 
     name: str = Field(description="Название категории")
     type: TransactionType
+    parent_id: Optional[str] = None
     is_system: bool = False
 
     @field_validator("name")
@@ -878,6 +986,24 @@ class CategoryCreate(BaseModel):
                 "Название категории не может быть пустым или состоять только из пробелов"
             )
         return v.strip()
+
+    @field_validator("parent_id")
+    @classmethod
+    def validate_parent_uuid(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            try:
+                uuid.UUID(v)
+            except ValueError as exc:
+                raise ValueError(f"Невалидный UUID: {v}") from exc
+        return v
+
+    @model_validator(mode="after")
+    def validate_hierarchy_constraints(self) -> "CategoryCreate":
+        if self.type == TransactionType.INCOME and self.parent_id is not None:
+            raise ValueError("Категории доходов должны быть корневыми (parent_id=None)")
+        if self.is_system and self.parent_id is not None:
+            raise ValueError("Системные категории должны быть корневыми (parent_id=None)")
+        return self
 
 
 class PlannedTransactionCreate(BaseModel):

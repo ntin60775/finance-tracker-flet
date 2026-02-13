@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import heapq
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -71,6 +72,50 @@ def _resolve_output_path(filepath: str | None, created_at: datetime) -> Path:
     return exports_dir / filename
 
 
+def _order_categories_parent_first(categories: list[CategoryDB]) -> list[CategoryDB]:
+    if len(categories) <= 1:
+        return categories
+
+    categories_by_id = {category.id: category for category in categories}
+    indegree_by_id = {category.id: 0 for category in categories}
+    children_by_parent_id: dict[str, list[str]] = {}
+
+    for category in categories:
+        parent_id = category.parent_id
+        if parent_id is None:
+            continue
+
+        if parent_id not in categories_by_id:
+            continue
+
+        children_by_parent_id.setdefault(parent_id, []).append(category.id)
+        indegree_by_id[category.id] += 1
+
+    ready_ids = [category_id for category_id, indegree in indegree_by_id.items() if indegree == 0]
+    heapq.heapify(ready_ids)
+
+    ordered: list[CategoryDB] = []
+    processed_ids: set[str] = set()
+
+    while ready_ids:
+        current_id = heapq.heappop(ready_ids)
+        processed_ids.add(current_id)
+        ordered.append(categories_by_id[current_id])
+
+        for child_id in children_by_parent_id.get(current_id, []):
+            indegree_by_id[child_id] -= 1
+            if indegree_by_id[child_id] == 0:
+                heapq.heappush(ready_ids, child_id)
+
+    if len(ordered) != len(categories):
+        unresolved_ids = sorted(
+            category_id for category_id in categories_by_id if category_id not in processed_ids
+        )
+        ordered.extend(categories_by_id[category_id] for category_id in unresolved_ids)
+
+    return ordered
+
+
 def _build_snapshot(session: Session, created_at: datetime) -> dict[str, Any]:
     snapshot: dict[str, Any] = {
         "metadata": {
@@ -81,7 +126,11 @@ def _build_snapshot(session: Session, created_at: datetime) -> dict[str, Any]:
     }
 
     for table_name, model in SNAPSHOT_TABLES:
-        rows = session.query(model).order_by(model.id).all()
+        if model is CategoryDB:
+            category_rows = session.query(CategoryDB).all()
+            rows = _order_categories_parent_first(category_rows)
+        else:
+            rows = session.query(model).order_by(model.id).all()
         snapshot[table_name] = [_serialize_record(row) for row in rows]
 
     return snapshot

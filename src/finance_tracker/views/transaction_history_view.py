@@ -10,7 +10,7 @@
 """
 
 import datetime
-from typing import List, Optional, Dict
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from decimal import Decimal
 from collections import defaultdict
 
@@ -25,14 +25,71 @@ from finance_tracker.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _filter_transactions(transactions, selected_category_id, selected_type, search_query):
+def _build_category_filter_metadata(
+    categories: Iterable[Any],
+) -> Tuple[Dict[str, str], Dict[str, Set[str]]]:
+    category_list = list(categories)
+    category_by_id: Dict[str, Any] = {}
+    children_by_parent_id: Dict[str, Set[str]] = defaultdict(set)
+
+    for category in category_list:
+        category_id = str(category.id)
+        category_by_id[category_id] = category
+        parent_id = getattr(category, "parent_id", None)
+        if parent_id is not None:
+            children_by_parent_id[str(parent_id)].add(category_id)
+
+    labels_by_id: Dict[str, str] = {}
+    filter_ids_by_id: Dict[str, Set[str]] = {}
+
+    for category in category_list:
+        category_id = str(category.id)
+        category_name = str(category.name)
+        parent_id = getattr(category, "parent_id", None)
+
+        if parent_id is not None:
+            parent = category_by_id.get(str(parent_id))
+            if parent is not None:
+                labels_by_id[category_id] = f"{str(parent.name)} / {category_name}"
+            else:
+                labels_by_id[category_id] = category_name
+        else:
+            labels_by_id[category_id] = category_name
+
+        filter_ids = {category_id}
+        filter_ids.update(children_by_parent_id.get(category_id, set()))
+        filter_ids_by_id[category_id] = filter_ids
+
+    return labels_by_id, filter_ids_by_id
+
+
+def _resolve_selected_category_ids(
+    selected_category_id: Optional[str],
+    filter_ids_by_category: Dict[str, Set[str]],
+) -> Optional[Set[str]]:
+    if not selected_category_id:
+        return None
+
+    return set(filter_ids_by_category.get(selected_category_id, {selected_category_id}))
+
+
+def _filter_transactions(
+    transactions,
+    selected_category_id,
+    selected_type,
+    search_query,
+    selected_category_ids: Optional[Set[str]] = None,
+):
     filtered = list(transactions)
 
-    if selected_category_id:
+    if selected_category_ids is None and selected_category_id:
+        selected_category_ids = {selected_category_id}
+
+    if selected_category_ids:
         filtered = [
             transaction
             for transaction in filtered
-            if transaction.category_id == selected_category_id
+            if str(transaction.category_id) in selected_category_ids
         ]
 
     if selected_type:
@@ -105,10 +162,12 @@ class TransactionHistoryView(ft.Container):
         self.start_date = datetime.date.today().replace(day=1)  # Первый день текущего месяца
         self.end_date = self._get_last_day_of_month(datetime.date.today())
         self.selected_category_id: Optional[str] = None
+        self.selected_category_ids: Optional[Set[str]] = None
         self.selected_type: Optional[TransactionType] = None
         self.search_query: str = ""
         self.group_by: str = "date"  # date, category, month
         self.sort_by: str = "date_desc"  # date_asc, date_desc, amount_asc, amount_desc
+        self._category_filter_ids_by_option: Dict[str, Set[str]] = {}
 
         # Данные
         self.transactions: List[TransactionDB] = []
@@ -294,9 +353,18 @@ class TransactionHistoryView(ft.Container):
         try:
             with get_db() as session:
                 categories = get_all_categories(session)
-                self.category_dropdown.options = [ft.dropdown.Option("all", "Все категории")] + [
-                    ft.dropdown.Option(str(c.id), c.name) for c in categories
-                ]
+                labels_by_id, self._category_filter_ids_by_option = _build_category_filter_metadata(
+                    categories
+                )
+                options = [ft.dropdown.Option("all", "Все категории")]
+                for category in categories:
+                    category_id = str(category.id)
+                    category_label = labels_by_id.get(category_id)
+                    if category_label is None:
+                        category_label = str(category.name)
+                    options.append(ft.dropdown.Option(category_id, str(category_label)))
+
+                self.category_dropdown.options = options
                 self.category_dropdown.value = "all"
                 if self.page:
                     self.update()
@@ -326,6 +394,7 @@ class TransactionHistoryView(ft.Container):
             self.selected_category_id,
             self.selected_type,
             self.search_query,
+            self.selected_category_ids,
         )
         self.filtered_transactions = _sort_transactions(self.filtered_transactions, self.sort_by)
 
@@ -770,6 +839,10 @@ class TransactionHistoryView(ft.Container):
         # Обновляем выбранную категорию
         cat_val = self.category_dropdown.value
         self.selected_category_id = cat_val if cat_val and cat_val != "all" else None
+        self.selected_category_ids = _resolve_selected_category_ids(
+            self.selected_category_id,
+            self._category_filter_ids_by_option,
+        )
 
         # Обновляем выбранный тип
         type_val = self.type_dropdown.value
@@ -809,6 +882,7 @@ class TransactionHistoryView(ft.Container):
         self.start_date = datetime.date.today().replace(day=1)
         self.end_date = self._get_last_day_of_month(datetime.date.today())
         self.selected_category_id = None
+        self.selected_category_ids = None
         self.selected_type = None
         self.search_query = ""
         self.group_by = "date"

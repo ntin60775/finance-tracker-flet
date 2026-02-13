@@ -1,6 +1,7 @@
 """
 Тесты для модального окна PlannedTransactionModal.
 """
+
 import unittest
 from unittest.mock import Mock, MagicMock, patch
 import flet as ft
@@ -13,7 +14,7 @@ from finance_tracker.models import (
     CategoryDB,
     PlannedTransactionCreate,
     RecurrenceType,
-    EndConditionType
+    EndConditionType,
 )
 
 
@@ -22,7 +23,9 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
     def setUp(self):
         """Настройка перед каждым тестом."""
-        self.patcher = patch('finance_tracker.components.planned_transaction_modal.get_all_categories')
+        self.patcher = patch(
+            "finance_tracker.components.planned_transaction_modal.get_selectable_leaf_categories"
+        )
         self.mock_get_all_categories = self.patcher.start()
 
         self.session = Mock()
@@ -33,16 +36,37 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.cat_id_2 = str(uuid.uuid4())
 
         # Мокируем загрузку категорий
-        self.expense_categories = [CategoryDB(id=self.cat_id_1, name="Rent", type=TransactionType.EXPENSE, is_system=False, created_at=datetime.datetime.now())]
-        self.income_categories = [CategoryDB(id=self.cat_id_2, name="Freelance", type=TransactionType.INCOME, is_system=False, created_at=datetime.datetime.now())]
+        self.expense_parent = CategoryDB(
+            id=str(uuid.uuid4()),
+            name="Home",
+            type=TransactionType.EXPENSE,
+            is_system=False,
+            created_at=datetime.datetime.now(),
+        )
+        expense_leaf = CategoryDB(
+            id=self.cat_id_1,
+            name="Rent",
+            type=TransactionType.EXPENSE,
+            parent_id=self.expense_parent.id,
+            is_system=False,
+            created_at=datetime.datetime.now(),
+        )
+        expense_leaf.parent = self.expense_parent
+        self.expense_categories = [expense_leaf]
+        self.income_categories = [
+            CategoryDB(
+                id=self.cat_id_2,
+                name="Freelance",
+                type=TransactionType.INCOME,
+                is_system=False,
+                created_at=datetime.datetime.now(),
+            )
+        ]
         self.mock_get_all_categories.side_effect = lambda session, t_type: (
             self.expense_categories if t_type == TransactionType.EXPENSE else self.income_categories
         )
 
-        self.modal = PlannedTransactionModal(
-            session=self.session,
-            on_save=self.on_save
-        )
+        self.modal = PlannedTransactionModal(session=self.session, on_save=self.on_save)
         self.page = MagicMock()
         self.page.overlay = []
         # Добавляем методы для современного Flet API
@@ -70,18 +94,31 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)
         self.assertEqual(len(self.modal.category_dropdown.options), 1)
 
+    def test_leaf_expense_categories_are_loaded(self):
+        self.modal.open(self.page)
+
+        self.mock_get_all_categories.assert_called_with(self.session, TransactionType.EXPENSE)
+        self.assertEqual(
+            [option.key for option in self.modal.category_dropdown.options], [self.cat_id_1]
+        )
+
+    def test_leaf_category_label_has_parent_path(self):
+        self.modal.open(self.page)
+
+        self.assertEqual(self.modal.category_dropdown.options[0].text, "Home / Rent")
+
     def test_ui_visibility_for_periodic(self):
         """Тест видимости UI элементов для периодической транзакции."""
         self.modal.open(self.page)
-        
+
         # Переключаемся на еженедельное повторение
         self.modal.recurrence_type_dropdown.value = RecurrenceType.WEEKLY.value
         self.modal._on_recurrence_type_change(None)
 
         self.assertTrue(self.modal.end_condition_dropdown.visible)
-        self.assertFalse(self.modal.interval_field.visible) # Not custom
-        self.assertFalse(self.modal.end_date_button.visible) # Default is NEVER
-        
+        self.assertFalse(self.modal.interval_field.visible)  # Not custom
+        self.assertFalse(self.modal.end_date_button.visible)  # Default is NEVER
+
         # Переключаемся на "До даты"
         self.modal.end_condition_dropdown.value = EndConditionType.UNTIL_DATE.value
         self.modal._on_end_condition_change(None)
@@ -100,14 +137,14 @@ class TestPlannedTransactionModal(unittest.TestCase):
 
         self.on_save.assert_called_once()
         called_arg = self.on_save.call_args[0][0]
-        
+
         self.assertIsInstance(called_arg, PlannedTransactionCreate)
         self.assertEqual(called_arg.amount, 500)
         self.assertEqual(called_arg.category_id, self.cat_id_1)
         self.assertIsNone(called_arg.recurrence_rule)
         # Проверяем вызов page.close() с диалогом
         self.page.close.assert_called_once_with(self.modal.dialog)
-        
+
     def test_save_periodic_transaction(self):
         """Тест сохранения периодической транзакции."""
         self.modal.open(self.page)
@@ -115,30 +152,32 @@ class TestPlannedTransactionModal(unittest.TestCase):
         # Заполняем основные поля
         self.modal.amount_field.value = "250"
         self.modal.category_dropdown.value = self.cat_id_1
-        
+
         # Настраиваем повторение
         self.modal.recurrence_type_dropdown.value = RecurrenceType.MONTHLY.value
         self.modal.end_condition_dropdown.value = EndConditionType.AFTER_COUNT.value
         self.modal.occurrences_count_field.value = "12"
 
         self.modal._save(None)
-        
+
         self.on_save.assert_called_once()
         called_arg = self.on_save.call_args[0][0]
 
         self.assertIsNotNone(called_arg.recurrence_rule)
         self.assertEqual(called_arg.recurrence_rule.recurrence_type, RecurrenceType.MONTHLY)
-        self.assertEqual(called_arg.recurrence_rule.end_condition_type, EndConditionType.AFTER_COUNT)
+        self.assertEqual(
+            called_arg.recurrence_rule.end_condition_type, EndConditionType.AFTER_COUNT
+        )
         self.assertEqual(called_arg.recurrence_rule.occurrences_count, 12)
 
     def test_validation_fail_bad_interval(self):
         """Тест ошибки валидации при некорректном интервале."""
         self.modal.open(self.page)
-        
+
         # Заполняем основные поля
         self.modal.amount_field.value = "100"
         self.modal.category_dropdown.value = self.cat_id_1
-        
+
         # Некорректный интервал
         self.modal.recurrence_type_dropdown.value = RecurrenceType.CUSTOM.value
         self.modal.interval_field.value = "-5"
@@ -151,5 +190,5 @@ class TestPlannedTransactionModal(unittest.TestCase):
         self.page.close.assert_not_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

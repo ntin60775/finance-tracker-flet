@@ -1,5 +1,6 @@
 import datetime
-from typing import Optional
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set
 
 import flet as ft
 from finance_tracker.services.plan_fact_service import get_plan_fact_analysis
@@ -7,8 +8,85 @@ from finance_tracker.services.category_service import get_all_categories
 from finance_tracker.database import get_db
 from finance_tracker.utils.logger import get_logger
 from finance_tracker.components.occurrence_details_modal import OccurrenceDetailsModal
+from finance_tracker.views.transaction_history_view import (
+    _build_category_filter_metadata,
+    _resolve_selected_category_ids,
+)
 
 logger = get_logger(__name__)
+
+
+def _apply_category_aggregate_filter(
+    analysis: Dict[str, Any],
+    selected_category_ids: Optional[Set[str]],
+) -> Dict[str, Any]:
+    if not selected_category_ids:
+        return analysis
+
+    filtered_occurrences = [
+        occurrence
+        for occurrence in analysis.get("occurrences", [])
+        if str(occurrence.get("category_id")) in selected_category_ids
+    ]
+
+    return _recalculate_analysis_summary(filtered_occurrences)
+
+
+def _recalculate_analysis_summary(occurrences: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total_occurrences = len(occurrences)
+    executed_count = 0
+    skipped_count = 0
+    pending_count = 0
+    executed_with_deviation_count = 0
+    on_time_count = 0
+    total_amount_deviation = Decimal("0.0")
+    total_date_deviation_days = 0.0
+
+    for occurrence in occurrences:
+        status = occurrence.get("status")
+
+        if status == "executed":
+            executed_count += 1
+            amount_deviation = occurrence.get("amount_deviation")
+            if amount_deviation is not None:
+                total_amount_deviation += Decimal(str(amount_deviation))
+                executed_with_deviation_count += 1
+
+            date_deviation = occurrence.get("date_deviation")
+            if date_deviation is not None:
+                date_deviation_value = float(date_deviation)
+                total_date_deviation_days += date_deviation_value
+                if date_deviation_value == 0:
+                    on_time_count += 1
+        elif status == "skipped":
+            skipped_count += 1
+        elif status == "pending":
+            pending_count += 1
+
+    avg_amount_deviation = (
+        total_amount_deviation / executed_with_deviation_count
+        if executed_with_deviation_count > 0
+        else Decimal("0.0")
+    )
+
+    avg_date_deviation_days = (
+        total_date_deviation_days / executed_count if executed_count > 0 else 0.0
+    )
+
+    on_time_percentage = (on_time_count / executed_count * 100) if executed_count > 0 else 0.0
+    skipped_percentage = (skipped_count / total_occurrences * 100) if total_occurrences > 0 else 0.0
+
+    return {
+        "total_occurrences": total_occurrences,
+        "executed_count": executed_count,
+        "skipped_count": skipped_count,
+        "pending_count": pending_count,
+        "avg_amount_deviation": avg_amount_deviation,
+        "avg_date_deviation_days": avg_date_deviation_days,
+        "on_time_percentage": on_time_percentage,
+        "skipped_percentage": skipped_percentage,
+        "occurrences": occurrences,
+    }
 
 
 class PlanFactView(ft.Container):
@@ -24,11 +102,13 @@ class PlanFactView(ft.Container):
         self.alignment = ft.Alignment.TOP_LEFT
         self.start_date = datetime.date.today().replace(day=1)
         self.end_date = self._get_last_day_of_month(datetime.date.today())
-        self.selected_category_id: Optional[int] = None
+        self.selected_category_id: Optional[str] = None
+        self.selected_category_ids: Optional[Set[str]] = None
         self.comparison_enabled = False
         self.comparison_start_date: Optional[datetime.date] = None
         self.comparison_end_date: Optional[datetime.date] = None
         self._saved_filters_state = {}
+        self._category_filter_ids_by_option: Dict[str, Set[str]] = {}
 
         # Components
         self.details_modal = OccurrenceDetailsModal()
@@ -284,6 +364,9 @@ class PlanFactView(ft.Container):
         self.start_date = self._saved_filters_state.get("start_date", self.start_date)
         self.end_date = self._saved_filters_state.get("end_date", self.end_date)
         self.selected_category_id = self._saved_filters_state.get("selected_category_id")
+        if self.selected_category_id is not None:
+            self.selected_category_id = str(self.selected_category_id)
+        self.selected_category_ids = None
         self.comparison_enabled = self._saved_filters_state.get("comparison_enabled", False)
         self.comparison_start_date = self._saved_filters_state.get("comparison_start_date")
         self.comparison_end_date = self._saved_filters_state.get("comparison_end_date")
@@ -293,9 +376,17 @@ class PlanFactView(ft.Container):
         try:
             with get_db() as session:
                 categories = get_all_categories(session)
-                options = [ft.dropdown.Option("all", "Все категории")] + [
-                    ft.dropdown.Option(str(c.id), c.name) for c in categories
-                ]
+                labels_by_id, self._category_filter_ids_by_option = _build_category_filter_metadata(
+                    categories
+                )
+                options = [ft.dropdown.Option("all", "Все категории")]
+                for category in categories:
+                    category_id = str(category.id)
+                    category_label = labels_by_id.get(category_id)
+                    if category_label is None:
+                        category_label = str(category.name)
+                    options.append(ft.dropdown.Option(category_id, str(category_label)))
+
                 self.category_dropdown.options = options
 
                 selected_value = "all"
@@ -308,6 +399,10 @@ class PlanFactView(ft.Container):
                         self.selected_category_id = None
 
                 self.category_dropdown.value = selected_value
+                self.selected_category_ids = _resolve_selected_category_ids(
+                    self.selected_category_id,
+                    self._category_filter_ids_by_option,
+                )
                 self._save_filters_state()
                 self.update()
         except Exception as e:
@@ -316,7 +411,11 @@ class PlanFactView(ft.Container):
     def _on_category_change(self, e):
         """Обработчик изменения категории."""
         val = self.category_dropdown.value
-        self.selected_category_id = int(val) if val and val != "all" else None
+        self.selected_category_id = val if val and val != "all" else None
+        self.selected_category_ids = _resolve_selected_category_ids(
+            self.selected_category_id,
+            self._category_filter_ids_by_option,
+        )
         self._save_filters_state()
         self._load_data()
 
@@ -327,9 +426,23 @@ class PlanFactView(ft.Container):
         """Загружает данные анализа."""
         try:
             with get_db() as session:
-                analysis = get_plan_fact_analysis(
-                    session, self.start_date, self.end_date, self.selected_category_id
+                use_aggregate_filter = (
+                    bool(self.selected_category_ids) and len(self.selected_category_ids) > 1
                 )
+                category_id_for_service = (
+                    None if use_aggregate_filter else self.selected_category_id
+                )
+
+                analysis = get_plan_fact_analysis(
+                    session,
+                    self.start_date,
+                    self.end_date,
+                    category_id_for_service,
+                )
+                if use_aggregate_filter:
+                    analysis = _apply_category_aggregate_filter(
+                        analysis, self.selected_category_ids
+                    )
                 self._update_ui(analysis)
         except Exception as e:
             logger.error(f"Ошибка загрузки данных анализа: {e}")

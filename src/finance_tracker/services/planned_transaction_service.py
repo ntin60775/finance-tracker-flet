@@ -34,6 +34,19 @@ from finance_tracker.services.recurrence_service import generate_occurrences_for
 logger = logging.getLogger(__name__)
 
 
+def _ensure_leaf_expense_category(session: Session, category: CategoryDB) -> None:
+    if category.type != TransactionType.EXPENSE:
+        return
+
+    has_children = (
+        session.query(CategoryDB.id).filter(CategoryDB.parent_id == category.id).first() is not None
+    )
+    if has_children:
+        raise ValueError(
+            "Для расходных операций доступны только конечные категории (без подкатегорий)"
+        )
+
+
 def create_planned_transaction(
     session: Session, planned_tx: PlannedTransactionCreate, target_month: Optional[date] = None
 ) -> PlannedTransactionDB:
@@ -89,6 +102,11 @@ def create_planned_transaction(
         error_msg = f"Категория с ID {planned_tx.category_id} не найдена"
         logger.error(error_msg)
         raise ValueError(error_msg)
+
+    if category.type != planned_tx.type:
+        raise ValueError("Тип категории не соответствует типу плановой транзакции")
+
+    _ensure_leaf_expense_category(session, category)
 
     try:
         # Создание плановой транзакции
@@ -233,6 +251,11 @@ def update_planned_transaction(
         error_msg = f"Категория с ID {planned_tx.category_id} не найдена"
         logger.error(error_msg)
         raise ValueError(error_msg)
+
+    if category.type != planned_tx.type:
+        raise ValueError("Тип категории не соответствует типу плановой транзакции")
+
+    _ensure_leaf_expense_category(session, category)
 
     try:
         # Обновляем поля шаблона

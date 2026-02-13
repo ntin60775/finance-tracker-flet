@@ -21,7 +21,7 @@ from finance_tracker.models import (
     RecurrenceType,
     EndConditionType,
 )
-from finance_tracker.services.category_service import get_all_categories
+from finance_tracker.services.category_service import get_selectable_leaf_categories
 
 
 class PlannedTransactionModal:
@@ -423,14 +423,28 @@ class PlannedTransactionModal:
     def _load_categories(self, t_type: TransactionType):
         """Загрузка категорий выбранного типа."""
         try:
-            categories = get_all_categories(self.session, t_type)
+            categories = get_selectable_leaf_categories(self.session, t_type)
             self.category_dropdown.options = [
-                ft.dropdown.Option(key=str(c.id), text=c.name) for c in categories
+                ft.dropdown.Option(
+                    key=str(c.id),
+                    text=self._format_category_label(c),
+                )
+                for c in categories
             ]
             self.category_dropdown.value = None
             self.category_dropdown.error_text = None
         except Exception as e:
             self.error_text.value = f"Ошибка загрузки категорий: {e}"
+
+    def _format_category_label(self, category) -> str:
+        category_name = getattr(category, "name", "")
+        parent = getattr(category, "parent", None)
+        parent_name = getattr(parent, "name", None) if parent is not None else None
+
+        if parent_name:
+            return f"{parent_name} / {category_name}"
+
+        return category_name
 
     def _on_recurrence_type_change(self, e):
         """Обработка изменения типа повторения."""

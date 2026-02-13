@@ -96,6 +96,52 @@ def test_export_writes_snapshot_with_metadata_and_domain_tables(session_factory,
     session.close()
 
 
+def test_export_orders_category_parent_before_child_deterministically(session_factory, tmp_path):
+    session = session_factory()
+    now = datetime(2026, 2, 11, 12, 20, 0)
+    parent_id = "f0000000-0000-0000-0000-000000000001"
+    child_id = "10000000-0000-0000-0000-000000000001"
+
+    session.add(
+        CategoryDB(
+            id=child_id,
+            name="Кафе",
+            type=TransactionType.EXPENSE,
+            parent_id=parent_id,
+            is_system=False,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    session.add(
+        CategoryDB(
+            id=parent_id,
+            name="Еда",
+            type=TransactionType.EXPENSE,
+            is_system=False,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    session.commit()
+
+    snapshot_path = tmp_path / "snapshot_parent_child_order.json"
+    ExportService.export_to_file(str(snapshot_path), _session=session, _created_at=now)
+    first_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+
+    second_snapshot_path = tmp_path / "snapshot_parent_child_order_repeat.json"
+    ExportService.export_to_file(str(second_snapshot_path), _session=session, _created_at=now)
+    second_payload = json.loads(second_snapshot_path.read_text(encoding="utf-8"))
+
+    first_order = [row["id"] for row in first_payload["categories"]]
+    second_order = [row["id"] for row in second_payload["categories"]]
+
+    assert first_order == second_order
+    assert first_order.index(parent_id) < first_order.index(child_id)
+
+    session.close()
+
+
 def test_import_restores_snapshot_and_returns_report(session_factory, tmp_path):
     source_session = session_factory()
     now = datetime(2026, 2, 11, 9, 0, 0)
@@ -154,7 +200,7 @@ def test_import_restores_snapshot_and_returns_report(session_factory, tmp_path):
     assert target_session.query(CategoryDB).filter(CategoryDB.id == existing_system_id).count() == 0
 
     imported_transaction = target_session.query(TransactionDB).one()
-    assert imported_transaction.amount == Decimal("50.10")
+    assert imported_transaction.__dict__.get("amount") == Decimal("50.10")
 
     source_session.close()
     target_session.close()

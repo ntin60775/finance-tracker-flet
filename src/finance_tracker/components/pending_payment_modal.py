@@ -8,9 +8,13 @@ from decimal import Decimal
 import flet as ft
 from sqlalchemy.orm import Session
 
-from finance_tracker.models.models import PendingPaymentCreate, PendingPaymentUpdate, PendingPaymentDB
+from finance_tracker.models.models import (
+    PendingPaymentCreate,
+    PendingPaymentUpdate,
+    PendingPaymentDB,
+)
 from finance_tracker.models.enums import PendingPaymentPriority, TransactionType
-from finance_tracker.services.category_service import get_all_categories
+from finance_tracker.services.category_service import get_selectable_leaf_categories
 
 
 class PendingPaymentModal:
@@ -51,60 +55,39 @@ class PendingPaymentModal:
             suffix="₽",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
-                allow=True,
-                regex_string=r"^\d*\.?\d{0,2}$",
-                replacement_string=""
+                allow=True, regex_string=r"^\d*\.?\d{0,2}$", replacement_string=""
             ),
-            on_change=self._clear_error
+            on_change=self._clear_error,
         )
 
         self.category_dropdown = ft.Dropdown(
-            label="Категория (расход)",
-            options=[],
-            on_select=self._clear_error
+            label="Категория (расход)", options=[], on_select=self._clear_error
         )
 
         self.description_field = ft.TextField(
-            label="Описание",
-            multiline=True,
-            max_lines=3,
-            on_change=self._clear_error
+            label="Описание", multiline=True, max_lines=3, on_change=self._clear_error
         )
 
         self.priority_dropdown = ft.Dropdown(
             label="Приоритет",
             value=PendingPaymentPriority.MEDIUM.value,
             options=[
-                ft.dropdown.Option(
-                    key=PendingPaymentPriority.LOW.value,
-                    text="Низкий"
-                ),
-                ft.dropdown.Option(
-                    key=PendingPaymentPriority.MEDIUM.value,
-                    text="Средний"
-                ),
-                ft.dropdown.Option(
-                    key=PendingPaymentPriority.HIGH.value,
-                    text="Высокий"
-                ),
-                ft.dropdown.Option(
-                    key=PendingPaymentPriority.CRITICAL.value,
-                    text="Критический"
-                ),
+                ft.dropdown.Option(key=PendingPaymentPriority.LOW.value, text="Низкий"),
+                ft.dropdown.Option(key=PendingPaymentPriority.MEDIUM.value, text="Средний"),
+                ft.dropdown.Option(key=PendingPaymentPriority.HIGH.value, text="Высокий"),
+                ft.dropdown.Option(key=PendingPaymentPriority.CRITICAL.value, text="Критический"),
             ],
         )
 
         self.has_date_checkbox = ft.Checkbox(
-            label="Установить плановую дату",
-            value=False,
-            on_change=self._on_has_date_change
+            label="Установить плановую дату", value=False, on_change=self._on_has_date_change
         )
 
         self.date_button = ft.Button(
             content="Выбрать дату",
             icon=ft.Icons.CALENDAR_TODAY,
             on_click=self._open_date_picker,
-            visible=False
+            visible=False,
         )
 
         self.error_text = ft.Text(color=ft.Colors.ERROR, size=12)
@@ -133,7 +116,7 @@ class PendingPaymentModal:
                 ],
                 width=400,
                 tight=True,
-                spacing=15
+                spacing=15,
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=self.close),
@@ -142,11 +125,7 @@ class PendingPaymentModal:
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-    def open(
-        self,
-        page: ft.Page,
-        payment: Optional[PendingPaymentDB] = None
-    ):
+    def open(self, page: ft.Page, payment: Optional[PendingPaymentDB] = None):
         """
         Открытие модального окна.
 
@@ -210,9 +189,12 @@ class PendingPaymentModal:
     def _load_categories(self):
         """Загружает категории расходов."""
         try:
-            categories = get_all_categories(self.session, transaction_type=TransactionType.EXPENSE)
+            categories = get_selectable_leaf_categories(self.session, TransactionType.EXPENSE)
             self.category_dropdown.options = [
-                ft.dropdown.Option(key=str(cat.id), text=cat.name)
+                ft.dropdown.Option(
+                    key=str(cat.id),
+                    text=self._format_category_label(cat),
+                )
                 for cat in categories
             ]
 
@@ -224,6 +206,16 @@ class PendingPaymentModal:
             self.error_text.value = f"Ошибка загрузки категорий: {str(e)}"
             if self._page:
                 self._page.update()
+
+    def _format_category_label(self, category) -> str:
+        category_name = getattr(category, "name", "")
+        parent = getattr(category, "parent", None)
+        parent_name = getattr(parent, "name", None) if parent is not None else None
+
+        if parent_name:
+            return f"{parent_name} / {category_name}"
+
+        return category_name
 
     def _on_has_date_change(self, e):
         """Обработка изменения чекбокса 'Установить плановую дату'."""
@@ -238,12 +230,12 @@ class PendingPaymentModal:
         """Открытие выбора даты."""
         if not self._page:
             return
-            
+
         if self.planned_date:
             self.date_picker.value = self.planned_date
         else:
             self.date_picker.value = datetime.date.today()
-        
+
         # Открываем DatePicker через page.open()
         self._page.open(self.date_picker)
 
@@ -316,7 +308,7 @@ class PendingPaymentModal:
                         category_id=category_id,
                         description=description,
                         priority=priority,
-                        planned_date=planned_date
+                        planned_date=planned_date,
                     )
                     self.on_update(self.edit_payment_id, update_data)
             else:
@@ -326,7 +318,7 @@ class PendingPaymentModal:
                     category_id=category_id,
                     description=description,
                     priority=priority,
-                    planned_date=planned_date
+                    planned_date=planned_date,
                 )
                 self.on_save(payment_data)
 

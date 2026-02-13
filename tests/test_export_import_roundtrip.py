@@ -41,6 +41,53 @@ def build_empty_snapshot() -> dict[str, object]:
     return snapshot
 
 
+def test_snapshot_import_restores_category_hierarchy_with_child_first_payload(
+    session_factory,
+    tmp_path,
+):
+    session = session_factory()
+    parent_id = str(uuid.uuid4())
+    child_id = str(uuid.uuid4())
+
+    snapshot = build_empty_snapshot()
+    categories = snapshot["categories"]
+    assert isinstance(categories, list)
+    categories.extend(
+        [
+            {
+                "id": child_id,
+                "name": "Кафе",
+                "type": "expense",
+                "parent_id": parent_id,
+                "is_system": False,
+                "created_at": "2026-02-11T12:00:00",
+                "updated_at": "2026-02-11T12:00:00",
+            },
+            {
+                "id": parent_id,
+                "name": "Еда",
+                "type": "expense",
+                "parent_id": None,
+                "is_system": False,
+                "created_at": "2026-02-11T12:00:00",
+                "updated_at": "2026-02-11T12:00:00",
+            },
+        ]
+    )
+
+    snapshot_path = tmp_path / "snapshot_child_before_parent.json"
+    snapshot_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    report = ImportService.import_from_file(str(snapshot_path), _session=session)
+
+    assert report == {"added": 2, "skipped": 0, "conflicts": 0}
+    imported_parent = session.query(CategoryDB).filter(CategoryDB.id == parent_id).one()
+    imported_child = session.query(CategoryDB).filter(CategoryDB.id == child_id).one()
+    assert imported_child.parent_id == imported_parent.id
+
+    session.close()
+
+
 def test_export_import_roundtrip_preserves_counts_decimal_and_fk(session_factory, tmp_path):
     source_session = session_factory()
     now = datetime(2026, 2, 11, 9, 30, 0)
@@ -112,8 +159,8 @@ def test_export_import_roundtrip_preserves_counts_decimal_and_fk(session_factory
     imported_category = target_session.query(CategoryDB).one()
     imported_transaction = target_session.query(TransactionDB).one()
 
-    assert imported_transaction.amount == Decimal("123.45")
-    assert imported_transaction.category_id == imported_category.id
+    assert imported_transaction.__dict__.get("amount") == Decimal("123.45")
+    assert imported_transaction.__dict__.get("category_id") == imported_category.__dict__.get("id")
     assert imported_transaction.category is not None
     assert imported_transaction.category.id == imported_category.id
 

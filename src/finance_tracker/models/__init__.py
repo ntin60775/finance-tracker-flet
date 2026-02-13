@@ -20,8 +20,8 @@ from .enums import (
 )
 from .models import (
     Base,
-    Category,
     CategoryCreate,
+    Category,
     CategoryDB,
     DebtTransfer,
     DebtTransferCreate,

@@ -36,13 +36,22 @@ from finance_tracker.utils.validation import validate_uuid_format
 logger = logging.getLogger(__name__)
 
 
+def _ensure_leaf_expense_category(session: Session, category: CategoryDB) -> None:
+    has_children = (
+        session.query(CategoryDB.id).filter(CategoryDB.parent_id == category.id).first() is not None
+    )
+    if has_children:
+        raise ValueError(
+            "Для расходных операций доступны только конечные категории (без подкатегорий)"
+        )
+
+
 # <ai:block name="CRUD Operations">
 # <ai:purpose>Базовые операции создания, чтения, обновления и удаления</ai:purpose>
 
 
 def create_pending_payment(
-    session: Session,
-    payment_data: PendingPaymentCreate
+    session: Session, payment_data: PendingPaymentCreate
 ) -> PendingPaymentDB:
     """
     Создаёт новый отложенный платёж с валидацией.
@@ -80,11 +89,11 @@ def create_pending_payment(
     """
     try:
         validate_uuid_format(payment_data.category_id, "category_id")
-        
+
         # <ai:step type="validation">Проверка существования категории</ai:step>
-        category = session.query(CategoryDB).filter(
-            CategoryDB.id == payment_data.category_id
-        ).first()
+        category = (
+            session.query(CategoryDB).filter(CategoryDB.id == payment_data.category_id).first()
+        )
 
         # <ai:condition test="Категория должна существовать">
         if not category:
@@ -102,6 +111,8 @@ def create_pending_payment(
             logger.error(error_msg)
             raise ValueError(error_msg)
         # </ai:condition>
+
+        _ensure_leaf_expense_category(session, category)
 
         # <ai:step type="create">Создание записи в БД</ai:step>
         db_payment = PendingPaymentDB(
@@ -135,10 +146,7 @@ def create_pending_payment(
         raise
 
 
-def get_pending_payment_by_id(
-    session: Session,
-    payment_id: str
-) -> Optional[PendingPaymentDB]:
+def get_pending_payment_by_id(session: Session, payment_id: str) -> Optional[PendingPaymentDB]:
     """
     Получает отложенный платёж по ID.
 
@@ -160,9 +168,7 @@ def get_pending_payment_by_id(
     """
     validate_uuid_format(payment_id, "payment_id")
     try:
-        payment = session.query(PendingPaymentDB).filter(
-            PendingPaymentDB.id == payment_id
-        ).first()
+        payment = session.query(PendingPaymentDB).filter(PendingPaymentDB.id == payment_id).first()
 
         if payment:
             logger.info(f"Получен отложенный платёж ID={payment_id}")
@@ -182,7 +188,7 @@ def get_all_pending_payments(
     status: Optional[PendingPaymentStatus] = None,
     has_planned_date: Optional[bool] = None,
     category_id: Optional[str] = None,
-    priority: Optional[PendingPaymentPriority] = None
+    priority: Optional[PendingPaymentPriority] = None,
 ) -> List[PendingPaymentDB]:
     """
     Получает список отложенных платежей с фильтрацией.
@@ -263,7 +269,7 @@ def get_all_pending_payments(
             key=lambda p: (
                 priority_order.get(p.priority, 999),
                 p.planned_date if p.planned_date else date_type.max,
-                p.created_at
+                p.created_at,
             )
         )
 
@@ -284,9 +290,7 @@ def get_all_pending_payments(
 
 
 def update_pending_payment(
-    session: Session,
-    payment_id: str,
-    payment_data: PendingPaymentUpdate
+    session: Session, payment_id: str, payment_data: PendingPaymentUpdate
 ) -> PendingPaymentDB:
     """
     Обновляет отложенный платёж.
@@ -339,11 +343,12 @@ def update_pending_payment(
         # </ai:condition>
 
         # <ai:step type="validation">Проверка новой категории, если указана</ai:step>
+        category_to_validate = payment.category
         if payment_data.category_id is not None:
             validate_uuid_format(payment_data.category_id, "category_id")
-            category = session.query(CategoryDB).filter(
-                CategoryDB.id == payment_data.category_id
-            ).first()
+            category = (
+                session.query(CategoryDB).filter(CategoryDB.id == payment_data.category_id).first()
+            )
 
             if not category:
                 error_msg = f"Категория с ID {payment_data.category_id} не найдена"
@@ -358,12 +363,16 @@ def update_pending_payment(
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
+            category_to_validate = category
+
+        _ensure_leaf_expense_category(session, category_to_validate)
+
         # <ai:step type="update">Обновление полей (только указанные)</ai:step>
         # Используем model_dump(exclude_unset=True) для определения явно установленных полей
         update_dict = payment_data.model_dump(exclude_unset=True)
 
         for field, value in update_dict.items():
-            if field == 'description' and value is not None:
+            if field == "description" and value is not None:
                 # Очищаем описание от пробелов
                 setattr(payment, field, value.strip())
             else:
@@ -388,10 +397,7 @@ def update_pending_payment(
         raise
 
 
-def delete_pending_payment(
-    session: Session,
-    payment_id: str
-) -> bool:
+def delete_pending_payment(session: Session, payment_id: str) -> bool:
     """
     Удаляет отложенный платёж.
 
@@ -464,9 +470,7 @@ def delete_pending_payment(
 
 
 def execute_pending_payment(
-    session: Session,
-    payment_id: str,
-    execute_data: PendingPaymentExecute
+    session: Session, payment_id: str, execute_data: PendingPaymentExecute
 ) -> Tuple[TransactionDB, PendingPaymentDB]:
     """
     Исполняет отложенный платёж, создавая фактическую транзакцию.
@@ -527,7 +531,11 @@ def execute_pending_payment(
 
         # <ai:step type="create">Создание фактической транзакции</ai:step>
         # Используем executed_amount, если указан, иначе оригинальную сумму
-        actual_amount = execute_data.executed_amount if execute_data.executed_amount is not None else payment.amount
+        actual_amount = (
+            execute_data.executed_amount
+            if execute_data.executed_amount is not None
+            else payment.amount
+        )
 
         transaction = TransactionDB(
             transaction_date=execute_data.executed_date,
@@ -568,9 +576,7 @@ def execute_pending_payment(
 
 
 def cancel_pending_payment(
-    session: Session,
-    payment_id: str,
-    cancel_data: PendingPaymentCancel
+    session: Session, payment_id: str, cancel_data: PendingPaymentCancel
 ) -> PendingPaymentDB:
     """
     Отменяет отложенный платёж.
@@ -650,9 +656,7 @@ def cancel_pending_payment(
 
 
 def get_pending_payments_history(
-    session: Session,
-    start_date: Optional[date_type] = None,
-    end_date: Optional[date_type] = None
+    session: Session, start_date: Optional[date_type] = None, end_date: Optional[date_type] = None
 ) -> List[PendingPaymentDB]:
     """
     Получает историю выполненных и отменённых платежей.
@@ -681,10 +685,9 @@ def get_pending_payments_history(
     try:
         # <ai:step type="query">Построение запроса для истории</ai:step>
         query = session.query(PendingPaymentDB).filter(
-            PendingPaymentDB.status.in_([
-                PendingPaymentStatus.EXECUTED,
-                PendingPaymentStatus.CANCELLED
-            ])
+            PendingPaymentDB.status.in_(
+                [PendingPaymentStatus.EXECUTED, PendingPaymentStatus.CANCELLED]
+            )
         )
 
         # <ai:condition test="Фильтр по дате начала">
@@ -692,7 +695,7 @@ def get_pending_payments_history(
             query = query.filter(
                 or_(
                     PendingPaymentDB.executed_date >= start_date,
-                    PendingPaymentDB.cancelled_date >= start_date
+                    PendingPaymentDB.cancelled_date >= start_date,
                 )
             )
         # </ai:condition>
@@ -702,7 +705,7 @@ def get_pending_payments_history(
             query = query.filter(
                 or_(
                     PendingPaymentDB.executed_date <= end_date,
-                    PendingPaymentDB.cancelled_date <= end_date
+                    PendingPaymentDB.cancelled_date <= end_date,
                 )
             )
         # </ai:condition>
@@ -710,8 +713,7 @@ def get_pending_payments_history(
         # <ai:step type="sorting">Сортировка по дате исполнения/отмены (новые первые)</ai:step>
         history = query.all()
         history.sort(
-            key=lambda p: p.executed_date or p.cancelled_date or datetime.min.date(),
-            reverse=True
+            key=lambda p: p.executed_date or p.cancelled_date or datetime.min.date(), reverse=True
         )
 
         logger.info(f"Получена история: {len(history)} платежей")
@@ -724,9 +726,7 @@ def get_pending_payments_history(
         raise
 
 
-def get_pending_payments_statistics(
-    session: Session
-) -> Dict[str, Any]:
+def get_pending_payments_statistics(session: Session) -> Dict[str, Any]:
     """
     Получает статистику по отложенным платежам.
 
@@ -757,7 +757,7 @@ def get_pending_payments_statistics(
 
         # <ai:step type="calculation">Расчёт общей статистики</ai:step>
         total_active = len(active_payments)
-        total_amount = sum((p.amount for p in active_payments), Decimal('0.0'))
+        total_amount = sum((p.amount for p in active_payments), Decimal("0.0"))
 
         # <ai:step type="calculation">Статистика по приоритетам</ai:step>
         by_priority = {}
@@ -765,7 +765,7 @@ def get_pending_payments_statistics(
             payments = [p for p in active_payments if p.priority == priority]
             by_priority[priority.value] = {
                 "count": len(payments),
-                "total_amount": sum((p.amount for p in payments), Decimal('0.0'))
+                "total_amount": sum((p.amount for p in payments), Decimal("0.0")),
             }
 
         # <ai:step type="calculation">Статистика по наличию плановой даты</ai:step>
@@ -781,8 +781,7 @@ def get_pending_payments_statistics(
         }
 
         logger.info(
-            f"Статистика отложенных платежей: {total_active} активных, "
-            f"сумма {total_amount} руб."
+            f"Статистика отложенных платежей: {total_active} активных, сумма {total_amount} руб."
         )
 
         return statistics
@@ -794,8 +793,7 @@ def get_pending_payments_statistics(
 
 
 def get_pending_payments_by_date(
-    session: Session,
-    target_date: date_type
+    session: Session, target_date: date_type
 ) -> List[PendingPaymentDB]:
     """
     Получает активные отложенные платежи для указанной даты.
@@ -823,19 +821,21 @@ def get_pending_payments_by_date(
     """
     try:
         # <ai:step type="query">Получение активных платежей с указанной датой</ai:step>
-        payments = session.query(PendingPaymentDB).filter(
-            PendingPaymentDB.status == PendingPaymentStatus.ACTIVE,
-            PendingPaymentDB.planned_date == target_date
-        ).order_by(
-            # Сортировка по приоритету (CRITICAL первые)
-            PendingPaymentDB.priority.desc(),
-            PendingPaymentDB.created_at.asc()
-        ).all()
-
-        logger.info(
-            f"Найдено {len(payments)} активных отложенных платежей "
-            f"для даты {target_date}"
+        payments = (
+            session.query(PendingPaymentDB)
+            .filter(
+                PendingPaymentDB.status == PendingPaymentStatus.ACTIVE,
+                PendingPaymentDB.planned_date == target_date,
+            )
+            .order_by(
+                # Сортировка по приоритету (CRITICAL первые)
+                PendingPaymentDB.priority.desc(),
+                PendingPaymentDB.created_at.asc(),
+            )
+            .all()
         )
+
+        logger.info(f"Найдено {len(payments)} активных отложенных платежей для даты {target_date}")
 
         return payments
 

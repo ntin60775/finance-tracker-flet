@@ -1,14 +1,15 @@
 import flet as ft
-from typing import Optional
+from typing import Optional, List, Any, Callable, cast, Literal
 from sqlalchemy.orm import Session
 
 from finance_tracker.models import TransactionType, CategoryDB
 from finance_tracker.database import get_db_session
 from finance_tracker.services.category_service import (
     get_all_categories,
+    get_expense_tree,
     create_category,
     update_category,
-    delete_category
+    delete_category,
 )
 from finance_tracker.utils.logger import get_logger
 from finance_tracker.utils.error_handler import safe_handler
@@ -20,29 +21,57 @@ class CategoryDialog(ft.AlertDialog):
     """
     Модальное окно для создания и редактирования категории.
     """
-    def __init__(self, session: Session, on_success: callable, category: Optional[CategoryDB] = None):
+
+    ROOT_PARENT_KEY = "__root__"
+    SELECT_PARENT_KEY = "__select_parent__"
+
+    def __init__(
+        self,
+        session: Session,
+        on_success: Callable[[], None],
+        category: Optional[CategoryDB] = None,
+        *,
+        create_mode: Optional[Literal["income", "expense_root", "expense_child"]] = None,
+    ):
         super().__init__()
         self.session = session
         self.on_success = on_success
         self.category = category  # Если передан - режим редактирования
         self.modal = True
+        self._create_mode = create_mode
+
+        self._legacy_create = self.category is None and self._create_mode is None
+
+        if self.category:
+            self._transaction_type = cast(TransactionType, cast(Any, self.category).type)
+        else:
+            self._transaction_type = (
+                TransactionType.INCOME if self._create_mode == "income" else TransactionType.EXPENSE
+            )
 
         # Заголовок зависит от режима
         if self.category:
-            self.title = ft.Text(f"Редактировать: {category.name}")
+            category_name = cast(str, cast(Any, self.category).name)
+            self.title = ft.Text(f"Редактировать: {category_name}")
         else:
-            self.title = ft.Text("Новая категория")
+            if self._create_mode == "income":
+                self.title = ft.Text("Новая категория доходов")
+            elif self._create_mode == "expense_root":
+                self.title = ft.Text("Новая категория расходов")
+            elif self._create_mode == "expense_child":
+                self.title = ft.Text("Новая подкатегория расходов")
+            else:
+                self.title = ft.Text("Новая категория")
 
         # Fields
         self.name_field = ft.TextField(
             label="Название",
-            value=category.name if category else "",
+            value=cast(str, cast(Any, category).name) if category else "",
             autofocus=True,
-            on_submit=self.save_category
+            on_submit=self.save_category,
         )
 
-        # Тип транзакции (только для создания)
-        if not category:
+        if self._legacy_create:
             self.type_segment = ft.SegmentedButton(
                 segments=[
                     ft.Segment(
@@ -57,37 +86,69 @@ class CategoryDialog(ft.AlertDialog):
                     ),
                 ],
                 selected=[TransactionType.EXPENSE.value],
+                on_change=self._on_type_change,
             )
-        else:
-            # При редактировании показываем тип как текст (нельзя изменить)
-            type_text = "Расход" if category.type == TransactionType.EXPENSE else "Доход"
-            self.type_label = ft.Text(
-                f"Тип: {type_text}",
-                size=14,
-                color=ft.Colors.GREY_700
-            )
+
+        type_text = "Расход" if self._transaction_type == TransactionType.EXPENSE else "Доход"
+        self.type_label = ft.Text(f"Тип: {type_text}", size=14, color=ft.Colors.GREY_700)
+
+        root_options, child_ids, root_ids = self._build_expense_parent_options()
+        self._expense_child_ids = child_ids
+        self._expense_root_ids = root_ids
+        self._expense_root_options = root_options
+
+        parent_dropdown_visible = False
+        parent_required = False
+        parent_label = "Родительская категория"
+        parent_default_value = self.ROOT_PARENT_KEY
+        parent_options: List[ft.dropdown.Option] = []
+
+        if self._legacy_create and self._transaction_type == TransactionType.EXPENSE:
+            parent_dropdown_visible = True
+            parent_label = "Родительская категория (необязательно)"
+            parent_options = [
+                ft.dropdown.Option(key=self.ROOT_PARENT_KEY, text="(Корневая категория)"),
+                *root_options,
+            ]
+        elif self._transaction_type == TransactionType.EXPENSE:
+            if self.category is not None:
+                parent_dropdown_visible = True
+                parent_options = [
+                    ft.dropdown.Option(key=self.ROOT_PARENT_KEY, text="(Корневая категория)"),
+                    *root_options,
+                ]
+            elif self._create_mode == "expense_child":
+                parent_dropdown_visible = True
+                parent_required = True
+                parent_label = "Родительская категория (обязательно)"
+                parent_default_value = self.SELECT_PARENT_KEY
+                parent_options = [
+                    ft.dropdown.Option(key=self.SELECT_PARENT_KEY, text="(Выберите родителя)"),
+                    *root_options,
+                ]
+
+        self._parent_required = parent_required
+        self.parent_dropdown = ft.Dropdown(
+            label=parent_label,
+            options=parent_options,
+            value=parent_default_value,
+            visible=parent_dropdown_visible,
+        )
+
+        if self.category and self.parent_dropdown.visible:
+            current_parent_id = cast(Optional[str], cast(Any, self.category).parent_id)
+            self.parent_dropdown.value = current_parent_id or self.ROOT_PARENT_KEY
 
         self.error_text = ft.Text(color=ft.Colors.ERROR, size=12, visible=False)
 
-        # Формируем содержимое в зависимости от режима
-        controls = []
-        if not category:
-            controls.append(self.type_segment)
-            controls.append(ft.Container(height=10))
-        else:
-            controls.append(self.type_label)
-            controls.append(ft.Container(height=5))
+        controls: List[Any] = [self.type_segment] if self._legacy_create else [self.type_label]
+        if self.parent_dropdown.visible:
+            controls.append(ft.Container(height=8))
+            controls.append(self.parent_dropdown)
+        controls.append(ft.Container(height=10))
+        controls.extend([self.name_field, self.error_text])
 
-        controls.extend([
-            self.name_field,
-            self.error_text
-        ])
-
-        self.content = ft.Column(
-            controls=controls,
-            width=400,
-            tight=True
-        )
+        self.content = ft.Column(controls=controls, width=400, tight=True)
 
         # Кнопки
         button_text = "Сохранить" if category else "Создать"
@@ -103,18 +164,70 @@ class CategoryDialog(ft.AlertDialog):
         if not name:
             self.error_text.value = "Введите название категории"
             self.error_text.visible = True
-            self.update()
+            self._update_if_mounted()
             return
 
         try:
+            parent_id: Optional[str] = None
+
+            t_type = self._transaction_type
+
+            if t_type == TransactionType.EXPENSE and self.parent_dropdown.visible:
+                selected_parent_key = self.parent_dropdown.value or self.ROOT_PARENT_KEY
+
+                if self._parent_required and selected_parent_key in {
+                    self.ROOT_PARENT_KEY,
+                    self.SELECT_PARENT_KEY,
+                }:
+                    self.error_text.value = "Выберите родительскую категорию"
+                    self.error_text.visible = True
+                    self._update_if_mounted()
+                    return
+
+                if self._parent_required and not self._expense_root_ids:
+                    self.error_text.value = (
+                        "Нет доступных корневых категорий расходов. "
+                        "Сначала создайте корневую категорию."
+                    )
+                    self.error_text.visible = True
+                    self._update_if_mounted()
+                    return
+
+                if selected_parent_key in self._expense_child_ids:
+                    self.error_text.value = (
+                        "Нельзя создать подкатегорию второго уровня. "
+                        "Выберите корневую категорию в качестве родителя."
+                    )
+                    self.error_text.visible = True
+                    self._update_if_mounted()
+                    return
+
+                if self.category:
+                    category_id = cast(str, cast(Any, self.category).id)
+                    if selected_parent_key == category_id:
+                        self.error_text.value = "Категория не может быть родителем сама себе"
+                        self.error_text.visible = True
+                        self._update_if_mounted()
+                        return
+
+                if selected_parent_key in {self.ROOT_PARENT_KEY, self.SELECT_PARENT_KEY}:
+                    parent_id = None
+                else:
+                    parent_id = selected_parent_key
+
             if self.category:
                 # Режим редактирования
-                update_category(self.session, self.category.id, name)
+                category_id = cast(str, cast(Any, self.category).id)
+                if t_type == TransactionType.EXPENSE:
+                    update_category(self.session, category_id, name, parent_id=parent_id)
+                else:
+                    update_category(self.session, category_id, name)
             else:
                 # Режим создания
-                selected_type_val = list(self.type_segment.selected)[0]
-                t_type = TransactionType(selected_type_val)
-                create_category(self.session, name, t_type)
+                if t_type == TransactionType.EXPENSE:
+                    create_category(self.session, name, t_type, parent_id=parent_id)
+                else:
+                    create_category(self.session, name, t_type)
 
             # Сбрасываем ошибки
             self.error_text.value = ""
@@ -126,63 +239,194 @@ class CategoryDialog(ft.AlertDialog):
         except ValueError as ve:
             self.error_text.value = str(ve)
             self.error_text.visible = True
-            self.update()
+            self._update_if_mounted()
         except Exception as ex:
             logger.error(f"Ошибка сохранения категории: {ex}")
             self.error_text.value = f"Ошибка: {ex}"
             self.error_text.visible = True
-            self.update()
+            self._update_if_mounted()
 
     def close(self, e):
         """Закрытие диалога."""
-        if self._page:
-            self._page.close(self)
+        page = getattr(self, "page", None) or getattr(self, "_page", None)
+        if page:
+            cast(Any, page).close(self)
+
+    def _on_type_change(self, e) -> None:
+        if not getattr(self, "type_segment", None):
+            return
+
+        selected_type_val = list(self.type_segment.selected)[0]
+        self._transaction_type = TransactionType(selected_type_val)
+
+        if self._transaction_type == TransactionType.EXPENSE:
+            self.parent_dropdown.visible = True
+            self.parent_dropdown.options = [
+                ft.dropdown.Option(key=self.ROOT_PARENT_KEY, text="(Корневая категория)"),
+                *getattr(self, "_expense_root_options", []),
+            ]
+        else:
+            self.parent_dropdown.visible = False
+            self.parent_dropdown.value = self.ROOT_PARENT_KEY
+
+        self.error_text.value = ""
+        self.error_text.visible = False
+        self._update_if_mounted()
+
+    def _update_if_mounted(self) -> None:
+        if getattr(self, "page", None):
+            self.update()
+
+    def _build_expense_parent_options(
+        self,
+    ) -> tuple[List[ft.dropdown.Option], set[str], set[str]]:
+        options: List[ft.dropdown.Option] = []
+        child_ids: set[str] = set()
+        root_ids: set[str] = set()
+
+        if self._transaction_type != TransactionType.EXPENSE:
+            return options, child_ids, root_ids
+
+        try:
+            expense_tree = get_expense_tree(self.session)
+        except Exception as ex:
+            logger.error(f"Ошибка загрузки дерева категорий для parent dropdown: {ex}")
+            return options, child_ids, root_ids
+
+        for node in expense_tree:
+            root = cast(Any, node.get("category"))
+            if root is None:
+                continue
+
+            root_id = str(root.id)
+            root_name = str(root.name)
+            root_ids.add(root_id)
+
+            if self.category is None and (
+                self._create_mode == "expense_child" or self._create_mode is None
+            ):
+                options.append(ft.dropdown.Option(key=root_id, text=root_name))
+            elif self.category is not None:
+                current_id = str(cast(Any, self.category).id)
+                if root_id != current_id:
+                    options.append(ft.dropdown.Option(key=root_id, text=root_name))
+
+            children = cast(list[object], node.get("children", []))
+            for child in children:
+                child_obj = cast(Any, child)
+                child_id = str(child_obj.id)
+                child_name = str(child_obj.name)
+                child_ids.add(child_id)
+                _ = root_name
+                _ = child_name
+
+        return options, child_ids, root_ids
 
 
 class CategoriesView(ft.Column):
     """
     Экран управления категориями.
     """
+
     def __init__(self, page: ft.Page):
         super().__init__(expand=True, alignment=ft.MainAxisAlignment.START)
         self._page = page
-        self.current_filter: Optional[TransactionType] = None
-        
+
         # Persistent session pattern for View
         self.cm = get_db_session()
         self.session = self.cm.__enter__()
-        
+
         # UI Components
-        self.filter_tabs = ft.Tabs(
-            content=ft.TabBar(tabs=[
-                ft.Tab(label="Все"),
-                ft.Tab(label="Расходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_DOWN)),
-                ft.Tab(label="Доходы", icon=ft.Icon(ft.Icons.ARROW_CIRCLE_UP)),
-            ]),
-            length=3,
-            selected_index=0,
-            animation_duration=300,
-            on_change=self.on_filter_change
+        self.income_list = ft.ListView(expand=True, spacing=5, padding=10)
+        self.expense_list = ft.ListView(expand=True, spacing=5, padding=10)
+
+        income_section = ft.Container(
+            expand=True,
+            content=ft.Column(
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Text(
+                                "Доходы",
+                                size=16,
+                                weight=ft.FontWeight.W_600,
+                                color=ft.Colors.GREEN,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.ADD_CIRCLE_OUTLINE,
+                                icon_size=26,
+                                tooltip="Добавить доходную категорию",
+                                on_click=self.open_create_income_dialog,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    ft.Divider(height=1),
+                    self.income_list,
+                ],
+                expand=True,
+                spacing=8,
+            ),
         )
-        
-        self.categories_list = ft.ListView(expand=True, spacing=5, padding=10)
-        
+
+        expense_section = ft.Container(
+            expand=True,
+            content=ft.Column(
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Text(
+                                "Расходы",
+                                size=16,
+                                weight=ft.FontWeight.W_600,
+                                color=ft.Colors.RED,
+                            ),
+                            ft.Row(
+                                controls=[
+                                    ft.IconButton(
+                                        icon=ft.Icons.ADD_CIRCLE_OUTLINE,
+                                        icon_size=26,
+                                        tooltip="Добавить корневую категорию расходов",
+                                        on_click=self.open_create_expense_root_dialog,
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.ACCOUNT_TREE_OUTLINED,
+                                        icon_size=26,
+                                        tooltip="Добавить подкатегорию расходов",
+                                        on_click=self.open_create_expense_child_dialog,
+                                    ),
+                                ],
+                                spacing=0,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    ft.Divider(height=1),
+                    self.expense_list,
+                ],
+                expand=True,
+                spacing=8,
+            ),
+        )
+
+        self.split_layout = ft.Row(
+            controls=[income_section, expense_section],
+            expand=True,
+            wrap=True,
+            spacing=16,
+            run_spacing=16,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+
         self.controls = [
             ft.Row(
                 controls=[
                     ft.Text("Категории", size=24, weight=ft.FontWeight.BOLD),
-                    ft.IconButton(
-                        icon=ft.Icons.ADD_CIRCLE,
-                        icon_size=40,
-                        tooltip="Добавить категорию",
-                        on_click=self.open_create_dialog
-                    )
                 ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
-            self.filter_tabs,
             ft.Divider(height=1),
-            self.categories_list
+            self.split_layout,
         ]
 
     def did_mount(self):
@@ -193,67 +437,109 @@ class CategoriesView(ft.Column):
         if self.cm:
             self.cm.__exit__(None, None, None)
 
-    def on_filter_change(self, e):
-        """Обработка смены вкладки фильтра."""
-        index = self.filter_tabs.selected_index
-        if index == 0:
-            self.current_filter = None
-        elif index == 1:
-            self.current_filter = TransactionType.EXPENSE
-        elif index == 2:
-            self.current_filter = TransactionType.INCOME
-        
-        self.refresh_data()
-
     def refresh_data(self):
         """Загрузка и отображение списка категорий."""
         try:
-            categories = get_all_categories(self.session, self.current_filter)
-            
-            self.categories_list.controls.clear()
-            
-            if not categories:
-                self.categories_list.controls.append(
+            income_categories = get_all_categories(self.session, TransactionType.INCOME)
+            expense_tree = get_expense_tree(self.session)
+
+            self.income_list.controls.clear()
+            self.expense_list.controls.clear()
+
+            if not income_categories:
+                self.income_list.controls.append(
                     ft.Container(
-                        content=ft.Text("Категории не найдены", color="outline"),
+                        content=ft.Text("Категории доходов не найдены", color="outline"),
                         alignment=ft.Alignment.CENTER,
-                        padding=20
+                        padding=20,
                     )
                 )
             else:
-                for cat in categories:
-                    self.categories_list.controls.append(self._create_category_tile(cat))
+                for cat in income_categories:
+                    self.income_list.controls.append(self._create_category_tile(cat))
 
-            self.update()
+            expense_item_count = 0
+            for node in expense_tree:
+                category = node.get("category")
+                children = node.get("children")
+                if isinstance(category, CategoryDB):
+                    expense_item_count += 1
+                if isinstance(children, list):
+                    expense_item_count += len(children)
+
+            if expense_item_count == 0:
+                self.expense_list.controls.append(
+                    ft.Container(
+                        content=ft.Text("Категории расходов не найдены", color="outline"),
+                        alignment=ft.Alignment.CENTER,
+                        padding=20,
+                    )
+                )
+            else:
+                for node in expense_tree:
+                    root = node.get("category")
+                    children = node.get("children")
+
+                    if isinstance(root, CategoryDB):
+                        self.expense_list.controls.append(self._create_category_tile(root))
+                    if isinstance(children, list):
+                        for child in children:
+                            if isinstance(child, CategoryDB):
+                                self.expense_list.controls.append(
+                                    self._create_category_tile(child, indent=22, is_child=True)
+                                )
+
+            if self._page:
+                self._page.update()
+            else:
+                self.update()
 
         except Exception as e:
             logger.error(f"Ошибка загрузки категорий: {e}")
             # Показываем сообщение об ошибке пользователю
             if self._page:
                 snack = ft.SnackBar(content=ft.Text(f"Ошибка загрузки категорий: {e}"))
-                self._page.open(snack)
+                cast(Any, self._page).open(snack)
 
-    def _create_category_tile(self, category: CategoryDB) -> ft.Container:
+    def _create_category_tile(
+        self,
+        category: CategoryDB,
+        indent: int = 0,
+        is_child: bool = False,
+    ) -> ft.Container:
         """Создание элемента списка для категории."""
-        icon = ft.Icons.ARROW_CIRCLE_DOWN if category.type == TransactionType.EXPENSE else ft.Icons.ARROW_CIRCLE_UP
-        color = ft.Colors.RED if category.type == TransactionType.EXPENSE else ft.Colors.GREEN
+        category_type = cast(TransactionType, cast(Any, category).type)
+        category_name = cast(str, cast(Any, category).name)
+        category_id = cast(str, cast(Any, category).id)
+        is_system = bool(cast(Any, category).is_system)
+
+        icon = (
+            ft.Icons.ARROW_CIRCLE_DOWN
+            if category_type == TransactionType.EXPENSE
+            else ft.Icons.ARROW_CIRCLE_UP
+        )
+        color = ft.Colors.RED if category_type == TransactionType.EXPENSE else ft.Colors.GREEN
 
         # Основная информация о категории
         info_column = ft.Column(
             controls=[
-                ft.Text(category.name, weight=ft.FontWeight.BOLD, size=16),
                 ft.Text(
-                    "Системная" if category.is_system else "Пользовательская",
+                    category_name,
+                    weight=ft.FontWeight.W_600 if not is_child else ft.FontWeight.NORMAL,
+                    size=16 if not is_child else 15,
+                ),
+                ft.Text(
+                    "Системная" if is_system else "Пользовательская",
                     size=12,
-                    color=ft.Colors.GREY_700
+                    color=ft.Colors.GREY_700,
                 ),
             ],
-            spacing=2
+            spacing=2,
         )
 
         # Кнопки действий
-        actions = []
-        if not category.is_system:
+        actions: List[Any] = []
+        if not is_system:
             # Пользовательская категория - можно редактировать и удалять
             actions = [
                 ft.IconButton(
@@ -261,14 +547,17 @@ class CategoriesView(ft.Column):
                     icon_color=ft.Colors.PRIMARY,
                     icon_size=20,
                     tooltip="Редактировать",
-                    on_click=lambda e, cat=category: self.open_edit_dialog(cat)
+                    on_click=lambda e, cat=category: self.open_edit_dialog(cat),
                 ),
                 ft.IconButton(
                     icon=ft.Icons.DELETE_OUTLINE,
                     icon_color=ft.Colors.ERROR,
                     icon_size=20,
                     tooltip="Удалить",
-                    on_click=lambda e, cid=category.id, cname=category.name: self.confirm_delete(cid, cname)
+                    on_click=lambda e, cid=category_id, cname=category_name: self.confirm_delete(
+                        cid,
+                        cname,
+                    ),
                 ),
             ]
         else:
@@ -278,62 +567,87 @@ class CategoriesView(ft.Column):
                     ft.Icons.LOCK_OUTLINE,
                     color=ft.Colors.GREY_400,
                     size=20,
-                    tooltip="Системная категория"
+                    tooltip="Системная категория",
                 )
             ]
 
-        trailing = ft.Row(
-            controls=actions,
-            spacing=5
-        )
+        trailing = ft.Row(controls=actions, spacing=5)
 
         # Собираем строку
         content_row = ft.Row(
             controls=[
                 ft.Icon(icon, color=color, size=32),
                 ft.Container(width=10),  # Отступ
-                ft.Container(content=info_column, expand=True),  # Без padding, чтобы не блокировать события
-                trailing
+                ft.Container(
+                    content=info_column, expand=True
+                ),  # Без padding, чтобы не блокировать события
+                trailing,
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
         return ft.Container(
-            content=content_row,
-            bgcolor=ft.Colors.SURFACE,
-            padding=12,
-            border_radius=8,
-            border=ft.Border.all(1, ft.Colors.OUTLINE),
-            ink=False  # Отключаем эффект ink, чтобы не перехватывать события кнопок
+            content=ft.Container(
+                content=content_row,
+                bgcolor=ft.Colors.SURFACE,
+                padding=12,
+                border_radius=8,
+                border=ft.Border.all(1, ft.Colors.OUTLINE),
+                ink=False,  # Отключаем эффект ink, чтобы не перехватывать события кнопок
+            ),
+            padding=ft.Padding.only(left=indent) if indent > 0 else None,
         )
 
-    def open_create_dialog(self, e):
-        """Открытие диалога создания категории."""
-        logger.info("Нажата кнопка создания категории")
-
-        # Получаем page из event control (кнопка добавления)
-        page = e.control.page if e and e.control else self._page
+    def _open_create_dialog(
+        self,
+        e,
+        create_mode: Literal["income", "expense_root", "expense_child"],
+    ) -> None:
+        page = e.control.page if e and getattr(e, "control", None) else self._page
         if not page:
             logger.error("Page не инициализирована")
             return
 
-        logger.info("Создание диалога")
-        # Создаем новый экземпляр диалога без категории (режим создания)
         dialog = CategoryDialog(
             session=self.session,
             on_success=self.refresh_data,
-            category=None
+            category=None,
+            create_mode=create_mode,
         )
+        cast(Any, page).open(dialog)
+        cast(Any, page).update()
 
-        # Устанавливаем и открываем диалог
-        page.open(dialog)
-        logger.info("Диалог открыт")
-        page.update()
+    def open_create_dialog(self, e) -> None:
+        page = e.control.page if e and getattr(e, "control", None) else self._page
+        if not page:
+            logger.error("Page не инициализирована")
+            return
+
+        dialog = CategoryDialog(
+            session=self.session,
+            on_success=self.refresh_data,
+            category=None,
+        )
+        cast(Any, page).open(dialog)
+        cast(Any, page).update()
+
+    def open_create_income_dialog(self, e):
+        self._open_create_dialog(e, create_mode="income")
+
+    def open_create_expense_root_dialog(self, e):
+        self._open_create_dialog(e, create_mode="expense_root")
+
+    def open_create_expense_child_dialog(self, e):
+        self._open_create_dialog(e, create_mode="expense_child")
 
     def open_edit_dialog(self, category: CategoryDB):
         """Открытие диалога редактирования категории."""
-        logger.info(f"Открытие диалога редактирования для категории '{category.name}' (ID {category.id})")
+        category_name = cast(str, cast(Any, category).name)
+        category_id = cast(str, cast(Any, category).id)
+        logger.info(
+            f"Открытие диалога редактирования для категории '{category_name}' (ID {category_id})"
+        )
 
         if not self._page:
             logger.error("Page не инициализирована")
@@ -341,26 +655,27 @@ class CategoriesView(ft.Column):
 
         # Создаем диалог с передачей категории (режим редактирования)
         dialog = CategoryDialog(
-            session=self.session,
-            on_success=self.refresh_data,
-            category=category
+            session=self.session, on_success=self.refresh_data, category=category
         )
 
         # Открываем диалог
-        self._page.open(dialog)
-        self._page.update()
+        cast(Any, self._page).open(dialog)
+        cast(Any, self._page).update()
 
     def confirm_delete(self, category_id: str, name: str):
         """Диалог подтверждения удаления."""
+
+        page = cast(Any, self._page)
+
         @safe_handler()
         def delete_action(e):
             delete_category(self.session, category_id)
-            self._page.close(dlg)
+            page.close(dlg)
             self.refresh_data()
-            self._page.open(ft.SnackBar(content=ft.Text(f"Категория '{name}' удалена")))
+            page.open(ft.SnackBar(content=ft.Text(f"Категория '{name}' удалена")))
 
         def cancel_action(e):
-            self._page.close(dlg)
+            page.close(dlg)
 
         dlg = ft.AlertDialog(
             modal=True,
@@ -368,9 +683,11 @@ class CategoriesView(ft.Column):
             content=ft.Text(f"Вы действительно хотите удалить категорию '{name}'?"),
             actions=[
                 ft.TextButton("Отмена", on_click=cancel_action),
-                ft.TextButton("Удалить", on_click=delete_action, style=ft.ButtonStyle(color=ft.Colors.ERROR)),
+                ft.TextButton(
+                    "Удалить", on_click=delete_action, style=ft.ButtonStyle(color=ft.Colors.ERROR)
+                ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        
-        self._page.open(dlg)
+
+        page.open(dlg)

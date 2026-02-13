@@ -45,10 +45,12 @@ from finance_tracker.models.enums import (
 # Фабрики для основных моделей
 # =============================================================================
 
+
 def create_test_category(
-    id: Optional[int] = None,
+    id: Optional[str] = None,
     name: str = "Тестовая категория",
     type: TransactionType = TransactionType.EXPENSE,
+    parent_id: Optional[str] = None,
     is_system: bool = False,
     created_at: Optional[datetime] = None,
 ) -> CategoryDB:
@@ -59,6 +61,7 @@ def create_test_category(
         id: Уникальный идентификатор (None = автогенерация)
         name: Название категории
         type: Тип категории (доход или расход)
+        parent_id: ID родительской категории (None = корневая категория)
         is_system: Признак системной категории
         created_at: Дата создания (None = текущее время)
 
@@ -74,6 +77,7 @@ def create_test_category(
         id=id,
         name=name,
         type=type,
+        parent_id=parent_id,
         is_system=is_system,
         created_at=created_at or datetime.now(),
     )
@@ -359,6 +363,7 @@ def create_test_pending_payment(
 # Фабрики для дополнительных моделей
 # =============================================================================
 
+
 def create_test_recurrence_rule(
     id: Optional[int] = None,
     planned_transaction_id: int = 1,
@@ -535,6 +540,7 @@ def create_test_loan_payment(
 # =============================================================================
 # Генераторы граничных значений и edge cases
 # =============================================================================
+
 
 def create_minimal_category() -> CategoryDB:
     """

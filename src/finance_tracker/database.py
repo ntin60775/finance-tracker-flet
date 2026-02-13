@@ -108,13 +108,23 @@ def init_default_categories(session: Session) -> None:
 
         # Создаём категории доходов
         for name in income_categories:
-            category = CategoryDB(name=name, type=TransactionType.INCOME, is_system=True)
+            category = CategoryDB(
+                name=name,
+                type=TransactionType.INCOME,
+                parent_id=None,
+                is_system=True,
+            )
             session.add(category)
             logger.debug(f"Добавлена категория дохода: {name}")
 
         # Создаём категории расходов
         for name in expense_categories:
-            category = CategoryDB(name=name, type=TransactionType.EXPENSE, is_system=True)
+            category = CategoryDB(
+                name=name,
+                type=TransactionType.EXPENSE,
+                parent_id=None,
+                is_system=True,
+            )
             session.add(category)
             logger.debug(f"Добавлена категория расхода: {name}")
 

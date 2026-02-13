@@ -280,6 +280,40 @@ def _validate_foreign_keys(parsed_tables: dict[str, list[dict[str, Any]]]) -> No
                         )
 
 
+def _validate_category_parent_links(parsed_tables: dict[str, list[dict[str, Any]]]) -> None:
+    categories = parsed_tables[CategoryDB.__tablename__]
+    parent_by_id: dict[str, str | None] = {row["id"]: row.get("parent_id") for row in categories}
+
+    for row_index, row in enumerate(categories):
+        parent_id = row.get("parent_id")
+        if parent_id is None:
+            continue
+        if parent_id not in parent_by_id:
+            raise ValueError(
+                f"Неразрешимая parent ссылка categories[{row_index}].parent_id={parent_id}"
+            )
+
+    visit_state: dict[str, int] = {}
+
+    def _visit(category_id: str) -> None:
+        state = visit_state.get(category_id, 0)
+        if state == 1:
+            raise ValueError(
+                f"Неразрешимая parent ссылка: обнаружен цикл категорий с id={category_id}"
+            )
+        if state == 2:
+            return
+
+        visit_state[category_id] = 1
+        parent_id = parent_by_id.get(category_id)
+        if parent_id is not None:
+            _visit(parent_id)
+        visit_state[category_id] = 2
+
+    for category_id in parent_by_id:
+        _visit(category_id)
+
+
 def _validate_and_parse_snapshot(
     snapshot_payload: dict[str, Any],
 ) -> dict[str, list[dict[str, Any]]]:
@@ -291,6 +325,7 @@ def _validate_and_parse_snapshot(
         records = _require_key(snapshot_payload, table_name, "snapshot")
         parsed_tables[table_name] = _parse_table_payload(table_name=table_name, records=records)
 
+    _validate_category_parent_links(parsed_tables)
     _validate_foreign_keys(parsed_tables)
     return parsed_tables
 
@@ -330,9 +365,36 @@ def _insert_snapshot_data(
 ) -> dict[str, int]:
     report = dict(REPORT_TEMPLATE)
 
+    deferred_category_links: list[tuple[CategoryDB, str]] = []
+    category_ids: set[str] = set()
+    for row in parsed_tables[CategoryDB.__tablename__]:
+        row_payload = dict(row)
+        parent_id = row_payload.pop("parent_id", None)
+        category_id = row_payload.get("id")
+        if not isinstance(category_id, str):
+            raise ValueError("Неразрешимая parent ссылка categories.id")
+        category = CategoryDB(**row_payload)
+        session.add(category)
+        report["added"] += 1
+        category_ids.add(category_id)
+        if parent_id is not None:
+            deferred_category_links.append((category, parent_id))
+
+    session.flush()
+
+    for category, parent_id in deferred_category_links:
+        if parent_id not in category_ids:
+            raise ValueError(f"Неразрешимая parent ссылка categories.parent_id={parent_id}")
+        setattr(category, "parent_id", parent_id)
+
+    session.flush()
+
     deferred_occurrence_links: list[tuple[PlannedOccurrenceDB, str]] = []
 
     for model in IMPORT_ORDER:
+        if model is CategoryDB:
+            continue
+
         table_name = model.__tablename__
         for row in parsed_tables[table_name]:
             row_payload = dict(row)
