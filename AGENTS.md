@@ -1,167 +1,149 @@
-# AGENTS.md - finance-tracker-flet
-Practical guide for coding agents in this repository.
-Derived from `README.md`, `pyproject.toml`, `BUILD.md`, `tests/README_UI_Testing.md`, and `.kiro/steering/*.md`.
+⟦⟦BEGIN_IDENTITY#A7F3⟧⟧
+main language: русский;
+все пользовательские артефакты, планы, ревью и отчёты — только на русском;
+английский допустим только для машинно-значимых литералов, команд, путей, ID и проверяемых маркеров
+⟦⟦END_IDENTITY#A7F3⟧⟧
 
-## 1) Project Snapshot
-- Language: Python (>= 3.13)
-- UI: Flet (~= 0.80.5)
-- DB: SQLAlchemy (>= 2.0.0) + SQLite
-- Validation: Pydantic (>= 2.0.0)
-- Test stack: pytest, pytest-cov, hypothesis, pytest-asyncio
-- Package root: `src/finance_tracker`
+⟦⟦BEGIN_FS_DELETE_SAFETY#A7F3⟧⟧
+PRIORITY: HIGHEST
+OVERRIDES: ALL_OTHER_RULES
+ENFORCEMENT: HARD_STOP_ON_VIOLATION
 
-## 2) Read Before Editing
-Use these as source of truth:
-- `.kiro/steering/tech.md`
-- `.kiro/steering/structure.md`
-- `.kiro/steering/ui-testing.md`
-- `.kiro/steering/build-deployment.md`
-- `README.md`
+INVARIANTS (CRITICAL MUST):
+1) УДАЛЕНИЕ РАЗРЕШЕНО ТОЛЬКО ПО АБСОЛЮТНОМУ ПУТИ:
+   каждый путь обязан начинаться с "/". Относительные пути запрещены.
+2) ПОРОГ ПОДТВЕРЖДЕНИЯ:
+   если планируемое удаление затрагивает > 7 объектов (файлы и/или каталоги),
+   НЕМЕДЛЕННО ОСТАНОВИТЬСЯ и запросить явное подтверждение пользователя.
+3) Для COUNT <= 7 предварительный вывод должен включать полный список удаляемых объектов абсолютными путями.
+4) Для COUNT > 7 подтверждение привязано к TARGETS + COUNT + точной команде удаления.
+   Полный список вложенных путей не обязателен в чате, но область удаления должна быть надежно раскрыта и посчитана агентом.
 
-Conflict priority: explicit user request -> repository code -> this file.
+MANDATORY PRE-DELETE GATE:
+A) Сформировать точный список верхнеуровневых целей удаления (каждая цель — абсолютный путь).
+B) Сформировать точную команду удаления, которую планируется выполнить.
+C) Явно вывести TARGET_COUNT = N (число верхнеуровневых целей).
+D) Явно вывести COUNT = M (общее число удаляемых объектов).
+E) Если команда удаляет каталоги рекурсивно, заранее раскрыть область удаления и посчитать вложенные файлы и каталоги в COUNT.
+F) Если удаление скрыто внутри `git clean`, `unlink`, `trash`, cleanup-скрипта, shell-команды или внешнего инструмента,
+   сначала через dry-run/list или другой не-мутирующий способ раскрыть затрагиваемые объекты и посчитать COUNT.
+G) Если COUNT <= 7 → показать полный список удаляемых объектов абсолютными путями.
+H) Если COUNT > 7 → показать TARGETS, TARGET_COUNT, COUNT, точную команду удаления и краткую сводку по целям
+   (файлов / каталогов / всего, если применимо). Полный список вложенных путей можно не выводить в чат.
+I) Если COUNT > 7 → STOP. Никаких команд удаления. Запросить подтверждение именно TARGETS + COUNT + точной команды удаления.
+J) Если TARGETS, TARGET_COUNT или COUNT неизвестны/нельзя надежно посчитать → STOP и запросить уточнение.
 
-## 3) Setup and Run
-### Install
-```bash
-pip install -e .
-pip install -e ".[dev]"
-```
+FINAL PRE-DELETE GATE (CRITICAL MUST):
+Перед выполнением любого действия удаления (`rm`, `rmdir`, `find -delete`, `xargs rm`, `git clean`, `unlink`, `trash`,
+cleanup-скрипты, shell-команды, внешние инструменты и т.п.)
+обязательно снова показать точную команду удаления, TARGETS, TARGET_COUNT и COUNT.
+Если COUNT <= 7 → снова показать полный список удаляемых объектов абсолютными путями.
+Если COUNT > 7 → снова показать сводку по целям; полный список вложенных путей можно не выводить в чат.
+Если COUNT > 7 и явное подтверждение пользователя для TARGETS + COUNT + точной команды еще не получено → STOP и запросить подтверждение.
+Если подтверждение уже получено для этого набора → не запрашивать его повторно.
+Не расширять TARGETS, COUNT или команду удаления без нового подтверждения.
+⟦⟦END_FS_DELETE_SAFETY#A7F3⟧⟧
 
-### Run app
-```bash
-python -m finance_tracker
-python main.py
-finance-tracker
-```
+⟦⟦BEGIN_ASKUSER_ON_UNCERTAINTY#A7F3⟧⟧
+PRIORITY: VERY_HIGH
+OVERRIDES: ALL_OTHER_RULES_EXCEPT_FS_DELETE_SAFETY
+ENFORCEMENT: HARD_STOP_ON_VIOLATION
 
-## 4) Build, Test, Lint, Typecheck
-### Build
-```bash
-pyinstaller finance_tracker.spec
-pyinstaller finance_tracker.spec --clean --noconfirm
-pyinstaller finance_tracker_linux.spec --clean --noconfirm
-```
+INVARIANTS (CRITICAL MUST):
+1) Если неясность можно снять безопасным не-мутирующим исследованием локального контекста
+   (файлы, конфиги, документация, dry-run без изменения repo-tracked файлов),
+   агент обязан сначала выполнить такое исследование.
+2) Если после этого что-то непонятно / неясно до конца / есть неоднозначность /
+   не хватает входных данных для корректного и безопасного выполнения —
+   **НЕМЕДЛЕННО ОСТАНОВИТЬСЯ** и **ВСЕГДА** использовать `structured user input`,
+   если хост поддерживает его; иначе задать короткий обычный вопрос пользователю.
+3) Запрещено додумывать, угадывать, “принимать как обычно”, подставлять значения по умолчанию,
+   если это может повлиять на корректность/безопасность результата.
+4) Вопрос(ы) пользователю должны быть:
+   - конкретные и проверяемые (что именно нужно уточнить),
+   - минимально достаточные (не больше необходимого числа),
+   - с перечислением вариантов, если уместно (`1/2/3` или `А/Б/В`), чтобы ускорить ответ.
+5) Если вопрос предполагает выбор варианта ответа, варианты должны быть обозначены
+   только цифрами или кириллическими буквами. Латиница вроде `A/B/C` запрещена.
+6) После получения ответа — продолжать строго в рамках уточнённых данных.
+   Если неопределённость сохраняется — снова STOP и снова запросить уточнение тем же способом.
+⟦⟦END_ASKUSER_ON_UNCERTAINTY#A7F3⟧⟧
 
-### Tests (full)
-```bash
-pytest tests/
-pytest tests/ -v
-pytest tests/ --cov=src/finance_tracker --cov-report=html
-pytest tests/ --cov=src/finance_tracker --cov-fail-under=80
-```
+⟦⟦BEGIN_PRIVILEGED_COMMANDS_VIA_PKEXEC#A7F3⟧⟧
+PRIORITY: HIGH
+OVERRIDES: DEFAULT_PRIVILEGE_ESCALATION_SHORTCUTS
+ENFORCEMENT: HARD_STOP_ON_VIOLATION
 
-### Tests (single test focus)
-```bash
-pytest tests/test_home_view.py
-pytest tests/test_home_view.py::TestHomeView::test_initialization
-pytest tests/test_transaction_modal.py::TestTransactionModal::test_save_button -v
-pytest tests/ -k "add_transaction"
-pytest tests/ --lf
-pytest tests/ --ff
-```
+INVARIANTS (CRITICAL MUST):
+1) Если для действия действительно нужны повышенные привилегии
+   (`sudo`, root, системная установка, запись в системные каталоги),
+   агент обязан сначала показать пользователю точную конечную команду и запросить подтверждение на выполнение.
+2) Запрос пользователю должен содержать:
+   - точную команду, которую агент выполнит через `pkexec`;
+   - краткое объяснение, зачем нужны повышенные привилегии;
+   - ожидаемый результат, чтобы пользователь мог проверить успешность шага.
+3) Если пользователь подтверждает выполнение, агент запускает команду сам через `pkexec`.
+   Пользователь вводит пароль только в системном `pkexec`-диалоге.
+4) Агент не должен использовать `sudo` как дефолт, запрашивать пароль в чате или просить пользователя
+   вручную выполнить команду вместо агента, если команду можно безопасно и однозначно выполнить через `pkexec`.
+5) Если `pkexec` недоступен, отсутствует системный polkit-диалог или команда через `pkexec`
+   не может быть выполнена в текущей среде, агент обязан остановиться, назвать точную причину и не переходить на `sudo`.
+6) Если команду нельзя безопасно и однозначно сформулировать для запуска через `pkexec`,
+   агент обязан сначала запросить уточнение, а не импровизировать с `sudo`/root-доступом.
+⟦⟦END_PRIVILEGED_COMMANDS_VIA_PKEXEC#A7F3⟧⟧
 
-### Tests by category
-```bash
-pytest tests/test_*_service.py
-pytest tests/test_*_view.py tests/test_*_modal.py
-pytest tests/test_*_properties.py
-pytest tests/test_integration*.py
-```
+⟦⟦BEGIN_MARKDOWN_LOCALIZATION_GUARD#A7F3⟧⟧
+PRIORITY: HIGH
+OVERRIDES: PROJECT_LOCAL_DOC_CHECK_RULES
+ENFORCEMENT: REQUIRED_BEFORE_DOC_COMPLETION
 
-### Lint / typecheck status
-Ruff linting is configured via `pyproject.toml`.
+INVARIANTS (CRITICAL MUST):
+1) Любое создание или изменение Markdown-документов считается незавершенным, пока не пройдена проверка локализации через skill `markdown-localization-guard`.
+2) Базовый запуск проверки:
+   `python3 ~/.agents/skills/markdown-localization-guard/scripts/markdown_localization_guard.py`
+3) Адресный запуск для конкретных файлов:
+   `python3 ~/.agents/skills/markdown-localization-guard/scripts/markdown_localization_guard.py README.md docs/vision.md`
+4) Если в конкретном репозитории есть локальный wrapper или shortcut для той же проверки,
+   использовать его как предпочтительный repo-specific вход.
+   Источником истины для логики проверки остается skill `markdown-localization-guard`.
+⟦⟦END_MARKDOWN_LOCALIZATION_GUARD#A7F3⟧⟧
 
-```bash
-ruff check src tests
-ruff check src tests --fix
-```
+⟦⟦BEGIN_CONSOLE_CHAT_PRESENTATION#A7F3⟧⟧
+PRIORITY: ABSOLUTE_FOR_AGENT_OUTPUT_TO_USER
+OVERRIDES: ALL_OTHER_AGENT_OUTPUT_PRESENTATION_RULES
+ENFORCEMENT: HARD_STOP_ON_VIOLATION
 
-No strict typecheck command is configured in repo files.
-- No `mypy`/`pyright` config found
-- No `pre-commit` config found
+SCOPE:
+Любой вывод агента пользователю в `commentary`, `final`, ревью, отчётах и сводках.
 
-### Dependency pin policy
-- keep Flet pinned to compatible minor series: `flet~=0.80.5`
-- for upgrades, test UI runtime flows before widening constraints
+GOAL:
+Только эргономичное визуальное представление ответа.
+Этот блок не управляет поведением агента, политикой остановки, safety-проверками, валидацией и выбором действий.
 
-## 5) Architecture and Layering
-Primary folders:
-- `models/`: SQLAlchemy + Pydantic models
-- `services/`: business logic and CRUD
-- `views/`: screen-level UI
-- `components/`: reusable UI widgets/modals
-- `utils/`: logger, errors, validation, cache
+INVARIANTS (CRITICAL MUST):
+ФОРМАТ: `pseudo-TUI`
+РЕЖИМ_ПО_УМОЛЧАНИЮ: `compact`
+ПОЛНЫЙ_РЕЖИМ: только по явному запросу пользователя
+MARKDOWN: не использовать как основной формат ответа.
+Исключения: машинно-значимые Markdown-ссылки на файлы, fenced code blocks, таблицы,
+обязательные форматы хоста и XML-like блоки вроде `<proposed_plan>`.
+ШИРИНА: `140`
+ЦВЕТА:
+- `1;93` — заголовки/секции
+- `1;92` — url/пути/версии/endpoints/команды
+- `1;96` — исправлено/позитивный статус
+- `1;91` — высокий/критичный
+- `1;95` — средний-высокий
+- `1;33` — средний
+- `0;37` — основной текст
+МАРКЕРЫ: `◈ ▣ ◉ ○ ✓ ▲`
+СТРУКТУРА: предпочтительный порядок секций `header -> summary -> findings -> fixed -> conclusions -> environment`;
+не выводить пустые или неуместные секции
+ПУТИ_И_СТРОКИ: не встраивать в описание; отдельная строка, поле или блок
+URL/КОМАНДЫ/ВЕРСИИ/ID: не смешивать с поясняющим текст; выводить отдельно
+ПЕРЕНОСЫ: только по смыслу; не ломать пути, команды, URL, версии и ID
+ОТСТУПЫ: использовать умеренные и консистентные внутренние отступы, пустые строки между секциями
+и визуальный воздух для читаемости; не раздувать ответ декоративными отступами и не нарушать `compact`
+ПЛОТНОСТЬ: сохранять текущую детализацию ответа
 
-Dependency direction:
-- views/components -> services -> models
-- avoid reverse coupling (models -> services, services -> views)
-
-## 6) Coding Style
-### Imports
-- order: standard library -> third-party -> `finance_tracker.*`
-- prefer absolute imports from `finance_tracker`
-
-### Naming
-- files/modules: `snake_case.py`
-- functions/variables: `snake_case`
-- classes: `PascalCase`
-- constants: `UPPER_SNAKE_CASE`
-- SQLAlchemy entities: `*DB` suffix (`TransactionDB`)
-- Pydantic DTOs: `Create` / `Update` suffixes
-
-### Formatting and comments
-- follow existing formatting in touched files
-- keep comments/docstrings short and useful
-- keep changes focused and minimal
-
-### Typing
-- preserve existing annotations and return types
-- avoid broad `Any` when concrete types are available
-- keep service signatures typed, especially `session: Session`
-
-### UUID domain rule
-- IDs are UUID strings (not ints)
-- validate UUIDs in service layer and Pydantic validators
-
-## 7) Error Handling and Logging
-- use explicit try/except in DB/service boundaries
-- include context in log messages
-- typical pattern: rollback on DB errors, then re-raise/map error
-- use custom exceptions from `utils/exceptions.py` when relevant
-- never swallow exceptions silently
-
-## 8) Flet UI Rule (Critical)
-Use modern dialog/overlay API only:
-- open: `page.open(dialog_or_snackbar)`
-- close: `page.close(dialog_or_snackbar)`
-
-Avoid deprecated patterns:
-- `page.dialog = ...`
-- `dialog.open = True/False`
-
-For UI tests, mock `page.open` and `page.close` explicitly.
-
-## 9) Testing Conventions
-- test file pattern: `test_*.py`
-- UI tests: `test_*_view.py`, `test_*_modal.py`
-- property-based tests: `test_*_properties.py`
-- integration tests: `test_integration*.py`
-- prefer Arrange-Act-Assert structure
-- if UI changes, update/add UI tests in same change
-- do not stop long-running Hypothesis tests early
-
-## 10) Cursor/Copilot Rules
-Checked paths:
-- `.cursor/rules/`
-- `.cursorrules`
-- `.github/copilot-instructions.md`
-
-Result: no Cursor/Copilot instruction files found in this repository.
-
-## 11) Agent Final Checklist
-Before finishing:
-1. run targeted tests for changed area
-2. if UI changed, include UI interaction tests
-3. keep layering and naming conventions intact
-4. ensure no deprecated Flet dialog API was introduced
-5. keep changes surgical and scope-limited
+⟦⟦END_CONSOLE_CHAT_PRESENTATION#A7F3⟧⟧
