@@ -410,11 +410,9 @@ class CategoriesView(ft.Column):
         )
 
         self.split_layout = ft.Row(
-            controls=[income_section, expense_section],
+            controls=[expense_section, income_section],
             expand=True,
-            wrap=True,
             spacing=16,
-            run_spacing=16,
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
 
